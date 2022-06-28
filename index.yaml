@@ -3,12 +3,12 @@ entries:
   myfirstchart:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2022-06-28T11:40:39.922226929Z"
+    created: "2022-06-28T19:49:10.442173+05:30"
     description: A Helm chart for Kubernetes
     digest: 7f6ac322fb5e81f09d0d470707c1d0950153ffdefb492928a70e5277cc20dc71
     name: myfirstchart
     type: application
     urls:
-    - test-hello-openshift-shamin.tgz
+    - https://github.com/Telenor-Labs/ncom-demo/test-hello-openshift-shamin.tgz
     version: 0.1.0
-generated: "2022-06-28T11:40:39.921282227Z"
+generated: "2022-06-28T19:49:10.4382854+05:30"
