@@ -18,7 +18,7 @@ entries:
           url: https://www.jenkins.io/
     apiVersion: v2
     appVersion: 2.346.1
-    created: "2022-06-28T15:14:20.644111069Z"
+    created: "2022-06-29T08:44:56.453285106Z"
     description: Jenkins - Build great things at any scale! The leading open source
       automation server, Jenkins provides hundreds of plugins to support building,
       deploying and automating any project.
@@ -45,4 +45,15 @@ entries:
     urls:
     - jenkins-4.1.11.tgz
     version: 4.1.11
-generated: "2022-06-28T15:14:20.63858452Z"
+  myfirstchart:
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2022-06-29T08:44:56.453779115Z"
+    description: A Helm chart for Kubernetes
+    digest: 7f6ac322fb5e81f09d0d470707c1d0950153ffdefb492928a70e5277cc20dc71
+    name: myfirstchart
+    type: application
+    urls:
+    - test-hello-openshift-shamin.tgz
+    version: 0.1.0
+generated: "2022-06-29T08:44:56.447761213Z"
