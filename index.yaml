@@ -3,7 +3,7 @@ entries:
   myfirstchart:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2022-07-07T11:58:29.383425311Z"
+    created: "2022-07-07T12:01:06.040324329Z"
     description: A Helm chart for Kubernetes
     digest: 7f6ac322fb5e81f09d0d470707c1d0950153ffdefb492928a70e5277cc20dc71
     name: myfirstchart
@@ -11,4 +11,39 @@ entries:
     urls:
     - test-hello-openshift-shamin.tgz
     version: 0.1.0
-generated: "2022-07-07T11:58:29.38262064Z"
+  ocnssf:
+  - apiVersion: v1
+    appVersion: 22.1.1.0.0
+    created: "2022-07-07T12:01:06.039704522Z"
+    dependencies:
+    - name: ingress-gateway
+      repository: alias:ocnrf-helm-repo
+      version: 22.1.9
+    - name: egress-gateway
+      repository: alias:ocnrf-helm-repo
+      version: 22.1.9
+    - name: nrfclient
+      repository: alias:ocnrf-helm-repo
+      version: 22.1.5
+    - name: nsselection
+      repository: alias:ocnssf-helm-repo
+      version: 22.1.0
+    - name: nsconfig
+      repository: alias:ocnssf-helm-repo
+      version: 22.1.0
+    - name: nsavailability
+      repository: alias:ocnssf-helm-repo
+      version: 22.1.0
+    - name: nssubscription
+      repository: alias:ocnssf-helm-repo
+      version: 22.1.0
+    - name: nsauditor
+      repository: alias:ocnssf-helm-repo
+      version: 22.1.0
+    description: Oracle Communications NSSF
+    digest: a005cf17269ee031a6ea44ca5af6b54f1c08fbaa3e3fb882d026bfa7c925f9a7
+    name: ocnssf
+    urls:
+    - ocnssf-22.1.1.tgz
+    version: 22.1.1
+generated: "2022-07-07T12:01:06.014453325Z"
