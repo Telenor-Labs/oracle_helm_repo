@@ -2,7 +2,7 @@ apiVersion: v1
 entries:
   occnp:
   - apiVersion: v1
-    created: "2022-08-03T10:41:19.66967134Z"
+    created: "2022-08-16T13:19:04.492350707Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -100,12 +100,12 @@ entries:
     digest: 97950da595dfc8f690f1f6e3ad8324c80f7f8024363a3b96b8be93da58344c50
     name: occnp
     urls:
-    - occnp-22.1.0.tgz
+    - ocpcf-22.1.0.tgz
     version: 22.1.0
   ocnrf:
   - apiVersion: v2
     appVersion: 22.1.0.0.0
-    created: "2022-08-03T10:41:19.696992391Z"
+    created: "2022-08-16T13:19:04.418795225Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -159,7 +159,7 @@ entries:
   ocnssf:
   - apiVersion: v1
     appVersion: 22.1.1.0.0
-    created: "2022-08-03T10:41:19.72744266Z"
+    created: "2022-08-16T13:19:04.446880289Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:ocnrf-helm-repo
@@ -194,7 +194,7 @@ entries:
   test-hello-openshift-oracle:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2022-08-03T10:41:19.728241965Z"
+    created: "2022-08-16T13:19:04.492942846Z"
     description: A Helm chart for Kubernetes
     digest: 8a4df93e9ae971bfc7fa3fc44dc7465a7d73fffdbd3c5e63c0d285dddf03b539
     name: test-hello-openshift-oracle
@@ -202,4 +202,4 @@ entries:
     urls:
     - test-hello-openshift-oracle.tgz
     version: 0.1.0
-generated: "2022-08-03T10:41:19.62102867Z"
+generated: "2022-08-16T13:19:04.389090653Z"
