@@ -3,7 +3,7 @@ entries:
   occndbtier:
   - apiVersion: v2
     appVersion: 22.4.1.0.0
-    created: "2023-01-24T18:14:10.449115678Z"
+    created: "2023-01-31T12:10:23.83076834Z"
     dependencies:
     - condition: "true"
       name: mgm
@@ -38,7 +38,121 @@ entries:
     version: 22.4.1
   occnp:
   - apiVersion: v1
-    created: "2023-01-24T18:14:10.530013676Z"
+    appVersion: 22.4.1.0.0
+    created: "2023-01-31T12:10:24.021298917Z"
+    dependencies:
+    - condition: ingress-gateway.enabled
+      name: ingress-gateway
+      repository: alias:cne-helm-repo
+      version: 22.4.1
+    - condition: egress-gateway.enabled
+      name: egress-gateway
+      repository: alias:cne-helm-repo
+      version: 22.4.1
+    - condition: nrf-client.enabled
+      name: nrf-client
+      repository: alias:ocnrf-helm-repo
+      version: 22.4.1
+    - condition: alternate-route.enabled
+      name: alternate-route
+      repository: alias:cne-helm-repo
+      version: 22.4.1
+    - condition: diam-gateway.enabled
+      name: diam-gateway
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: diam-connector.enabled
+      name: diam-connector
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: am-service.enabled
+      name: am-service
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: sm-service.enabled
+      name: sm-service
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: ue-service.enabled
+      name: ue-service
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: config-server.enabled
+      name: config-server
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: user-service.enabled
+      name: user-service
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: pre-service.enabled
+      name: pre-service
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: cm-service.enabled
+      name: cm-service
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: perf-info.enabled
+      name: perf-info
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: appinfo.enabled
+      name: appinfo
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: queryservice.enabled
+      name: queryservice
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: bulwark.enabled
+      name: bulwark
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: audit-service.enabled
+      name: audit-service
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: ldap-gateway.enabled
+      name: ldap-gateway
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: policyds.enabled
+      name: policyds
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: binding.enabled
+      name: binding
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: pcrf-core.enabled
+      name: pcrf-core
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: soap-connector.enabled
+      name: soap-connector
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: notifier.enabled
+      name: notifier
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: usage-mon.enabled
+      name: usage-mon
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    - condition: nwdaf-agent.enabled
+      name: nwdaf-agent
+      repository: alias:occnp-helm-repo
+      version: 22.4.1
+    description: Helm chart for occnp components
+    digest: 9017cf3f1adc89d62161dbcae69d6404396d78159d257a09dd4902c97b8df5d4
+    name: occnp
+    urls:
+    - ocpcf-22.4.1.tgz
+    version: 22.4.1
+  - apiVersion: v1
+    created: "2023-01-31T12:10:23.969941111Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -140,8 +254,65 @@ entries:
     version: 22.1.0
   ocnrf:
   - apiVersion: v2
+    appVersion: 22.4.0.0.0
+    created: "2023-01-31T12:10:23.880688732Z"
+    dependencies:
+    - condition: nfregistration.enabled
+      name: nfregistration
+      repository: alias:nrf-artifactory-helm-repo
+      version: 22.4.0
+    - condition: nfsubscription.enabled
+      name: nfsubscription
+      repository: alias:nrf-artifactory-helm-repo
+      version: 22.4.0
+    - condition: nrfauditor.enabled
+      name: nrfauditor
+      repository: alias:nrf-artifactory-helm-repo
+      version: 22.4.0
+    - condition: nfdiscovery.enabled
+      name: nfdiscovery
+      repository: alias:nrf-artifactory-helm-repo
+      version: 22.4.0
+    - condition: nrfconfiguration.enabled
+      name: nrfconfiguration
+      repository: alias:nrf-artifactory-helm-repo
+      version: 22.4.0
+    - condition: nfaccesstoken.enabled
+      name: nfaccesstoken
+      repository: alias:nrf-artifactory-helm-repo
+      version: 22.4.0
+    - name: egress-gateway
+      repository: alias:nrf-artifactory-helm-repo
+      version: 22.4.1
+    - name: ingress-gateway
+      repository: alias:nrf-artifactory-helm-repo
+      version: 22.4.1
+    - condition: appinfo.enabled
+      name: appinfo
+      repository: alias:nrf-artifactory-helm-repo
+      version: 22.4.0
+    - condition: global.alternateRouteServiceEnable
+      name: alternate-route
+      repository: alias:nrf-artifactory-helm-repo
+      version: 22.4.1
+    - condition: global.enableNrfArtisanService
+      name: nrfartisan
+      repository: alias:nrf-artifactory-helm-repo
+      version: 22.4.0
+    - condition: global.performanceServiceEnable
+      name: perf-info
+      repository: alias:nrf-artifactory-helm-repo
+      version: 22.4.0
+    description: NRF helm chart
+    digest: aac6b6f6667a96b7a1d4155cb654a2816c70a20c617a810398c7083e107f5dfa
+    name: ocnrf
+    type: application
+    urls:
+    - ocnrf-22.4.0.tgz
+    version: 22.4.0
+  - apiVersion: v2
     appVersion: 22.1.0.0.0
-    created: "2023-01-24T18:14:10.47133577Z"
+    created: "2023-01-31T12:10:23.852768457Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -194,8 +365,42 @@ entries:
     version: 22.1.0
   ocnssf:
   - apiVersion: v1
+    appVersion: 22.4.1.0.0
+    created: "2023-01-31T12:10:23.92915661Z"
+    dependencies:
+    - name: ingress-gateway
+      repository: alias:comsvc-helm-repo
+      version: 22.4.1
+    - name: egress-gateway
+      repository: alias:comsvc-helm-repo
+      version: 22.4.1
+    - name: nrfclient
+      repository: alias:comsvc-helm-repo
+      version: 22.4.1
+    - name: nsselection
+      repository: file://../nsselection
+      version: 22.4.1
+    - name: nsconfig
+      repository: file://../nsconfig
+      version: 22.4.1
+    - name: nsavailability
+      repository: file://../nsavailability
+      version: 22.4.1
+    - name: nssubscription
+      repository: file://../nssubscription
+      version: 22.4.1
+    - name: nsauditor
+      repository: file://../nsauditor
+      version: 22.4.1
+    description: Oracle Communications NSSF
+    digest: 61f080755e5b686e048d06d2ddf6a1fafb4664876aadac225d66769de178c30c
+    name: ocnssf
+    urls:
+    - ocnssf-22.4.1.0.0.tgz
+    version: 22.4.1
+  - apiVersion: v1
     appVersion: 22.1.1.0.0
-    created: "2023-01-24T18:14:10.493862164Z"
+    created: "2023-01-31T12:10:23.903426956Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:ocnrf-helm-repo
@@ -230,7 +435,7 @@ entries:
   test-hello-openshift-oracle:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2023-01-24T18:14:10.531031084Z"
+    created: "2023-01-31T12:10:24.021823923Z"
     description: A Helm chart for Kubernetes
     digest: 8a4df93e9ae971bfc7fa3fc44dc7465a7d73fffdbd3c5e63c0d285dddf03b539
     name: test-hello-openshift-oracle
@@ -238,4 +443,4 @@ entries:
     urls:
     - test-hello-openshift-oracle.tgz
     version: 0.1.0
-generated: "2023-01-24T18:14:10.43889119Z"
+generated: "2023-01-31T12:10:23.822976964Z"
