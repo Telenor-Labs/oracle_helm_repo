@@ -1,8 +1,44 @@
 apiVersion: v1
 entries:
+  occndbtier:
+  - apiVersion: v2
+    appVersion: 22.4.1.0.0
+    created: "2023-01-24T18:14:10.449115678Z"
+    dependencies:
+    - condition: "true"
+      name: mgm
+      repository: ""
+      version: 22.4.1
+    - condition: "true"
+      name: ndb
+      repository: ""
+      version: 22.4.1
+    - condition: "true"
+      name: api
+      repository: ""
+      version: 22.4.1
+    - condition: db-backup-manager-svc.enabled
+      name: db-backup-manager-svc
+      repository: ""
+      version: 22.4.1
+    - condition: "true"
+      name: db-monitor-svc
+      repository: ""
+      version: 22.4.1
+    - condition: db-replication-svc.enabled
+      name: db-replication-svc
+      repository: ""
+      version: 22.4.1
+    description: A Helm chart for Kubernetes
+    digest: 0a3e09005225699425a65a180ff7c13323fef0a49f48283f0f3b977c3c68a508
+    name: occndbtier
+    type: application
+    urls:
+    - occndbtier-22.4.1.tgz
+    version: 22.4.1
   occnp:
   - apiVersion: v1
-    created: "2022-08-16T13:19:04.492350707Z"
+    created: "2023-01-24T18:14:10.530013676Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -105,7 +141,7 @@ entries:
   ocnrf:
   - apiVersion: v2
     appVersion: 22.1.0.0.0
-    created: "2022-08-16T13:19:04.418795225Z"
+    created: "2023-01-24T18:14:10.47133577Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -159,7 +195,7 @@ entries:
   ocnssf:
   - apiVersion: v1
     appVersion: 22.1.1.0.0
-    created: "2022-08-16T13:19:04.446880289Z"
+    created: "2023-01-24T18:14:10.493862164Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:ocnrf-helm-repo
@@ -194,7 +230,7 @@ entries:
   test-hello-openshift-oracle:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2022-08-16T13:19:04.492942846Z"
+    created: "2023-01-24T18:14:10.531031084Z"
     description: A Helm chart for Kubernetes
     digest: 8a4df93e9ae971bfc7fa3fc44dc7465a7d73fffdbd3c5e63c0d285dddf03b539
     name: test-hello-openshift-oracle
@@ -202,4 +238,4 @@ entries:
     urls:
     - test-hello-openshift-oracle.tgz
     version: 0.1.0
-generated: "2022-08-16T13:19:04.389090653Z"
+generated: "2023-01-24T18:14:10.43889119Z"
