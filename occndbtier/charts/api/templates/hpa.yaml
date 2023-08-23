@@ -1,0 +1,25 @@
+{{- if (ne 0 (int .Values.global.apiReplicaCount)) }}
+{{- if .Capabilities.APIVersions.Has "autoscaling/v2" }}
+apiVersion: autoscaling/v2
+{{- else }}
+apiVersion: autoscaling/v2beta2
+{{- end }}
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ template "api.apistsnamewithoutprefix" . }}
+  namespace: {{ .Values.global.namespace }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: {{ template "api.apistsname" . }}
+  maxReplicas: {{ .Values.global.apiReplicaCount | int }}
+  minReplicas: {{ .Values.global.apiReplicaCount | int }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 80
+{{- end }}

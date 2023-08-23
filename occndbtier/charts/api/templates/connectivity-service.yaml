@@ -1,0 +1,95 @@
+# Service for internal connectivity to api nodes.
+# It is used for communications within kubernetes cluster.
+{{- $node := .Values.global.api }}
+{{- if .Values.global.multus.enable }}
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ .Values.connectivityService.name}}
+  labels:
+    {{- include "labels.commonlabels" . }}
+    {{- if (ne 0 (int .Values.global.ndbappReplicaCount)) }}
+    {{- range .Values.ndbapp.commonlabels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if $.Values.ndbapp.connectivityService.labels }}
+      {{- range $.Values.ndbapp.connectivityService.labels }}
+        {{- toYaml . | nindent 4 }}
+      {{- end }}
+    {{- end }}
+    {{- else }}
+    {{- range .Values.commonlabels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if $.Values.connectivityService.labels }}
+      {{- range $.Values.connectivityService.labels }}
+        {{- toYaml . | nindent 4 }}
+      {{- end }}
+    {{- end }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  {{- if .Values.global.useIPv6 }}
+  ipFamilyPolicy: {{ .Values.global.services.ipFamilyPolicy }}
+  ipFamilies:
+      - {{ .Values.global.services.primaryDualStackIpFamily }}
+  {{- else }}
+  ipFamilyPolicy: {{ .Values.global.services.ipFamilyPolicy }}
+  ipFamilies:
+      - IPv4
+  {{- end }}
+  ports:
+  - port: {{ $node.port }}
+    name: tcp
+    targetPort: {{ $node.port }}
+---
+kind: Endpoints
+apiVersion: v1
+metadata:
+ name: {{ .Values.connectivityService.name}}
+
+{{- else }}
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.connectivityService.name}}
+  labels:
+    {{- include "labels.commonlabels" . }}
+    {{- if (ne 0 (int .Values.global.ndbappReplicaCount)) }}
+    {{- range .Values.ndbapp.commonlabels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if $.Values.ndbapp.connectivityService.labels }}
+      {{- range $.Values.ndbapp.connectivityService.labels }}
+        {{- toYaml . | nindent 4 }}
+      {{- end }}
+    {{- end }}
+    {{- else }}
+    {{- range .Values.commonlabels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if $.Values.connectivityService.labels }}
+      {{- range $.Values.connectivityService.labels }}
+        {{- toYaml . | nindent 4 }}
+      {{- end }}
+    {{- end }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  {{- if .Values.global.useIPv6 }}
+  ipFamilyPolicy: {{ .Values.global.services.ipFamilyPolicy }}
+  ipFamilies:
+      - {{ .Values.global.services.primaryDualStackIpFamily }}
+  {{- else }}
+  ipFamilyPolicy: {{ .Values.global.services.ipFamilyPolicy }}
+  ipFamilies:
+      - IPv4
+  {{- end }}
+  selector:
+    isForConnectivityService: "true"
+  ports:
+  - port: {{ $node.port }}
+    name: tcp
+
+{{- end }}

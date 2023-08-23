@@ -1,0 +1,112 @@
+{{ $mgmReplicaCount :=  .Values.global.mgmReplicaCount | int }}
+{{ $mtdReplicaCount :=  .Values.global.ndbReplicaCount | int }}
+{{ $ndbConfigsThatNeedRestartTypeInitialList := (join "\\|" $.Values.global.ndbConfigsThatNeedRestartTypeInitial) }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Release.Name }}-post-upgrade-hook"
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+  annotations:
+    "helm.sh/hook": post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    metadata:
+      name: "{{ .Release.Name }}-post-upgrade-hook"
+      labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+        helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    {{- if .Values.mgm.annotations }}
+      annotations:
+        {{- range .Values.mgm.annotations }}
+        {{ toYaml . }}
+        {{- end }}
+    {{- end }}
+    spec:
+    {{- if (.Values.global.serviceAccountForUpgrade.name | or .Values.global.serviceAccountForUpgrade.create) }}
+      serviceAccountName: {{ template "cndbtier.upgrade.serviceaccount" . }}
+    {{- else if or (ne .Values.global.serviceAccount.name "") (.Values.global.serviceAccount.create) }}
+      serviceAccountName: {{ template "cndbtier.serviceaccount" . }}
+    {{- end }}
+      securityContext:
+        runAsUser: 27
+        runAsGroup: 27
+      restartPolicy: Never
+      containers:
+      - name: "{{ .Release.Name }}-post-upgrade-job"
+        {{- if ne .Values.global.repository "" }}
+        image: {{ .Values.global.repository }}/{{ .Values.postUpgradeJob.image.repository }}:{{ .Values.postUpgradeJob.image.tag }}
+        {{- else }}
+        image: {{ .Values.postUpgradeJob.image.repository }}:{{ .Values.postUpgradeJob.image.tag }}
+        {{- end }}
+        imagePullPolicy: {{ .Values.postUpgradeJob.image.pullPolicy }}
+        env:
+          - name: OCCNE_NAMESPACE
+            value: {{ $.Values.global.namespace }}
+          - name: NDB_MGMD_CONNECTSTRING
+            value: '
+              {{- $mgmstsname := (include "api.mgmtstsname" .) }}
+              {{- range untilStep 0 $mgmReplicaCount 1 }}
+                {{- if ne . 0 -}}
+                  ,
+                {{- end }}
+                {{- $mgmstsname }}-{{ . }}.{{ template "mgm.subdomain" . }}.
+                  {{- $.Values.global.namespace }}.svc.{{ $.Values.global.domain }}:{{ $.Values.global.mgm.port }}
+              {{- end }}'
+          - name: NDB_MGMD_PODS
+            value: '
+              {{- $delimiter := " " }}
+              {{- $mgmstsname := (include "api.mgmtstsname" .) }}
+              {{- range untilStep 0 $mgmReplicaCount 1 }}
+                {{- if ne . 0 -}}
+                  {{- $delimiter }}
+                {{- end }}
+                {{- $mgmstsname }}-{{ . }}
+              {{- end }}'
+          - name: NDB_MTD_PODS
+            value: '
+              {{- $delimiter := " " }}
+              {{- $mtdstsname := (include "ndb.ndbstsname" .) }}
+              {{- range untilStep 0 $mtdReplicaCount 1 }}
+                {{- if ne . 0 -}}
+                  {{- $delimiter }}
+                {{- end }}
+                {{- $mtdstsname }}-{{ . }}
+              {{- end }}'
+          - name: NDB_CONFIGS_THAT_NEED_RESTART_TYPE_INITIAL
+            value: {{ $ndbConfigsThatNeedRestartTypeInitialList | quote }}
+          - name: NDB_MGMD_BASE_DATADIR
+            value: {{ .Values.global.ndbconfigurations.mgm.BaseDataDir | quote }}
+          - name: NDB_CONFIG_FILE_NAME_BEFORE_UPGRADE
+            value: {{ .Values.global.upgradeConfigsForRestartTypeInitial.ndbConfigFileNameBeforeUpgrade | default "ndb_config_before_upgrade.cnf" | quote }}
+          - name: NDB_CONFIG_FILE_NAME_AFTER_UPGRADE
+            value: {{ .Values.global.upgradeConfigsForRestartTypeInitial.ndbConfigFileNameAfterUpgrade | default "ndb_config_after_upgrade.cnf" | quote }}
+        command:
+          - /bin/bash
+          - -c
+          - |
+{{- if .Values.global.useasm }}
+            trap "curl --max-time 2 -s -f -XPOST {{ .Values.global.istioSidecarQuitUrl }}" EXIT
+            while ! curl -s -f {{ .Values.global.istioSidecarReadyUrl }}; do sleep 1; done
+            sleep 2
+{{- end }}
+            {{- .Files.Get "files/hooks.sh" | nindent 12 }}
+            echo "INFO: $($LOG_DATE_CMD) - Starting post-upgrade hook..."
+            {{- if (.Values.global.serviceAccountForUpgrade.name | or .Values.global.serviceAccountForUpgrade.create) }}
+            API_EMP_TRY_SLOTS_NODE_IDS="{{ template "apiemptyslots" . }}"
+            NDB_STS_NAME="{{ template "ndb.ndbstsname" . }}"
+            API_STS_NAME="{{ template "api.apistsname" . }}"
+            APP_STS_NAME="{{ template "ndbapp.apistsname" . }}"
+            NDBAPP_START_NODE_ID="{{ .Values.global.ndbapp.startNodeId }}"
+            NDBAPP_REPLICA_MAX_COUNT="{{ .Values.global.ndbappReplicaMaxCount }}"
+            main --post-upgrade
+            {{- end }}
+            echo "INFO: $($LOG_DATE_CMD) - Post-upgrade hook finished"
+        resources:
+{{ toYaml .Values.postUpgradeJob.resources | indent 10 }}

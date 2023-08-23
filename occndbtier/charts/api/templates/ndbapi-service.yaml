@@ -1,0 +1,46 @@
+# Headless service for ndbapi nodes.
+# It is used for mysql cluster internal communications.
+{{- if (ne 0 (int .Values.global.ndbappReplicaCount)) }}
+{{- $node := .Values.global.ndbapp }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "ndbapp.subdomain" . }}
+  labels:
+    {{- include "labels.commonlabels" . }}
+    {{- range .Values.ndbapp.commonlabels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if $.Values.ndbapp.service.labels }}
+      {{- range $.Values.ndbapp.service.labels }}
+        {{- toYaml . | nindent 4 }}
+      {{- end }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  {{- if .Values.global.useIPv6 }}
+  ipFamilyPolicy: {{ .Values.global.services.ipFamilyPolicy }}
+  ipFamilies:
+      - {{ .Values.global.services.primaryDualStackIpFamily }}
+  {{- else }}
+  ipFamilyPolicy: {{ .Values.global.services.ipFamilyPolicy }}
+  ipFamilies:
+      - IPv4
+  {{- end }}
+  clusterIP: None
+  selector:
+    {{- range $.Values.ndbapp.service.selector }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  ports:
+  - port: {{ $node.port }}
+    name: tcp
+  {{- if and .Values.global.inframonitor.pvchealth.enable.ndbapp .Values.global.inframonitor.pvchealth.enable.all }}
+  - port: {{ .Values.global.inframonitor.rest.port }}
+    targetPort: {{ .Values.global.inframonitor.service.containerPort  }}
+    protocol: TCP
+    appProtocol: {{ .Values.global.inframonitor.service.appProtocol }}
+    name: {{ .Values.global.inframonitor.service.portName }}
+  {{- end }}
+  publishNotReadyAddresses: true
+{{- end }}

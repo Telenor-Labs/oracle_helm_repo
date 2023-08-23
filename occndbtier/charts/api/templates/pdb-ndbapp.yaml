@@ -1,0 +1,30 @@
+# Headless service for geo-replication api nodes.
+# It is used for mysql cluster internal communications.
+{{- if ( and (.Values.ndbapp.podDisruptionBudget.enabled) (ne 0 (int .Values.global.ndbappReplicaCount))) }}
+{{- if .Capabilities.APIVersions.Has "policy/v1" }}
+apiVersion: policy/v1
+{{- else }}
+apiVersion: policy/v1beta1
+{{- end }}
+kind: PodDisruptionBudget
+metadata:
+  name: {{ template "ndbapp.pdb" . }}
+  labels:
+    {{- include "labels.commonlabels" . }}
+    {{- range .Values.commonlabels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if $.Values.ndbapp.podDisruptionBudget.labels }}
+      {{- range $.Values.ndbapp.podDisruptionBudget.labels }}
+        {{- toYaml . | nindent 4 }}
+      {{- end }}
+    {{- end }}
+spec:
+  maxUnavailable: {{ .Values.ndbapp.podDisruptionBudget.maxUnavailable }}
+  selector:
+    matchLabels:
+      {{- range .Values.ndbapp.service.selector }}
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
+{{- end }}
+

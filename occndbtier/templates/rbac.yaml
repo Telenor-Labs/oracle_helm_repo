@@ -1,0 +1,95 @@
+{{- if (.Values.global.serviceAccount.create) }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ template "cndbtier.role" . }}
+  namespace: {{ .Values.global.namespace }}
+rules:
+- apiGroups: ["", "apps"]
+  resources: ["services", "pods", "statefulsets"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ template "cndbtier.rolebinding" . }}
+  namespace: {{ .Values.global.namespace }}
+subjects:
+- kind: ServiceAccount
+  name: {{ template "cndbtier.serviceaccount" . }}
+  namespace: {{ .Values.global.namespace }}
+roleRef:
+  kind: Role
+  name: {{ template "cndbtier.role" . }}
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ template "cndbtier.serviceaccount" . }}
+{{- end }}
+{{- if (.Values.global.serviceAccountForUpgrade.create) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ template "cndbtier.upgrade.role" . }}
+  namespace: {{ .Values.global.namespace }}
+rules:
+- apiGroups: ["", "apps"]
+  resources: ["services", "pods", "pods/exec", "statefulsets", "persistentvolumeclaims"]
+  verbs: ["get", "watch", "list", "delete", "create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ template "cndbtier.upgrade.rolebinding" . }}
+  namespace: {{ .Values.global.namespace }}
+subjects:
+- kind: ServiceAccount
+  name: {{ template "cndbtier.upgrade.serviceaccount" . }}
+  namespace: {{ .Values.global.namespace }}
+roleRef:
+  kind: Role
+  name: {{ template "cndbtier.upgrade.role" . }}
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ template "cndbtier.upgrade.serviceaccount" . }}
+{{- end }}
+
+{{- if (.Values.global.multus.enable) }}
+{{- if (.Values.global.multus.serviceAccount.create) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ template "cndbtier.multus.role" . }}
+  namespace: {{ .Values.global.namespace }}
+rules:
+- apiGroups: ["", "apps"]
+  resources: ["services", "pods", "endpoints"]
+  verbs: ["get", "watch", "list", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ template "cndbtier.multus.rolebinding" . }}
+  namespace: {{ .Values.global.namespace }}
+subjects:
+- kind: ServiceAccount
+  name: {{ template "cndbtier.multus.serviceaccount" . }}
+  namespace: {{ .Values.global.namespace }}
+roleRef:
+  kind: Role
+  name: {{ template "cndbtier.multus.role" . }}
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ template "cndbtier.multus.serviceaccount" . }}
+{{- end }}
+{{- end }}

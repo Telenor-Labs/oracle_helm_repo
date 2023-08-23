@@ -1,0 +1,144 @@
+{{ $mgmReplicaCount :=  .Values.global.mgmReplicaCount | int }}
+{{ $apiReplicaCount :=  .Values.global.apiReplicaCount | int }}
+{{ $ndbappReplicaCount :=  .Values.global.ndbappReplicaCount | int }}
+{{ $ndbConfigsThatNeedRestartTypeInitialList := (join "\\|" $.Values.global.ndbConfigsThatNeedRestartTypeInitial) }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Release.Name }}-pre-upgrade-hook"
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    metadata:
+      name: "{{ .Release.Name }}-pre-upgrade-hook"
+      labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+        helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    {{- if .Values.mgm.annotations }}
+      annotations:
+        {{- range .Values.mgm.annotations }}
+        {{ toYaml . }}
+        {{- end }}
+    {{- end }}
+    spec:
+    {{- if (.Values.global.serviceAccountForUpgrade.name | or .Values.global.serviceAccountForUpgrade.create) }}
+      serviceAccountName: {{ template "cndbtier.upgrade.serviceaccount" . }}
+    {{- else if or (ne .Values.global.serviceAccount.name "") (.Values.global.serviceAccount.create) }}
+      serviceAccountName: {{ template "cndbtier.serviceaccount" . }}
+    {{- end }}
+      securityContext:
+        runAsUser: 27
+        runAsGroup: 27
+      restartPolicy: Never
+      containers:
+      - name: "{{ .Release.Name }}-pre-upgrade-job"
+        {{- if ne .Values.global.repository "" }}
+        image: {{ .Values.global.repository }}/{{ .Values.preUpgradeJob.image.repository }}:{{ .Values.preUpgradeJob.image.tag }}
+        {{- else }}
+        image: {{ .Values.preUpgradeJob.image.repository }}:{{ .Values.preUpgradeJob.image.tag }}
+        {{- end }}
+        imagePullPolicy: {{ .Values.preUpgradeJob.image.pullPolicy }}
+        env:
+          - name: OCCNE_NAMESPACE
+            value: {{ $.Values.global.namespace }}
+          - name: NDB_MGMD_CONNECTSTRING
+            value: '
+              {{- $mgmstsname := (include "api.mgmtstsname" .) }}
+              {{- range untilStep 0 $mgmReplicaCount 1 }}
+                {{- if ne . 0 -}}
+                  ,
+                {{- end }}
+                {{- $mgmstsname }}-{{ . }}.{{ template "mgm.subdomain" . }}.
+                  {{- $.Values.global.namespace }}.svc.{{ $.Values.global.domain }}:{{ $.Values.global.mgm.port }}
+              {{- end }}'
+          - name: NDB_MGMD_PODS
+            value: '
+              {{- $delimiter := " " }}
+              {{- $mgmstsname := (include "api.mgmtstsname" .) }}
+              {{- range untilStep 0 $mgmReplicaCount 1 }}
+                {{- if ne . 0 -}}
+                  {{- $delimiter }}
+                {{- end }}
+                {{- $mgmstsname }}-{{ . }}
+              {{- end }}'
+          - name: NDB_API_PODS
+            value: '
+              {{- $delimiter := " " }}
+              {{- $appstsname := (include "api.apistsname" .) }}
+              {{- range untilStep 0 $apiReplicaCount 1 }}
+                {{- if ne . 0 -}}
+                  {{- $delimiter }}
+                {{- end }}
+                {{- $appstsname }}-{{ . }}
+              {{- end }}'
+          - name: NDB_APP_PODS
+            value: '
+              {{- $delimiter := " " }}
+              {{- $appstsname := (include "ndbapp.apistsname" .) }}
+              {{- range untilStep 0 $ndbappReplicaCount 1 }}
+                {{- if ne . 0 -}}
+                  {{- $delimiter }}
+                {{- end }}
+                {{- $appstsname }}-{{ . }}
+              {{- end }}'
+          - name: MYSQL_CONNECTIVITY_SERVICE
+            value: "{{ .Values.preUpgradeJob.mysql.dbtierservice }}"
+          - name: MYSQL_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.global.secrets.dbmonitorsecret }}
+                key: mysql_username_for_metrics
+          - name: MYSQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.global.secrets.dbmonitorsecret }}
+                key: mysql_password_for_metrics
+          - name: DBTIER_REPLICATION_SVC_DATABASE
+            value: {{ .Values.global.api.replicationSvcDatabase | default "replication_info" }}
+          - name: DBTIER_BACKUP_SVC_DATABASE
+            value: {{ .Values.global.api.backupSvcDatabase | default "backup_info" }}
+          - name: DBTIER_HBREPLICAGROUP_DATABASE
+            value: {{ .Values.global.api.hbreplicagroupdatabase | default "hbreplica_info" }}
+          - name: REPLCHANNEL_GROUP_COUNT
+            value: "{{- $count := 1 }}
+                      {{- if .Values.global.multiplereplicationgroups.enabled }}
+                        {{- range $key, $channelgroup := .Values.global.multiplereplicationgroups.replicationchannelgroups }}
+                          {{- if ne $key 0 -}}
+                            {{- $count = add $count 1 -}}
+                          {{- end }}
+                        {{- end }}
+                      {{- end }}
+                    {{- $count }}"
+          - name: NDB_CONFIGS_THAT_NEED_RESTART_TYPE_INITIAL
+            value: {{ $ndbConfigsThatNeedRestartTypeInitialList | quote }}
+          - name: NDB_MGMD_BASE_DATADIR
+            value: {{ .Values.global.ndbconfigurations.mgm.BaseDataDir | quote }}
+          - name: NDB_CONFIG_FILE_NAME_BEFORE_UPGRADE
+            value: {{ .Values.global.upgradeConfigsForRestartTypeInitial.ndbConfigFileNameBeforeUpgrade | default "ndb_config_before_upgrade.cnf" | quote }}
+          - name: NDB_CONFIG_FILE_NAME_AFTER_UPGRADE
+            value: {{ .Values.global.upgradeConfigsForRestartTypeInitial.ndbConfigFileNameAfterUpgrade | default "ndb_config_after_upgrade.cnf" | quote }}
+        command:
+          - /bin/bash
+          - -ec
+          - |
+{{- if .Values.global.useasm }}
+            trap "curl --max-time 2 -s -f -XPOST {{ .Values.global.istioSidecarQuitUrl }}" EXIT
+            while ! curl -s -f {{ .Values.global.istioSidecarReadyUrl }}; do sleep 1; done
+            sleep 2
+{{- end }}
+            {{- .Files.Get "files/hooks.sh" | nindent 12 }}
+            echo "INFO: $($LOG_DATE_CMD) - Starting pre-upgrade hook..."
+            main --schema-upgrade
+            main --pre-upgrade
+            echo "INFO: $($LOG_DATE_CMD) - Pre-upgrade hook finished"
+        resources:
+{{ toYaml .Values.preUpgradeJob.resources | indent 10 }}

@@ -1,0 +1,65 @@
+{{- if (ne 0 (int .Values.global.apiReplicaCount)) }}
+{{ range $i, $dbReplSvcDeploy := .Values.dbreplsvcdeployments }}
+{{ $dbReplSvcDict := dict "Values" $.Values  "Chart" $.Chart "dbReplSvcDeploy" $dbReplSvcDeploy "Release" $.Release }}
+{{ if $dbReplSvcDeploy.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "dbreplicationsvc-service.fullname" ($dbReplSvcDict) }}
+  labels:
+    app: {{ template "db-replication-svc.name" ($dbReplSvcDict) }}
+    chart: {{ template "db-replication-svc.chart" ($dbReplSvcDict) }}
+    release: {{ $.Release.Name }}
+    heritage: {{ $.Release.Service }}
+    {{- include "labels.commonlabels" ($dbReplSvcDict) }}
+    {{- with $dbReplSvcDeploy.service.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- range $key, $value := $dbReplSvcDeploy.service.annotations }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+    {{- range $key, $value := $dbReplSvcDeploy.service.customannotations }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+spec:
+  type: {{ $dbReplSvcDeploy.service.type }}
+  {{- if eq $dbReplSvcDeploy.service.type "LoadBalancer" }}
+  {{- if ne $dbReplSvcDeploy.service.loadBalancerIP "" }}
+  loadBalancerIP: {{ $dbReplSvcDeploy.service.loadBalancerIP | quote }}
+  {{- end }}
+  {{- end }}
+  {{- if $.Values.global.useIPv6 }}
+  ipFamilyPolicy: {{ $.Values.global.services.ipFamilyPolicy }}
+  ipFamilies:
+      - {{ $.Values.global.services.primaryDualStackIpFamily }}
+  {{- else }}
+  ipFamilyPolicy: {{ $.Values.global.services.ipFamilyPolicy }}
+  ipFamilies:
+      - IPv4
+  {{- end }}
+  ports:
+    - port: {{ $dbReplSvcDeploy.service.port }}
+      targetPort: {{ $.Values.container.containerPort }}
+      protocol: TCP
+      name: http
+    - port: {{ $.Values.global.sftp.port }}
+      targetPort: {{ $.Values.global.sftp.port }}
+      protocol: TCP
+      name: sftp
+    {{- if eq $i 0 }}
+    {{- if and $.Values.global.inframonitor.pvchealth.enable.repl $.Values.global.inframonitor.pvchealth.enable.all }}
+    - port: {{ $.Values.global.inframonitor.rest.port }}
+      targetPort: {{ $.Values.global.inframonitor.service.containerPort  }}
+      protocol: TCP
+      appProtocol: {{ $.Values.global.inframonitor.service.appProtocol }}
+      name: {{ $.Values.global.inframonitor.service.portName }}
+    {{- end }}
+    {{- end }}
+  selector:
+    app: {{ template "db-replication-svc.name" ($dbReplSvcDict) }}
+    release: {{ $.Release.Name }}
+{{- end }}
+{{- end }}
+{{- end }}

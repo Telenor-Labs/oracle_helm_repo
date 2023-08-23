@@ -1,0 +1,873 @@
+{{ $mgmReplicaCount :=  .Values.global.mgmReplicaCount | int }}
+{{ $inframonitorcontainername := (include "inframonitorsidecarcontainer.fullname" . ) }}
+{{ $apistsname := (include "api.apistsname" . ) }}
+{{ $sftpEnabled :=  .Values.global.sftp.enable | default true }}
+{{- if (ne 0 (int .Values.global.apiReplicaCount)) }}
+{{ range $i, $dbReplSvcDeploy := .Values.dbreplsvcdeployments }}
+{{ $dbReplSvcDict := dict "Values" $.Values  "Chart" $.Chart "dbReplSvcDeploy" $dbReplSvcDeploy "Release" $.Release }}
+{{ if $dbReplSvcDeploy.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "db-replication-svc.fullname" ($dbReplSvcDict) }}
+  labels:
+    app: {{ template "db-replication-svc.name" ($dbReplSvcDict) }}
+    chart: {{ template "db-replication-svc.chart" ($dbReplSvcDict) }}
+    release: {{ $.Release.Name }}
+    heritage: {{ $.Release.Service }}
+    {{- include "labels.commonlabels" ($dbReplSvcDict) }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: {{ template "db-replication-svc.name" ($dbReplSvcDict) }}
+      release: {{ $.Release.Name }}
+  template:
+    metadata:
+      annotations:
+        {{- if $dbReplSvcDeploy.podAnnotations }}
+        {{- range $key, $value := $dbReplSvcDeploy.podAnnotations }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+        {{- end }}
+        {{- if $.Values.global.useVCNEEgress }}
+        {{- range $key, $value := $dbReplSvcDeploy.egressannotations }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+        {{- end }}
+      labels:
+        app: {{ template "db-replication-svc.name" ($dbReplSvcDict) }}
+        release: {{ $.Release.Name }}
+        {{- include "labels.commonlabels" ($dbReplSvcDict) | nindent 4 }}
+        {{- if $dbReplSvcDeploy.labels }}
+        {{- range $key, $value := $dbReplSvcDeploy.labels }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+        {{- end }}
+    spec:
+      {{- if ne $.Values.initcontainer.image.repository "" }}
+      {{- if $.Values.enableInitContainerForIpDiscovery }}
+      serviceAccountName: {{ template "cndbtier.serviceaccount" ($dbReplSvcDict) }}
+      automountServiceAccountToken: true
+      {{- else }}
+      automountServiceAccountToken: {{ $.Values.global.automountServiceAccountToken }}
+      {{- end }}
+      {{- if $.Values.global.use_affinity_rules }}
+      affinity:
+        {{- if $.Values.nodeAffinity.enable }}
+        nodeAffinity:
+          {{- if $.Values.nodeAffinity.requiredDuringScheduling.enable }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+            {{- range $affinitykeyvalue := $.Values.nodeAffinity.requiredDuringScheduling.affinitykeyvalues }}
+              - key: {{ $affinitykeyvalue.keyname | quote }}
+                operator: In
+                values: 
+                {{- range $affinitykeyvalue.keyvalues }}
+                - {{ . }}
+                {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if $.Values.nodeAffinity.preferredDuringScheduling.enable }}
+          preferredDuringSchedulingIgnoredDuringExecution:
+          {{- range $expression := $.Values.nodeAffinity.preferredDuringScheduling.expressions }}
+          - weight: {{ $expression.weight }}
+            preference:
+              matchExpressions:
+              {{- range $affinitykeyvalue := $expression.affinitykeyvalues }}
+              - key: {{ $affinitykeyvalue.keyname | quote }}
+                operator: In
+                values: 
+                {{- range $affinitykeyvalue.keyvalues }}
+                - {{ . }}
+                {{- end }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- if $.Values.nodeSelector }}
+      nodeSelector:
+        {{- range $.Values.nodeSelector }}
+        {{ toYaml . }}
+        {{- end }}
+      {{- end }}
+      initContainers:
+        {{- if $.Values.enableInitContainerForIpDiscovery }}
+        - name: {{ template "db-replication-svc.containerinitdiscoversqlipsfullname" ($dbReplSvcDict) }}
+          {{- if ne $.Values.global.repository "" }}
+          image: "{{ $.Values.global.repository }}/{{ $.Values.initcontainer.image.repository }}:{{ $.Values.initcontainer.image.tag }}"
+          {{- else }}
+          image: "{{ $.Values.initcontainer.image.repository }}:{{ $.Values.initcontainer.image.tag }}"
+          {{- end }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          command:
+            - /bin/bash
+            - -ec
+            - |
+              # This script waits until external primary and secondary signal IPs are provisioned.
+              # Then, it stores them on a file to be sourced by the db-replication-svc container,
+              # which needs them. If after waitMaxSecs the IPs haven't been provisioned, the script
+              # exits and returns 0 causing the initContainer to stop successfully and the
+              # db-replication-svc container to run without the IPs being provisioned. Manual
+              # configuration or restart of the pod will be necessary when External IPs are finally
+              # available.
+
+              # Echos "true" if "ipToTest" has a value different from "<pending>".
+              # The value is assumed to be an IP address.
+              # The bash variable ipToTest must be set before calling this function.
+              testIfIpIsSet() {
+                  if [[ -z "$ipToTest" || "$ipToTest" == "<pending>" ]]; then
+                      echo "false";
+                  else
+                      echo "true";
+                  fi
+              }
+
+              function get_own_multus_ip() {
+                  local namespace=$1
+                  local pod_name=$2
+                  local nad_api_name=$3
+                  local nad_api_tag_name=$4
+                  local complete_pod_name=$(kubectl -n ${namespace} get pods | grep ${pod_name} | awk '{print $1}')
+                  local ip=$(kubectl -n ${namespace} get pods ${complete_pod_name} -o=json |  jq ".metadata.annotations.\"${nad_api_name}/network-status\"" | sed 's/\\n//g'| sed 's/\\//g' |sed 's/    //g' | cut -c2- | jq ".[] |  select(.name==\"${namespace}/${nad_api_tag_name}\") | .ips" | sed 's/\[//g' | sed 's/\]//g' | sed 's/\"//g' | sed 's/ //g' | tr -d "\n" | tr -d "\r" )
+                  echo "$ip"
+              }
+
+              # Echos "true" if both primarySqlSignalHostIp and secondarySqlSignalHostIp
+              # have a value different from "<pending>". The value is assumed to be an IP address.
+              testIfIpsAreSet() {
+                  ipToTest=${primarySqlSignalHostIp};
+                  isPrimaryIpSet=$(testIfIpIsSet);
+
+                  ipToTest=${secondarySqlSignalHostIp};
+                  isSecondaryIpSet=$(testIfIpIsSet);
+
+                  ipToTest=${dbReplLocalServiceExternalHostIP};
+                  isDbReplLocalExternalIpSet=$(testIfIpIsSet);
+
+                  ipToTest=${dbReplsvcleaderServiceExternalHostIP};
+                  isDbReplSvcLeaderExternalIpSet=$(testIfIpIsSet);
+
+                  if [[ "$isPrimaryIpSet" == "false" || "$isSecondaryIpSet" == "false" || "$isDbReplLocalExternalIpSet" == "false" || "$isDbReplSvcLeaderExternalIpSet" == "false" ]]; then
+                      echo "false";
+                  else
+                      echo "true";
+                  fi;
+              }
+
+              FILE=/etc/repl/env;
+              echo '#!/bin/sh' > $FILE;
+              echo "" >> $FILE;
+
+              svcName={{ template "api.subdomain" . | quote }};
+              stsName={{ $apistsname | quote }};
+              OCCNE_NAMESPACE={{ $.Values.global.namespace | quote }};
+              index={{ $i }}
+              nReplChannels=2
+              echo "INFO: $(date) - primary Value of index = ${index}"
+
+              svcIndex=$(( index * nReplChannels ))
+              echo "INFO: $(date) - primary Value of svcIndex = ${svcIndex}"
+              primaryApiSvc=$(kubectl -n ${OCCNE_NAMESPACE} get svc | awk '{ print $1 }' | grep -e "${svcName}.*-${svcIndex}\>");
+              primaryApiPodName=$(echo "${stsName}-${svcIndex}");
+
+              let "svcIndex+=1";
+              echo "INFO: $(date) - secondary Value of svcIndex = ${svcIndex}"
+              secondaryApiSvc=$(kubectl -n ${OCCNE_NAMESPACE} get svc | awk '{ print $1 }' | grep -e "${svcName}.*-${svcIndex}\>");
+              secondaryApiPodName=$(echo "${stsName}-${svcIndex}");
+
+{{- if $.Values.global.multus.enable }}
+{{- if $dbReplSvcDeploy.mysql.primarysignalhostmultusconfig.multusEnabled }}
+              primaryNadApiName={{ $dbReplSvcDeploy.mysql.primarysignalhostmultusconfig.networkAttachmentDefinationApiName | quote }}
+              primaryNadTagName={{ $dbReplSvcDeploy.mysql.primarysignalhostmultusconfig.networkAttachmentDefinationTagName | quote }}
+{{- end }}
+{{- if $dbReplSvcDeploy.mysql.secondarysignalhostmultusconfig.multusEnabled }}
+              secondaryNadApiName={{ $dbReplSvcDeploy.mysql.secondarysignalhostmultusconfig.networkAttachmentDefinationApiName | quote }}
+              secondaryNadTagName={{ $dbReplSvcDeploy.mysql.secondarysignalhostmultusconfig.networkAttachmentDefinationTagName | quote }}
+{{- end }}
+{{- end }}
+
+              dbReplLocalServiceName={{ template "dbreplicationsvc-service.fullname" ($dbReplSvcDict) }}
+{{- if $.Values.global.multus.enable }}
+{{- if $dbReplSvcDeploy.multus.enable }}
+              dbReplLocalServiceNadApiName={{ $dbReplSvcDeploy.multus.networkAttachmentDefinationApiName | quote }}
+              dbReplLocalServiceNadTagName={{ $dbReplSvcDeploy.multus.networkAttachmentDefinationTagName | quote }}
+{{- end }}
+{{- end }}
+              echo "INFO: $(date) - Value of dbReplLocalServiceName = ${dbReplLocalServiceName}"
+
+              dbReplsvcleaderServiceName=""
+              {{- range $t, $tempreplsvcdeployment := $.Values.dbreplsvcdeployments }}
+              {{- $dbReplSvctempDict := dict "Values" $.Values  "Chart" $.Chart "dbReplSvcDeploy" $tempreplsvcdeployment "Release" $.Release }}
+              {{- if eq $t 0 }}
+              dbReplsvcleaderServiceName={{ template "dbreplicationsvc-service.fullname" ($dbReplSvctempDict) }}
+              {{- if and $.Values.global.multus.enable $tempreplsvcdeployment.multus.enable }}
+              dbReplsvcleaderServiceMultusEnabled=true
+              dbReplsvcleaderServiceNadApiName={{ $tempreplsvcdeployment.multus.networkAttachmentDefinationApiName | quote }}
+              dbReplsvcleaderServiceNadTagName={{ $tempreplsvcdeployment.multus.networkAttachmentDefinationTagName | quote }}
+              {{- else }}
+              dbReplsvcleaderServiceMultusEnabled=false
+              {{- end }}
+              {{- end }}
+              {{- end }}
+              if [ -z "${dbReplsvcleaderServiceName}" ]; then
+                  echo "Need dbReplsvcleaderServiceName defined"
+                  exit 1
+              fi
+              echo "INFO: $(date) - Value of dbReplsvcleaderServiceName = ${dbReplsvcleaderServiceName}"
+
+{{- if $.Values.useClusterIpForReplication }}
+{{- if $.Values.global.multus.enable }}
+
+{{- if $dbReplSvcDeploy.mysql.primarysignalhostmultusconfig.multusEnabled }}
+              primarySqlSignalHostIp=$(get_own_multus_ip ${OCCNE_NAMESPACE} ${primaryApiPodName} ${primaryNadApiName} ${primaryNadTagName})
+{{- else }}
+              primarySqlSignalHostIp=`kubectl -n ${OCCNE_NAMESPACE} get svc ${primaryApiSvc} | tail -1 | awk '{ print $3 }'`;
+{{- end }}
+{{- if $dbReplSvcDeploy.mysql.secondarysignalhostmultusconfig.multusEnabled }}
+              secondarySqlSignalHostIp=$(get_own_multus_ip ${OCCNE_NAMESPACE} ${secondaryApiPodName} ${secondaryNadApiName} ${secondaryNadTagName})
+{{- else }}
+              secondarySqlSignalHostIp=`kubectl -n ${OCCNE_NAMESPACE} get svc ${secondaryApiSvc} | tail -1 | awk '{ print $3 }'`;
+{{- end }}
+
+{{- else }}
+              primarySqlSignalHostIp=`kubectl -n ${OCCNE_NAMESPACE} get svc ${primaryApiSvc} | tail -1 | awk '{ print $3 }'`;
+              secondarySqlSignalHostIp=`kubectl -n ${OCCNE_NAMESPACE} get svc ${secondaryApiSvc} | tail -1 | awk '{ print $3 }'`;
+{{- end }}
+
+
+{{- if and $.Values.global.multus.enable $dbReplSvcDeploy.multus.enable }}
+              dbReplLocalServiceExternalHostIP=$(get_own_multus_ip ${OCCNE_NAMESPACE} ${dbReplLocalServiceName} ${dbReplLocalServiceNadApiName} ${dbReplLocalServiceNadTagName})
+{{- else }}
+              dbReplLocalServiceExternalHostIP=`kubectl -n ${OCCNE_NAMESPACE} get svc ${dbReplLocalServiceName} | tail -1 | awk '{ print $3 }'`;
+{{- end }}
+
+              if [[ "${dbReplsvcleaderServiceMultusEnabled}" == "true" ]]; then
+                  dbReplsvcleaderServiceExternalHostIP=$(get_own_multus_ip ${OCCNE_NAMESPACE} ${dbReplsvcleaderServiceName} ${dbReplsvcleaderServiceNadApiName} ${dbReplsvcleaderServiceNadTagName})     
+              else
+                  dbReplsvcleaderServiceExternalHostIP=`kubectl -n ${OCCNE_NAMESPACE} get svc ${dbReplsvcleaderServiceName} | tail -1 | awk '{ print $3 }'`;
+              fi
+
+
+{{- else }}
+{{- if $.Values.global.multus.enable }}
+
+{{- if $dbReplSvcDeploy.mysql.primarysignalhostmultusconfig.multusEnabled }}
+              primarySqlSignalHostIp=$(get_own_multus_ip ${OCCNE_NAMESPACE} ${primaryApiPodName} ${primaryNadApiName} ${primaryNadTagName})
+{{- else }}
+              primarySqlSignalHostIp=`kubectl -n ${OCCNE_NAMESPACE} get svc ${primaryApiSvc} | tail -1 | awk '{ print $4 }'`;
+{{- end }}
+{{- if $dbReplSvcDeploy.mysql.secondarysignalhostmultusconfig.multusEnabled }}
+              secondarySqlSignalHostIp=$(get_own_multus_ip ${OCCNE_NAMESPACE} ${secondaryApiPodName} ${secondaryNadApiName} ${secondaryNadTagName})
+{{- else }}
+              secondarySqlSignalHostIp=`kubectl -n ${OCCNE_NAMESPACE} get svc ${secondaryApiSvc} | tail -1 | awk '{ print $4 }'`;
+{{- end }}
+
+{{- else }}
+              primarySqlSignalHostIp=`kubectl -n ${OCCNE_NAMESPACE} get svc ${primaryApiSvc} | tail -1 | awk '{ print $4 }'`;
+              secondarySqlSignalHostIp=`kubectl -n ${OCCNE_NAMESPACE} get svc ${secondaryApiSvc} | tail -1 | awk '{ print $4 }'`;
+{{- end }}
+
+{{- if and $.Values.global.multus.enable $dbReplSvcDeploy.multus.enable }}
+              dbReplLocalServiceExternalHostIP=$(get_own_multus_ip ${OCCNE_NAMESPACE} ${dbReplLocalServiceName} ${dbReplLocalServiceNadApiName} ${dbReplLocalServiceNadTagName})
+{{- else }}
+              dbReplLocalServiceExternalHostIP=`kubectl -n ${OCCNE_NAMESPACE} get svc ${dbReplLocalServiceName} | tail -1 | awk '{ print $4 }'`;
+{{- end }}
+
+
+              if [[ "${dbReplsvcleaderServiceMultusEnabled}" == "true" ]]; then
+                  dbReplsvcleaderServiceExternalHostIP=$(get_own_multus_ip ${OCCNE_NAMESPACE} ${dbReplsvcleaderServiceName} ${dbReplsvcleaderServiceNadApiName} ${dbReplsvcleaderServiceNadTagName})     
+              else
+                  dbReplsvcleaderServiceExternalHostIP=`kubectl -n ${OCCNE_NAMESPACE} get svc ${dbReplsvcleaderServiceName} | tail -1 | awk '{ print $4 }'`;
+              fi
+
+
+{{- end }}
+              areIpsSet=$(testIfIpsAreSet);
+              echo "INFO: $(date) - testing for IP provisionning..."
+              echo "INFO: $(date) - primary: $primarySqlSignalHostIp"
+              echo "INFO: $(date) - secondary: $secondarySqlSignalHostIp"
+              echo "INFO: $(date) - dbReplLocalServiceExternalHostIP: $dbReplLocalServiceExternalHostIP"
+              echo "INFO: $(date) - dbReplsvcleaderServiceExternalHostIP: $dbReplsvcleaderServiceExternalHostIP"
+
+              waitCount=0;
+              waitSecs={{ $.Values.initcontainer.svcExternalIpWaitBetweenChecks | default 5 }};
+              waitMaxSecs={{ $.Values.initcontainer.svcExternalIpTimeout | default 120 }};
+              while [[ "$areIpsSet" == "false" && $waitCount -lt $waitMaxSecs ]]; do
+                  echo "INFO: $(date) - waiting $waitSecs seconds for External IPs to be provisioned..."
+                  sleep $waitSecs;
+                  let "waitCount+=$waitSecs";
+
+{{- if $.Values.useClusterIpForReplication }}
+{{- if $.Values.global.multus.enable }}
+
+{{- if $dbReplSvcDeploy.mysql.primarysignalhostmultusconfig.multusEnabled }}
+                  primarySqlSignalHostIp=$(get_own_multus_ip ${OCCNE_NAMESPACE} ${primaryApiPodName} ${primaryNadApiName} ${primaryNadTagName})
+{{- else }}
+                  primarySqlSignalHostIp=`kubectl -n ${OCCNE_NAMESPACE} get svc ${primaryApiSvc} | tail -1 | awk '{ print $3 }'`;
+{{- end }}
+{{- if $dbReplSvcDeploy.mysql.secondarysignalhostmultusconfig.multusEnabled }}
+                  secondarySqlSignalHostIp=$(get_own_multus_ip ${OCCNE_NAMESPACE} ${secondaryApiPodName} ${secondaryNadApiName} ${secondaryNadTagName})
+{{- else }}
+                  secondarySqlSignalHostIp=`kubectl -n ${OCCNE_NAMESPACE} get svc ${secondaryApiSvc} | tail -1 | awk '{ print $3 }'`;
+{{- end }}
+
+{{- else }}
+                  primarySqlSignalHostIp=`kubectl -n ${OCCNE_NAMESPACE} get svc ${primaryApiSvc} | tail -1 | awk '{ print $3 }'`;
+                  secondarySqlSignalHostIp=`kubectl -n ${OCCNE_NAMESPACE} get svc ${secondaryApiSvc} | tail -1 | awk '{ print $3 }'`;
+{{- end }}
+
+
+{{- if and $.Values.global.multus.enable $dbReplSvcDeploy.multus.enable }}
+              dbReplLocalServiceExternalHostIP=$(get_own_multus_ip ${OCCNE_NAMESPACE} ${dbReplLocalServiceName} ${dbReplLocalServiceNadApiName} ${dbReplLocalServiceNadTagName})
+{{- else }}
+              dbReplLocalServiceExternalHostIP=`kubectl -n ${OCCNE_NAMESPACE} get svc ${dbReplLocalServiceName} | tail -1 | awk '{ print $3 }'`;
+{{- end }}
+
+
+              if [[ "${dbReplsvcleaderServiceMultusEnabled}" == "true" ]]; then
+                  dbReplsvcleaderServiceExternalHostIP=$(get_own_multus_ip ${OCCNE_NAMESPACE} ${dbReplsvcleaderServiceName} ${dbReplsvcleaderServiceNadApiName} ${dbReplsvcleaderServiceNadTagName})     
+              else
+                  dbReplsvcleaderServiceExternalHostIP=`kubectl -n ${OCCNE_NAMESPACE} get svc ${dbReplsvcleaderServiceName} | tail -1 | awk '{ print $3 }'`;
+              fi
+
+
+{{- else }}
+{{- if $.Values.global.multus.enable }}
+
+{{- if $dbReplSvcDeploy.mysql.primarysignalhostmultusconfig.multusEnabled }}
+                  primarySqlSignalHostIp=$(get_own_multus_ip ${OCCNE_NAMESPACE} ${primaryApiPodName} ${primaryNadApiName} ${primaryNadTagName})
+{{- else }}
+                  primarySqlSignalHostIp=`kubectl -n ${OCCNE_NAMESPACE} get svc ${primaryApiSvc} | tail -1 | awk '{ print $4 }'`;
+{{- end }}
+{{- if $dbReplSvcDeploy.mysql.secondarysignalhostmultusconfig.multusEnabled }}
+                  secondarySqlSignalHostIp=$(get_own_multus_ip ${OCCNE_NAMESPACE} ${secondaryApiPodName} ${secondaryNadApiName} ${secondaryNadTagName})
+{{- else }}
+                  secondarySqlSignalHostIp=`kubectl -n ${OCCNE_NAMESPACE} get svc ${secondaryApiSvc} | tail -1 | awk '{ print $4 }'`;
+{{- end }}
+
+{{- else }}
+                  primarySqlSignalHostIp=`kubectl -n ${OCCNE_NAMESPACE} get svc ${primaryApiSvc} | tail -1 | awk '{ print $4 }'`;
+                  secondarySqlSignalHostIp=`kubectl -n ${OCCNE_NAMESPACE} get svc ${secondaryApiSvc} | tail -1 | awk '{ print $4 }'`;
+{{- end }}
+
+{{- if and $.Values.global.multus.enable $dbReplSvcDeploy.multus.enable }}
+              dbReplLocalServiceExternalHostIP=$(get_own_multus_ip ${OCCNE_NAMESPACE} ${dbReplLocalServiceName} ${dbReplLocalServiceNadApiName} ${dbReplLocalServiceNadTagName})
+{{- else }}
+              dbReplLocalServiceExternalHostIP=`kubectl -n ${OCCNE_NAMESPACE} get svc ${dbReplLocalServiceName} | tail -1 | awk '{ print $4 }'`;
+{{- end }}
+              if [[ "${dbReplsvcleaderServiceMultusEnabled}" == "true" ]]; then
+                  dbReplsvcleaderServiceExternalHostIP=$(get_own_multus_ip ${OCCNE_NAMESPACE} ${dbReplsvcleaderServiceName} ${dbReplsvcleaderServiceNadApiName} ${dbReplsvcleaderServiceNadTagName})     
+              else
+                  dbReplsvcleaderServiceExternalHostIP=`kubectl -n ${OCCNE_NAMESPACE} get svc ${dbReplsvcleaderServiceName} | tail -1 | awk '{ print $4 }'`;
+              fi
+{{- end }}
+                  areIpsSet=$(testIfIpsAreSet);
+                  echo "INFO: $(date) - testing for IP provisionning..."
+                  echo "INFO: $(date) - primary: ${primarySqlSignalHostIp}"
+                  echo "INFO: $(date) - secondary: ${secondarySqlSignalHostIp}"
+                  echo "INFO: $(date) - dbReplLocalServiceExternalHostIP: ${dbReplLocalServiceExternalHostIP}"
+                  echo "INFO: $(date) - dbReplsvcleaderServiceExternalHostIP: $dbReplsvcleaderServiceExternalHostIP"
+              done;
+
+              if [[ "$areIpsSet" == "true" ]]; then
+                  echo "export MYSQL_PRIMARY_SIGNAL_HOST=${primarySqlSignalHostIp}" >> $FILE;
+                  echo "export MYSQL_SECONDARY_SIGNAL_HOST=${secondarySqlSignalHostIp}" >> $FILE;
+                  echo "export REPLICATION_SERVICE_LOCAL_SITE_IP=${dbReplLocalServiceExternalHostIP}" >> $FILE;
+                  echo "export REPLICATION_SERVICE_LEADER_LOCAL_SITE_IP=${dbReplsvcleaderServiceExternalHostIP}" >> $FILE;
+                  echo "export REPLICATION_SERVICE_LEADER_SERVICE_NAME=${dbReplsvcleaderServiceName}" >> $FILE;
+
+                  echo "INFO: $(date) - External IPs have been read and written to $FILE:"
+                  cat $FILE
+              else
+                  echo "ERROR: $(date) - Not all External IPs are provisioned";
+                  echo "INFO: $(date) - primary: $primarySqlSignalHostIp"
+                  echo "INFO: $(date) - secondary: $secondarySqlSignalHostIp"
+                  echo "INFO: $(date) - dbReplLocalServiceExternalHostIP: $dbReplLocalServiceExternalHostIP"
+                  echo "INFO: $(date) - dbReplsvcleaderServiceExternalHostIP: $dbReplsvcleaderServiceExternalHostIP"
+                  echo "INFO: $(date) - When External IPs are available, provision them manually or restart pod..."
+                  echo "INFO: $(date) - continuing without External IPs..."
+              fi;
+          volumeMounts:
+          - mountPath: /etc/repl
+            name: repl-vol
+          resources:
+            {{ toYaml $.Values.InitContainersResources | indent 12 | trim }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: {{ template "db-replication-svc.containerfullname" ($dbReplSvcDict) }}
+          {{- if ne $.Values.global.repository "" }}
+          image: "{{ $.Values.global.repository }}/{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+          {{- else }}
+          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+          {{- end }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          livenessProbe:
+            tcpSocket:
+              port: {{ $.Values.container.containerPort  }}
+            initialDelaySeconds: {{ $.Values.livenessProbe.initialDelaySeconds }}
+            failureThreshold: {{ $.Values.livenessProbe.failureThreshold }}
+            periodSeconds: {{ $.Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ $.Values.livenessProbe.timeoutSeconds }}
+          startupProbe:
+            tcpSocket:
+              port: {{ $.Values.container.containerPort  }}
+            initialDelaySeconds: {{ $.Values.startupProbe.initialDelaySeconds }}
+            failureThreshold: {{ $.Values.startupProbe.failureThreshold }}
+            successThreshold: {{ $.Values.startupProbe.successThreshold }}
+            periodSeconds: {{ $.Values.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ $.Values.startupProbe.timeoutSeconds }}
+          readinessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  passProbe() {
+                      return 0;
+                  }
+                  passProbe
+            initialDelaySeconds: {{ $.Values.readinessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ $.Values.readinessProbe.timeoutSeconds }}
+            periodSeconds: {{ $.Values.readinessProbe.periodSeconds }}
+            failureThreshold: {{ $.Values.readinessProbe.failureThreshold }}
+            successThreshold: {{ $.Values.readinessProbe.successThreshold }}
+          env:
+            - name: LOG_LEVEL
+              value: "{{ $dbReplSvcDeploy.log.level }}"
+            - name: HIKARI_POOL_SIZE
+              value: "{{ $.Values.hikariPoolSize }}"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: APP_NAME
+              value: {{ template "db-replication-svc.fullname" ($dbReplSvcDict) }}
+            - name: APP_VERSION
+              value: "{{ $.Chart.AppVersion }}"
+            - name: DBTIER_REPLICATION_CONFIG_FIXED_RATE
+              value: "{{ $dbReplSvcDeploy.schedulertimer | default 5000 }}"
+            - name: DBTIER_REPLICATION_CONFIG_COMMON_FIXED_RATE
+              value: "{{ $dbReplSvcDeploy.commonschedulertimer | default 10000 }}"              
+            - name: MYSQL_REPLICATION_SITE_NAME
+              value: "{{ $.Values.global.sitename }}"
+            - name: MYSQL_REPLICATION_SITE_IDENTIFIER
+              value: "{{ $.Values.global.siteid }}"
+            - name: MYSQL_PRIMARY_HOST
+              value: {{ template "db-replication-svc.primaryhost" ($dbReplSvcDict) }}
+            - name: MYSQL_PORT
+              value: "{{ $dbReplSvcDeploy.mysql.port }}"
+            - name: NDB_MGM_SUBDOMAIN
+              value: {{ template "mgm.subdomain" . }}
+            - name: NDB_MGMD_PORT
+              value: "{{ $.Values.global.mgm.port }}"
+            - name: NDB_API_COUNT
+              value: "{{ $.Values.global.apiReplicaCount }}"
+            - name: NDB_APP_COUNT
+              value: "{{ $.Values.global.ndbappReplicaCount }}"
+            - name: NDB_APP_MIN_COUNT
+              value: "{{ $.Values.global.ndbappReplicaCount }}"
+            - name: NDB_APP_MAX_COUNT
+              value: "{{ $.Values.global.ndbappReplicaMaxCount }}"
+            - name: MYSQL_PRIMARY_SIGNAL_HOST
+              value: "{{ $dbReplSvcDeploy.mysql.primarysignalhost}}"
+            - name: REPLICATION_SERVICE_LOCAL_SITE_IP
+              value: "{{ $dbReplSvcDeploy.replication.localsiteip }}"
+            - name: REPLICATION_SERVICE_LOCAL_SITE_PORT
+              value: "{{ $dbReplSvcDeploy.replication.localsiteport }}"
+            - name: MATE_SITE_DB_REPLICATION_IP
+              value: "{{ $dbReplSvcDeploy.replication.remotesiteip }}"
+            - name: MATE_SITE_DB_REPLICATION_PORT
+              value: "{{ $dbReplSvcDeploy.replication.remotesiteport }}"
+            - name: REMOTE_MATE_REPLICATION_SITE_NAME
+              value: "{{ $dbReplSvcDeploy.replication.matesitename }}"
+            - name: PROXY_HOST
+              value: "{{ $.Values.proxy.host }}"
+            - name: PROXY_PORT
+              value: "{{ $.Values.proxy.port }}"
+            - name: CNDBTIER_VERSION
+              value: "{{ $.Values.global.version }}"
+            - name: SKIP_DR_STAGE_RESTART_SQL
+              value: "{{ $dbReplSvcDeploy.mysql.skipdrstage.restartsqlnodes | default false }}"
+            - name: MYSQL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.global.secrets.dbmonitorsecret }}
+                  key: mysql_username_for_metrics
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.global.secrets.dbmonitorsecret }}
+                  key: mysql_password_for_metrics
+            - name: MYSQL_REPLICATION_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.global.secrets.dbgeoreplicationusersecret }}
+                  key: mysql_username_for_replication
+            - name: MYSQL_REPLICATION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.global.secrets.dbgeoreplicationusersecret }}
+                  key: mysql_password_for_replication
+            {{- if $.Values.global.backupencryption.enable }}       
+            - name: BACKUP_ENCRYPTION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.global.backupencryption.backupencryptionsecret }}
+                  key: backup_encryption_password
+            {{- end }}      
+            - name: BACKUP_ENCRYPTION_ENABLE
+              value: "{{ $.Values.global.backupencryption.enable}}"
+            - name: MYSQL_SECONDARY_HOST
+              value: {{ template "db-replication-svc.secondaryhost" ($dbReplSvcDict) }}
+            - name: MYSQL_SECONDARY_SIGNAL_HOST
+              value: "{{ $dbReplSvcDeploy.mysql.secondarysignalhost }}"
+            - name: MYSQL_PRIMARY_HOST_SERVER_ID
+              value: "{{ $dbReplSvcDeploy.mysql.primaryhostserverid }}"
+            - name: MYSQL_SECONDARY_HOST_SERVER_ID
+              value: "{{ $dbReplSvcDeploy.mysql.secondaryhostserverid }}"
+            - name: MYSQL_DBTIER_CONNECTIVITY_SERVICE
+              value: "{{ $dbReplSvcDeploy.mysql.dbtierservice }}"
+            - name: MYSQL_DBTIER_REPL_CONNECTIVITY_SERVICE
+              value: "{{ $dbReplSvcDeploy.mysql.dbtierreplservice }}"
+            - name: APPLICATION_NAME
+              value: {{ template "db-replication-svc.name" ($dbReplSvcDict) }}
+            - name: REPLICATION_CHANNEL_FAILUREOVER_COUNT
+              value: "{{ $dbReplSvcDeploy.replChannelFailoverCount | default 2 }}"
+            - name: DBTIER_EPOCH_STORE_CAPACITY
+              value: "{{ $.Values.epochstore.capacity }}"
+            - name: NDB_CLUSTER_HEALTH_CHECK_TIMEOUT
+              value: "{{ $.Values.secsToWaitForClusterTimeout }}"
+            - name: NDB_CLUSTER_HEALTH_CHECK_INTERVAL
+              value: "{{ $.Values.secsToWaitBetweenChecks }}"
+            - name: REST_API_CONNECT_TIMEOUT
+              value: "{{ $.Values.restApiConnectTimeout }}"
+            - name: REST_API_READ_TIMEOUT
+              value: "{{ $.Values.restApiReadTimeout }}"
+            {{- if eq $i 0 }}
+            - name: REPLICATION_SERVICE_DISASTER_RECOVERY_LEADER
+              value: "true"
+            {{- else }}
+            - name: REPLICATION_SERVICE_DISASTER_RECOVERY_LEADER
+              value: "false"
+            {{- end }}
+            {{- range $k, $replsvcdeploysvc := $.Values.dbreplsvcdeployments }}
+            {{- $dbReplSvctempDict := dict "Values" $.Values  "Chart" $.Chart "dbReplSvcDeploy" $replsvcdeploysvc "Release" $.Release }}
+            {{- if eq $k 0 }}
+            - name: REPLICATION_SERVICE_LEADER_LOCAL_SITE_IP
+              value: "{{ $replsvcdeploysvc.replication.localsiteip }}"
+            - name: REPLICATION_SERVICE_LEADER_LOCAL_SITE_PORT
+              value: "{{ $replsvcdeploysvc.replication.localsiteport }}"
+            - name: REPLICATION_SERVICE_LEADER_SERVICE_NAME
+              value: "{{ template "dbreplicationsvc-service.fullname" ($dbReplSvctempDict) }}"
+            {{- end }}
+            {{- end }}
+            - name: MYSQL_SQL_PVC_SIZE
+              value: "{{ $.Values.global.api.ndbdisksize }}"
+            - name: DBTIER_REPLICATION_BINLOGPURGE_FIXED_RATE
+              value: "{{ $.Values.global.api.binlogpurgetimer | default 200000 }}"
+            - name: DBTIER_REPLICATION_BINLOGPURGE_SIZECHECK_PERCENTAGE
+              value: "{{ $.Values.global.api.binlogpurgesizecheckpercentage | default 50 }}"
+            - name: DBTIER_REPLICATION_BINLOGPURGE_RETENTIONSIZE_PERCENTAGE
+              value: "{{ $.Values.global.api.binlogretentionsizepercentage | default 50 }}"
+            - name: BINLOG_FORCE_PURGE_SIZE_CHECK_PERCENTAGE
+              value: "{{ $.Values.global.api.binlogForcePurgeSizeCheckPercentage | default 85 }}"
+            - name: BINLOG_FORCE_PURGE_PERCENTAGE_FOR_PRIMARY_SQL
+              value: "{{ $.Values.global.api.binlogForcePurgePercentageForPrimarySql | default 20 }}"
+            - name: BINLOG_FORCE_PURGE_PERCENTAGE_FOR_SECONDARY_SQL
+              value: "{{ $.Values.global.api.binlogForcePurgePercentageForSecondarySql | default 25 }}"
+            - name: PERCENTAGE_OF_SPACE_RESERVED_FOR_MYSQL_SYSTEM_FILES
+              value: "{{ $.Values.global.api.percentageOfSpaceReservedForMySqlSystemFiles | default 15 }}"
+            - name: DBTIER_BACKUP_MANAGER_HOST
+              value: "{{ template "dbbackupmanagersvc-service.fullname" ($dbReplSvcDict) }}"
+          {{- if ($.Values.global.https.enable) }}
+            - name: HTTPS_CERTIFICATE_FULL_PATH
+              value: "/opt/certificates/keystore"
+            - name: HTTPS_CERTIFICATE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.global.https.secrets.httpscertcred.name }}
+                  key: keystorepassword
+            - name: HTTPS_CERTIFICATE_ALIAS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.global.https.secrets.httpscertcred.name }}
+                  key: keyalias
+            - name: HTTPS_CERTIFICATE_TYPE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.global.https.secrets.httpscertcred.name }}
+                  key: keystoretype
+          {{- end }}
+            - name: HTTPS_ENABLE
+              value: "{{ $.Values.global.https.enable }}"
+            - name: DB_ENCRYPT_ENABLE
+              value: "{{ $.Values.global.encryption.enable }}"
+          {{- if ($.Values.global.encryption.enable) }}
+            - name: DB_ENCRYPT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.global.encryption.secrets.name }}
+                  key: dbencryptkey
+          {{- end }}
+            - name: START_EMPTY_API_SLOT_NODEID
+              value: "{{ $.Values.global.api.startEmptyApiSlotNodeId }}"
+            - name: NUM_OF_EMPTY_API_SLOTS
+              value: "{{ $.Values.global.api.numOfEmptyApiSlots }}"
+            - name: STARTING_SQL_NODEID
+              value: {{ $.Values.global.api.startNodeId | default 56 | quote }}
+            - name: STARTING_NDBAPP_NODEID
+              value: {{ $.Values.global.ndbapp.startNodeId | default 70 | quote }}
+            - name: NUM_OF_DATA_REPLICA_COUNT
+              value: "{{ $.Values.global.ndbReplicaCount }}"
+            - name: OCCNE_NAMESPACE
+              value: "{{ $.Values.global.namespace }}"
+{{- if and (or (ne $.Values.global.serviceAccount.name "") ($.Values.global.serviceAccount.create)) ($.Values.global.autoscaling.ndbapp.enabled) }}
+            - name: NDBAPP_AUTO_SCALING_ENABLED
+              value: "true"
+{{- end }}
+            - name: POOL_SIZE_FOR_RESTARTING_SQL_NODES
+              value: "{{ $dbReplSvcDeploy.restartSqlNodePoolSize | default 4 }}"
+            - name: NDB_MGMD_CONNECTSTRING
+              value: '
+                {{- $mgmstsname := (include "mgm.mgmtstsname" ($dbReplSvcDict)) }}
+                {{- range untilStep 0 $mgmReplicaCount 1 }}
+                  {{- if ne . 0 -}}
+                    ,
+                  {{- end }}
+                  {{- $mgmstsname }}-{{ . }}.{{ template "mgm.subdomain" . }}.
+                    {{- $.Values.global.namespace }}.svc.{{ $.Values.global.domain }}:{{ $.Values.global.mgm.port }}
+                {{- end }}'
+            - name: NDB_RESTORE_PARALLELISM
+              value: "{{ $.Values.global.ndb.restoreparallelism | default 128 }}"
+            - name: FILE_TRANSFER_PORT_NUMBER
+              value: "{{ $.Values.global.sftp.port }}"
+            - name: REPLICATION_WAITSECS_AFTER_NDBRESTORE
+              value: "{{ $.Values.global.waitsecsafterndbrestore | default 10000 }}"
+            - name: REPLICATION_WAITSECS_BEFORE_CHANNELRESTORE
+              value: "{{ $.Values.global.waitsecsbeforechannelrestore | default 10000 }}"
+            - name: REPLICATION_WAITSECS_BEFORE_RESTORECOMPLETED
+              value: "{{ $.Values.global.waitsecsbeforerestorecompleted | default 15000 }}"
+            - name: REPL_SVC_ALL_REMOTE_SITE_DETAILS
+              value: "
+                {{- range $a, $relSvcDeploy := $.Values.dbreplsvcdeployments }}
+                  {{- if $relSvcDeploy.enabled }}
+                    {{- if ne $a 0 -}}
+                      ---
+                    {{- end }}
+                    {{- $relSvcDeploy.replication.matesitename | trimPrefix " " }},{{ $relSvcDeploy.replication.remotesiteip | trimPrefix " " }},{{ $relSvcDeploy.replication.remotesiteport | trimPrefix " " }}
+                  {{- end }}
+                {{- end }}"
+            - name: DBTIER_HBREPLICAGROUP_DATABASE
+              value: {{ $.Values.global.api.hbreplicagroupdatabase | default "hbreplica_info" }}
+            - name: DBTIER_REPLICATION_CHANNEL_GROUP_ID
+              value: "{{ $dbReplSvcDeploy.replication.channelgroupid | default 1 }}"
+            - name: MULTI_REPL_CHANNELS_GROUP_ENABLED
+              value: "{{ $.Values.global.multiplereplicationgroups.enabled | default false }}"
+            - name: MULTI_REPL_CHANNELS_GROUP_DODB_IGNOREDB
+              value: "{{- if $.Values.global.multiplereplicationgroups.enabled }}
+                        {{- range $key, $channelgroup := $.Values.global.multiplereplicationgroups.replicationchannelgroups }}
+                          {{- if ne $key 0 -}}
+                            ---
+                          {{- end }}
+                          {{- $channelgroup.channelgroupid }}:
+                          {{- if $channelgroup.binlogdodb -}}
+                            {{ $channelgroup.binlogdodb }}
+                          {{- end }}:
+                          {{- if $channelgroup.binlogignoredb -}}
+                            {{ $channelgroup.binlogignoredb }}
+                          {{- end }}
+                        {{- end }}
+                      {{- end }}"
+            - name: MULTI_REPL_CHANNELS_GROUP_IGNORETABLES
+              value: "{{- if $.Values.global.multiplereplicationgroups.enabled }}
+                        {{- range $key, $channelgroup := $.Values.global.multiplereplicationgroups.replicationchannelgroups }}
+                          {{- if ne $key 0 -}}
+                            ---
+                          {{- end }}
+                          {{- $channelgroup.channelgroupid }}:
+                          {{- if $channelgroup.binlogignoretables -}}
+                            {{ $channelgroup.binlogignoretables }}
+                          {{- end }}
+                        {{- end }}
+                      {{- end }}"                        
+            - name: REPLICATION_SKIP_ERROR_LIST
+              value: "{{- if $.Values.global.replicationskiperrors.enable }}
+                        {{- range $key, $replicationerror := $.Values.global.replicationskiperrors.replicationerrornumbers }}
+                          {{- if ne $key 0 -}}
+                            ---
+                          {{- end }}
+                          {{- $replicationerror.errornumber }}
+                        {{- end }}
+                      {{- end }}"
+            - name: NUMBER_OF_RECORDS_ALLOWED_IN_EVENTINFO_SCHEMA
+              value: "{{ $.Values.global.numberofrecordsineventinfo | default 2000 }}"
+            - name: WAIT_IF_REPLSKIP_HALTED_FOR_HEARTBEAT_FAILED
+              value: "{{ $.Values.global.replicationskiperrors.waitifreplhaltedforhbfailed | default 3 }}"
+            - name: REPLICA_SKIP_ERRORS
+              value: "{{ template "db-replication-svc.replicaslaveerrors" ($dbReplSvcDict) }}"
+            - name: REPLICATION_SKIP_ERROR_ENABLED
+              value: "{{ $.Values.global.replicationskiperrors.enable | default false }}"
+            - name: SKIP_ERROR_ALLOWED_IN_TIME_WINDOW
+              value: "{{ $.Values.global.replicationskiperrors.skiperrorsallowedintimewindow | default 3600 }}"
+            - name: SKIP_ERROR_EPOCH_TIME_INTERVAL_LOWER_THRESHOLD
+              value: "{{ $.Values.global.replicationskiperrors.epochTimeIntervalLowerThreshold | default 10000 }}"
+            - name: SKIP_ERROR_EPOCH_TIME_INTERVAL_HIGHER_THRESHOLD
+              value: "{{ $.Values.global.replicationskiperrors.epochTimeIntervalHigherThreshold | default 80000 }}"
+            - name: SKIP_ERROR_ALLOWED_COUNT
+              value: "{{ $.Values.global.replicationskiperrors.numberofskiperrorsallowed | default 5 }}"
+            - name: NDB_TIME_BETWEEN_GLOBAL_CHECKPOINTS
+              value: "{{- $.Values.global.additionalndbconfigurations.ndb.TimeBetweenGlobalCheckpoints | default 2000 }}"
+            - name: NDB_TIME_BETWEEN_EPOCHS
+              value: "{{- $.Values.global.additionalndbconfigurations.ndb.TimeBetweenEpochs | default 100 }}"
+            - name: REMOTE_BACKUP_TRANSFER_THRESHOLD_COUNT
+              value: "{{- $.Values.global.RemoteBackupTransferThresholdCount | default 5 }}"
+            - name: RETRY_REQUEST_BACKUP_TRANSFER_THRESHOLD_COUNT
+              value: "{{- $.Values.global.RetryRequestBackupTransferThresholdCount | default 5 }}"
+            - name: REPLICA_PARALLEL_WORKERS
+              value: "{{- $.Values.global.additionalndbconfigurations.mysqld.replica_parallel_workers | default 0 }}"      
+          ports:
+            - name: http
+              containerPort: {{ $.Values.container.containerPort  }}
+              protocol: TCP
+            - name: sftp
+              containerPort: {{ $.Values.global.sftp.port  }}
+              protocol: TCP
+          {{- if or ($.Values.global.https.enable) ($sftpEnabled) ( and (ne $.Values.initcontainer.image.repository "") ($.Values.enableInitContainerForIpDiscovery) ) }}
+          volumeMounts:
+          {{- if ($.Values.global.https.enable) }}
+          - mountPath: /opt/certificates
+            name: https-cert-file
+          {{- end }}
+          {{- if ($sftpEnabled) }}
+          - mountPath: /opt/sftp/private
+            name: sftp-private-key
+          - mountPath: /opt/sftp/public
+            name: sftp-public-key
+          {{- end }}
+          {{- if and (ne $.Values.initcontainer.image.repository "") ($.Values.enableInitContainerForIpDiscovery) }}
+          - mountPath: /etc/repl
+            name: repl-vol
+          {{- end }}
+          {{- if eq $i 0 }}
+          - mountPath: /var/occnedb
+            name: repl-backuprestore
+          {{- end }}
+          {{- else }}
+          volumeMounts:
+          {{- if eq $i 0 }}
+          - mountPath: /var/occnedb
+            name: repl-backuprestore
+          {{- end }}
+          {{- end }}
+          {{- if eq $i 0 }}
+          resources:
+            {{ toYaml $.Values.grrecoveryresources | indent 12 | trim }}
+          {{- else }}
+          resources:
+            {{ toYaml $.Values.resources | indent 12 | trim }}
+          {{- end }}
+        {{- if eq $i 0 }}
+        {{- if and $.Values.global.inframonitor.pvchealth.enable.repl $.Values.global.inframonitor.pvchealth.enable.all }}
+        - name: {{ $inframonitorcontainername }}
+          imagePullPolicy: {{ $.Values.inframonitor.image.imagePullPolicy }}
+          {{- if ne $.Values.global.repository "" }}
+          image: {{ $.Values.global.repository }}/{{ $.Values.inframonitor.image.repository }}:{{ $.Values.inframonitor.image.tag }}
+          {{- else }}
+          image: {{ $.Values.inframonitor.image.repository }}:{{ $.Values.inframonitor.image.tag }}
+          {{- end }}
+          volumeMounts:
+            - mountPath: /var/occnedb
+              name: repl-backuprestore
+          env:
+            - name: REST_PORT
+              value: "{{ $.Values.global.inframonitor.rest.port }}"
+            - name: LOG_LEVEL
+              value: "{{ $.Values.inframonitor.log.level }}"
+            - name: USEIPV6
+              value: "{{ $.Values.global.useIPv6 }}"
+            - name: PVC_MOUNT_POINT_LIST
+              value: "/var/occnedb"
+            - name: DD_IF
+              value: "{{ $.Values.inframonitor.command.dd_if }}"
+            - name: INSERT_GARBAGE_DATA_INTO_DD_IF
+              value: "{{ $.Values.inframonitor.command.fill_dd_if }}"
+            - name: DD_OF
+              value: "{{ $.Values.inframonitor.command.dd_of }}"
+            - name: DD_BS
+              value: "{{ $.Values.inframonitor.command.dd_bs }}"
+            - name: DD_COUNT
+              value: "{{ $.Values.inframonitor.command.dd_count }}"
+            - name: DD_OFLAG
+              value: "{{ $.Values.inframonitor.command.dd_oflag }}"
+            - name: REGISTER_OWN_HOSTNAME_TO_MONITOR_SVC_ENABLED
+              value: "{{ $.Values.inframonitor.registerToMonitorSvc.enable | default true }}"
+            - name: MONITOR_SVC_HOSTNAME
+              value: {{ template "dbmonitorsvc-service.fullname" ($dbReplSvcDict) }}
+            - name: NAMESPACE
+              value: {{ $.Values.global.namespace }}
+            - name: HOSTNAME_REGISTER_URL
+              value: {{ $.Values.global.inframonitor.rest.hostnameRegisterUrl | default "/db-tier/assign/hostname/replicationsvc" | quote }}
+            - name: MONITOR_SVC_HOSTNAME_PORT
+              value: {{ $.Values.global.inframonitor.rest.hostnameRegisterUrlPort | default 8080 | quote }}
+            - name: REPLICATION_SVC_HOSTNAME
+              value: {{ template "dbreplicationsvc-service.fullname" ($dbReplSvcDict) }}
+            - name: HOSTNAME_REGISTER_INTERVAL
+              value: {{ $.Values.global.inframonitor.rest.hostnameRegisterInterval | default 240 | quote }}
+          resources:
+            {{ toYaml $.Values.inframonitor.resources | indent 12 | trim }}
+        {{- end }}
+        {{- end }}
+      {{- if or ($.Values.global.https.enable) ($sftpEnabled) ( and (ne $.Values.initcontainer.image.repository "") ($.Values.enableInitContainerForIpDiscovery) ) }}
+      volumes:
+      {{- if ($.Values.global.https.enable) }}
+      - name: https-cert-file
+        secret:
+          secretName: {{ $.Values.global.https.secrets.httpscertfile.name }}
+      {{- end }}
+      {{- if ($sftpEnabled) }}
+      - name: sftp-private-key
+        secret:
+          secretName: {{ $.Values.global.sftp.secrets.privatekey.name }}
+      - name: sftp-public-key
+        secret:
+          secretName: {{ $.Values.global.sftp.secrets.publickey.name }}
+      {{- end }}
+      {{- if and (ne $.Values.initcontainer.image.repository "") ($.Values.enableInitContainerForIpDiscovery) }}
+      - name: repl-vol
+        emptyDir: {}
+      {{- end }}
+      {{- if eq $i 0 }}
+      - name: repl-backuprestore
+        persistentVolumeClaim:
+          claimName: "{{ $dbReplSvcDeploy.pvc.name }}"
+      {{- end }}
+      {{- else }}
+      volumes:
+      {{- if eq $i 0 }}
+      - name: repl-backuprestore
+        persistentVolumeClaim:
+          claimName: "{{ $dbReplSvcDeploy.pvc.name }}"
+      {{- end }}
+      {{- end }}
+    {{- with $.Values.tolerations }}
+      tolerations:
+        {{ toYaml . | indent 8 | trim }}
+    {{- end }}
+      securityContext:
+    {{- with $.Values.securityContext }}
+        {{ toYaml . | indent 8 | trim }}
+    {{- end }}
+        fsGroup: 27
+        runAsUser: 27
+        runAsGroup: 27
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,356 @@
+{{ $mgmReplicaCount :=  .Values.global.mgmReplicaCount | int }}
+{{ $sftpEnabled :=  .Values.global.sftp.enable | default true }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ template "ndb.ndbstsname" . }}
+spec:
+  serviceName: {{ template "ndb.subdomain" . }}
+  updateStrategy:
+    type: {{ .Values.global.updateStrategy | default "OnDelete" }}
+  replicas: {{ .Values.global.ndbReplicaCount }}
+  selector:
+    matchLabels:
+      {{- range .Values.selector }}
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
+  template:
+    metadata:
+      annotations: 
+        prometheus.io/scrape: "false"
+        checksum/config: {{ include "mgm.configmap.data" . | sha256sum }}
+        {{- if $.Values.annotations }}
+        {{- range $.Values.annotations }}
+        {{ toYaml . }}
+        {{- end }}
+        {{- end }}
+      labels:
+        {{- include "labels.commonlabels" . | nindent 4 }}
+        {{- range .Values.commonlabels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- range .Values.selector }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- range $value := .Values.anti_pod_affinity.anti_affinity_values }}
+          {{- $.Values.anti_pod_affinity.anti_affinity_key | nindent 8 }}: {{ $value }}
+        {{- end }}
+    spec:
+      automountServiceAccountToken: {{ .Values.global.automountServiceAccountToken }}
+      {{- if .Values.nodeSelector }}
+      nodeSelector:
+        {{- range .Values.nodeSelector }}
+        {{ toYaml . }}
+        {{- end }}
+      {{- end }}
+      {{- if .Values.global.use_affinity_rules }}
+      affinity:
+        {{- if .Values.anti_pod_affinity }}
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: {{ .Values.anti_pod_affinity.anti_affinity_topologyKey }}
+              labelSelector:
+                matchLabels:
+                  {{- range $value := .Values.anti_pod_affinity.anti_affinity_values }}
+                    {{- $.Values.anti_pod_affinity.anti_affinity_key | nindent 18 }}: {{ $value }}
+                  {{- end }}
+        {{- end }}
+        {{- if .Values.use_pod_affinity_rules }}
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: {{ .Values.pod_affinity.pod_affinity_key }}
+                operator: In
+                values:
+                {{- range .Values.anti_pod_affinity.anti_affinity_values }}
+                - {{ . }}
+                {{- end }}
+            topologyKey: {{ .Values.pod_affinity.pod_affinity_topologyKey }}
+        {{- end }}
+        {{- if .Values.nodeAffinity.enable }}
+        nodeAffinity:
+          {{- if .Values.nodeAffinity.requiredDuringScheduling.enable }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+            {{- range $affinitykeyvalue := .Values.nodeAffinity.requiredDuringScheduling.affinitykeyvalues }}
+              - key: {{ $affinitykeyvalue.keyname | quote }}
+                operator: In
+                values: 
+                {{- range $affinitykeyvalue.keyvalues }}
+                - {{ . }}
+                {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.nodeAffinity.preferredDuringScheduling.enable }}
+          preferredDuringSchedulingIgnoredDuringExecution:
+          {{- range $expression := .Values.nodeAffinity.preferredDuringScheduling.expressions }}
+          - weight: {{ $expression.weight }}
+            preference:
+              matchExpressions:
+              {{- range $affinitykeyvalue := $expression.affinitykeyvalues }}
+              - key: {{ $affinitykeyvalue.keyname | quote }}
+                operator: In
+                values: 
+                {{- range $affinitykeyvalue.keyvalues }}
+                - {{ . }}
+                {{- end }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      containers:
+      - name: {{ template "ndb.containerfullname" . }}
+        imagePullPolicy: {{ .Values.global.image.imagePullPolicy }}
+        {{- if ne .Values.global.repository "" }}
+        image: {{ .Values.global.repository }}/{{ .Values.global.image.name }}:{{ .Values.global.image.tag }}
+        {{- else }}
+        image: {{ .Values.global.image.name }}:{{ .Values.global.image.tag }}
+        {{- end }}
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.global.ndb.port }}
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+        startupProbe:
+          exec:
+            command:
+              - /bin/bash
+              - -c
+              - |
+                {{- .Files.Get "files/probes_gen.sh" | nindent 16 }}
+                {{- .Files.Get "files/probes.sh" | nindent 16 }}
+                probe_startup
+          initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+          periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+          failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+          successThreshold: {{ .Values.startupProbe.successThreshold }}
+        readinessProbe:
+          exec:
+            command:
+              - /bin/bash
+              - -c
+              - |
+                {{- .Files.Get "files/probes_gen.sh" | nindent 16 }}
+                {{- .Files.Get "files/probes.sh" | nindent 16 }}
+                probe_readiness {{ .Values.readinessProbe.successThreshold }}
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+          successThreshold: {{ .Values.readinessProbe.successThreshold }}
+        volumeMounts:
+        - mountPath: {{ .Values.global.ndbconfigurations.ndb.BaseDataDir | quote }}
+          name: pvc-{{ template "ndb.ndbstsnamewithoutprefix" . }}
+        {{- if .Values.global.ndb.use_separate_backup_disk }}
+        - mountPath: {{ .Values.global.ndb.separateBackupDataPath | quote }}
+          name: pvc-backup-{{ template "ndb.ndbstsnamewithoutprefix" . }}
+        {{- end }}
+        env:
+          - name: NDB_MGMD_CONNECTSTRING
+            value: '
+              {{- $mgmstsname := (include "ndb.mgmtstsname" .) }}
+              {{- range untilStep 0 $mgmReplicaCount 1 }}
+                {{- if ne . 0 -}}
+                  ,
+                {{- end }}
+                {{- $mgmstsname }}-{{ . }}.{{ template "mgm.subdomain" . }}.
+                  {{- $.Values.global.namespace }}.svc.{{ $.Values.global.domain }}:{{ $.Values.global.mgm.port }}
+              {{- end }}'
+          - name: NDB_MTD_BASE_DATADIR
+            value: {{ .Values.global.ndbconfigurations.ndb.BaseDataDir | quote }}
+          - name: NDB_MTD_DATADIR
+            value: {{ .Values.global.ndbconfigurations.ndb.DataDir | quote }}
+          - name: NDB_MTD_USE_SEPARATE_DISK_BACKUP
+            value: {{ .Values.global.ndb.use_separate_backup_disk | quote }}
+          - name: NDB_MTD_BACKUPDIR
+            value: {{ .Values.global.ndbconfigurations.ndb.BackupDataDir | quote }}
+          - name: NDB_MTD_SEPARATE_BACKUPDATA_DIR
+            value: {{ .Values.global.ndb.separateBackupDataPath | quote }}
+          - name: NDB_MTD_NO_OF_DATA_NODES
+            value: {{ .Values.global.ndbReplicaCount | quote }}
+          - name: NDB_MTD_NO_OF_REPLICAS
+            value: {{ .Values.global.ndbconfigurations.ndb.NoOfReplicas | quote }}
+          {{- if .Values.global.useasm }}
+          - name: USE_NDB_NODEID
+            value: "1"
+          {{- end }}
+          - name: NDB_MGM_SUBDOMAIN
+            value: {{ template "mgm.subdomain" . }}
+          - name: NDB_MGMD_PORT
+            value: "{{ .Values.global.mgm.port }}"
+          - name: NDB_WAIT_TIMEOUT
+            value: "{{ .Values.ndbWaitTimeout | default 600 }}"
+          - name: NDB_MTD_INITIALIZED_FILE
+            value: "ndb-initialized"
+          - name: NDB_MTD_USE_INITIAL
+            value: "{{ .Values.use_option_initial | default false }}"
+        {{- if .Values.waitforndbmgm }}
+        command: 
+          - /bin/bash
+          - -ec
+          - |
+            if [[ -f "${NDB_MTD_BASE_DATADIR}/${NDB_MTD_INITIALIZED_FILE}" ]]; then
+                echo "[Entrypoint] NOT first time running. Skipping the ndb_mgmd wait process.."
+            else
+                echo "[Entrypoint] Waiting for the ndb_mgmd pods to become online"
+                ndb_mgmd_process_online=false
+                waitCount=0
+                while ! ${ndb_mgmd_process_online} ; do
+                    {
+                        sleep 5
+                        let "waitCount+=5"
+                        if [ ${waitCount} -gt ${NDB_WAIT_TIMEOUT} ]; then
+                            if ! ${ndb_mgmd_process_online} ; then
+                                echo "[Entrypoint] ERROR: $(date) - Timeout in waiting for ndb_mgmd pods to become online."
+                            fi
+                            break
+                        fi
+                        if ! ndb_mgm ${NDB_MGM_SUBDOMAIN} ${NDB_MGMD_PORT} -e "show" | grep -q "\[ndb_mgmd(MGM)\]"; then
+                            echo "[Entrypoint] ERROR: $(date) - [ndb_mgmd(MGM)] group not present"
+                            ndb_mgm ${NDB_MGM_SUBDOMAIN} ${NDB_MGMD_PORT} -e "show" | grep "\[ndb_mgmd(MGM)\]"
+                            continue
+                        fi
+                        ndb_mgmd_process_online=true
+                    } || {
+                        echo "[Entrypoint] ERROR: $(date) - Exception occurred while checking for ndb_mgmd status...retrying..!!"
+                    }
+                done
+            fi
+            /entrypoint.sh ndbmtd
+        {{- else }}
+        command: ["/entrypoint.sh"]
+        args: ["ndbmtd"]
+        {{- end }}
+        resources:
+          {{ toYaml .Values.resources | indent 10 | trim }}
+      - name: {{ template "ndb.backupsidecarcontainerfullname" . }}
+        imagePullPolicy: {{ .Values.sidecar.image.imagePullPolicy }}
+        {{- if ne .Values.global.repository "" }}
+        image: {{ .Values.global.repository }}/{{ .Values.sidecar.image.repository }}:{{ .Values.sidecar.image.tag }}
+        {{- else }}
+        image: {{ .Values.sidecar.image.repository }}:{{ .Values.sidecar.image.tag }}
+        {{- end }}
+        volumeMounts:
+        - mountPath: {{ .Values.global.ndbconfigurations.ndb.BaseDataDir | quote }}
+          name: pvc-{{ template "ndb.ndbstsnamewithoutprefix" . }}
+        {{- if .Values.global.ndb.use_separate_backup_disk }}
+        - mountPath: {{ .Values.global.ndb.separateBackupDataPath | quote }}
+          name: pvc-backup-{{ template "ndb.ndbstsnamewithoutprefix" . }}
+        {{- end }}
+        {{- if $sftpEnabled }}
+        - mountPath: /opt/sftp/private
+          name: sftp-private-key
+        - mountPath: /opt/sftp/public
+          name: sftp-public-key
+        {{- end }}
+        env:
+          - name: CLUSTER_ID
+            value: "{{ .Values.global.siteid }}"
+          - name: MYSQL_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.global.secrets.dbmonitorsecret }}
+                key: mysql_username_for_metrics
+          - name: MYSQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.global.secrets.dbmonitorsecret }}
+                key: mysql_password_for_metrics  
+          - name: BACKUP_ENCRYPTION_ENABLE
+            value: "{{ .Values.global.backupencryption.enable}}" 
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: MYSQL_DBTIER_CONNECTIVITY_SERVICE
+            value: "{{ .Values.sidecar.mysql.host }}"
+          - name: MYSQL_PORT
+            value: "{{ .Values.sidecar.mysql.port }}"
+          - name: EXCE_INTERVAL
+            value: "{{ .Values.sidecar.execInterval }}"
+          - name: LOG_LEVEL
+            value: "{{ .Values.sidecar.log.level }}"
+          - name: REPL_SFTP_PORT
+            value: "{{ .Values.global.sftp.port }}"
+        resources:
+          {{ toYaml .Values.sidecar.resources | indent 10 | trim }}
+      {{- if and .Values.global.inframonitor.pvchealth.enable.ndb .Values.global.inframonitor.pvchealth.enable.all }}
+      - name: {{ template "inframonitorsidecarcontainer.fullname" . }}
+        imagePullPolicy: {{ .Values.inframonitor.image.imagePullPolicy }}
+        {{- if ne .Values.global.repository "" }}
+        image: {{ .Values.global.repository }}/{{ .Values.inframonitor.image.repository }}:{{ .Values.inframonitor.image.tag }}
+        {{- else }}
+        image: {{ .Values.inframonitor.image.repository }}:{{ .Values.inframonitor.image.tag }}
+        {{- end }}
+        volumeMounts:
+        - mountPath: {{ .Values.global.ndbconfigurations.ndb.BaseDataDir | quote }}
+          name: pvc-{{ template "ndb.ndbstsnamewithoutprefix" . }}
+        {{- if .Values.global.ndb.use_separate_backup_disk }}
+        - mountPath: {{ .Values.global.ndb.separateBackupDataPath | quote }}
+          name: pvc-backup-{{ template "ndb.ndbstsnamewithoutprefix" . }}
+        {{- end }}
+        env:
+          - name: REST_PORT
+            value: "{{ .Values.global.inframonitor.rest.port }}"
+          - name: LOG_LEVEL
+            value: "{{ .Values.inframonitor.log.level }}"
+          - name: USEIPV6
+            value: "{{ .Values.global.useIPv6 }}"
+          {{- if .Values.global.ndb.use_separate_backup_disk }}
+          - name: PVC_MOUNT_POINT_LIST
+            value: "{{ .Values.global.ndbconfigurations.ndb.BaseDataDir }};{{ .Values.global.ndb.separateBackupDataPath }}"
+          {{- else }}
+          - name: PVC_MOUNT_POINT_LIST
+            value: "{{ .Values.global.ndbconfigurations.ndb.BaseDataDir }}"          
+          {{- end }}
+          - name: DD_IF
+            value: "{{ .Values.inframonitor.command.dd_if }}"
+          - name: INSERT_GARBAGE_DATA_INTO_DD_IF
+            value: "{{ .Values.inframonitor.command.fill_dd_if }}"
+          - name: DD_OF
+            value: "{{ .Values.inframonitor.command.dd_of }}"
+          - name: DD_BS
+            value: "{{ .Values.inframonitor.command.dd_bs }}"
+          - name: DD_COUNT
+            value: "{{ .Values.inframonitor.command.dd_count }}"
+          - name: DD_OFLAG
+            value: "{{ .Values.inframonitor.command.dd_oflag }}"
+        resources:
+          {{ toYaml .Values.inframonitor.resources | indent 10 | trim }}
+      {{- end }}
+      {{- if $sftpEnabled }}
+      volumes:
+      - name: sftp-private-key
+        secret:
+          secretName: {{ .Values.global.sftp.secrets.privatekey.name }}
+      - name: sftp-public-key
+        secret:
+          secretName: {{ .Values.global.sftp.secrets.publickey.name }}
+      {{- end }}
+      securityContext:
+        fsGroup: 27
+  volumeClaimTemplates:
+  - metadata:
+      name: pvc-{{ template "ndb.ndbstsnamewithoutprefix" . }}
+    spec:
+      accessModes: [ {{ .Values.global.accessModes | quote }} ]
+      storageClassName: "{{ .Values.global.storageClassName }}"
+      resources:
+        requests:
+          storage: "{{ .Values.global.ndb.ndbdisksize }}"
+  {{- if .Values.global.ndb.use_separate_backup_disk }}
+  - metadata:
+      name: pvc-backup-{{ template "ndb.ndbstsnamewithoutprefix" . }}
+    spec:
+      accessModes: [ {{ .Values.global.accessModes | quote }} ]
+      storageClassName: "{{ .Values.global.storageClassName }}"
+      resources:
+        requests:
+          storage: "{{ .Values.global.ndb.ndbbackupdisksize }}"
+  {{- end }}

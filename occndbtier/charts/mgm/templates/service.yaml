@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "mgm.subdomain" . }}
+  labels:
+    {{- include "labels.commonlabels" . }}
+    {{- range .Values.commonlabels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if .Values.service.labels }}
+      {{- range .Values.service.labels }}
+        {{- toYaml . | nindent 4 }}
+      {{- end }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  {{- if .Values.global.useIPv6 }}
+  ipFamilyPolicy: {{ .Values.global.services.ipFamilyPolicy }}
+  ipFamilies:
+      - {{ .Values.global.services.primaryDualStackIpFamily }}
+  {{- else }}
+  ipFamilyPolicy: {{ .Values.global.services.ipFamilyPolicy }}
+  ipFamilies:
+      - IPv4
+  {{- end }}
+  clusterIP: None
+  selector:
+    {{- range .Values.selector }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  ports:
+  - port: {{ .Values.global.mgm.port }}
+    name: tcp
+  {{- if and .Values.global.inframonitor.pvchealth.enable.mgm .Values.global.inframonitor.pvchealth.enable.all }}
+  - port: {{ .Values.global.inframonitor.rest.port }}
+    targetPort: {{ .Values.global.inframonitor.service.containerPort  }}
+    protocol: TCP
+    appProtocol: {{ .Values.global.inframonitor.service.appProtocol }}
+    name: {{ .Values.global.inframonitor.service.portName }}
+  {{- end }}
+  publishNotReadyAddresses: true

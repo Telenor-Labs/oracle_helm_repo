@@ -1,0 +1,92 @@
+{{ $mgmReplicaCount :=  .Values.global.mgmReplicaCount | int }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Release.Name }}-post-rollback-hook"
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+  annotations:
+    "helm.sh/hook": post-rollback
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    metadata:
+      name: "{{ .Release.Name }}-post-rollback-hook"
+      labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+        helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    {{- if .Values.mgm.annotations }}
+      annotations:
+        {{- range .Values.mgm.annotations }}
+        {{ toYaml . }}
+        {{- end }}
+    {{- end }}
+    spec:
+    {{- if (.Values.global.serviceAccountForUpgrade.name | or .Values.global.serviceAccountForUpgrade.create) }}
+      serviceAccountName: {{ template "cndbtier.upgrade.serviceaccount" . }}
+    {{- else if or (ne .Values.global.serviceAccount.name "") (.Values.global.serviceAccount.create) }}
+      serviceAccountName: {{ template "cndbtier.serviceaccount" . }}
+    {{- end }}
+      securityContext:
+        runAsUser: 27
+        runAsGroup: 27
+      restartPolicy: Never
+      containers:
+      - name: "{{ .Release.Name }}-post-rollback-job"
+        {{- if ne .Values.global.repository "" }}
+        image: {{ .Values.global.repository }}/{{ .Values.postRollbackJob.image.repository }}:{{ .Values.postRollbackJob.image.tag }}
+        {{- else }}
+        image: {{ .Values.postRollbackJob.image.repository }}:{{ .Values.postRollbackJob.image.tag }}
+        {{- end }}
+        imagePullPolicy: {{ .Values.postRollbackJob.image.pullPolicy }}
+        env:
+          - name: OCCNE_NAMESPACE
+            value: {{ $.Values.global.namespace }}
+          - name: NDB_MGMD_CONNECTSTRING
+            value: '
+              {{- $mgmstsname := (include "api.mgmtstsname" .) }}
+              {{- range untilStep 0 $mgmReplicaCount 1 }}
+                {{- if ne . 0 -}}
+                  ,
+                {{- end }}
+                {{- $mgmstsname }}-{{ . }}.{{ template "mgm.subdomain" . }}.
+                  {{- $.Values.global.namespace }}.svc.{{ $.Values.global.domain }}:{{ $.Values.global.mgm.port }}
+              {{- end }}'
+          - name: NDB_MGMD_PODS
+            value: '
+              {{- $delimiter := " " }}
+              {{- $mgmstsname := (include "api.mgmtstsname" .) }}
+              {{- range untilStep 0 $mgmReplicaCount 1 }}
+                {{- if ne . 0 -}}
+                  {{- $delimiter }}
+                {{- end }}
+                {{- $mgmstsname }}-{{ . }}
+              {{- end }}'
+        command:
+          - /bin/bash
+          - -ec
+          - |
+            {{- if .Values.global.useasm }}
+            trap "curl --max-time 2 -s -f -XPOST {{ .Values.global.istioSidecarQuitUrl }}" EXIT
+            while ! curl -s -f {{ .Values.global.istioSidecarReadyUrl }}; do sleep 1; done
+            sleep 2
+            {{- end }}
+            {{- .Files.Get "files/hooks.sh" | nindent 12 }}
+            echo "INFO: $($LOG_DATE_CMD) - Starting post-rollback hook..."
+            {{- if (.Values.global.serviceAccountForUpgrade.name | or .Values.global.serviceAccountForUpgrade.create) }}
+            API_EMP_TRY_SLOTS_NODE_IDS="{{ template "apiemptyslots" . }}"
+            NDB_STS_NAME="{{ template "ndb.ndbstsname" . }}"
+            API_STS_NAME="{{ template "api.apistsname" . }}"
+            APP_STS_NAME="{{ template "ndbapp.apistsname" . }}"
+            NDBAPP_START_NODE_ID="{{ .Values.global.ndbapp.startNodeId }}"
+            NDBAPP_REPLICA_MAX_COUNT="{{ .Values.global.ndbappReplicaMaxCount }}"
+            main --post-rollback
+            {{- end }}
+            echo "INFO: $($LOG_DATE_CMD) - Post-rollback hook finished"
+        resources:
+{{ toYaml .Values.postUpgradeJob.resources | indent 10 }}

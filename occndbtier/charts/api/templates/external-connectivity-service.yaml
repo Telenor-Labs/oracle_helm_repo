@@ -1,0 +1,47 @@
+# Service for external connectivity to api nodes.
+# It is used for communications from outside kubernetes cluster.
+{{- $node := .Values.global.api }}
+{{- if $.Values.ndbapp.externalconnectivityService.enable }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.ndbapp.externalconnectivityService.name}}
+  labels:
+    {{- include "labels.commonlabels" . }}
+    {{- range .Values.commonlabels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if $.Values.ndbapp.externalconnectivityService.labels }}
+      {{- range $.Values.ndbapp.externalconnectivityService.labels }}
+        {{- toYaml . | nindent 4 }}
+      {{- end }}
+    {{- end }}
+  {{- with $.Values.ndbapp.externalconnectivityService.annotations }}
+  annotations:
+    {{- range $key, $value := $.Values.ndbapp.externalconnectivityService.annotations }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  {{- end }}
+spec:
+  type: {{ $.Values.ndbapp.externalconnectivityService.type | default "LoadBalancer" }}
+  {{- if eq $.Values.ndbapp.externalconnectivityService.type "LoadBalancer" }}
+  {{- if ne $.Values.ndbapp.externalconnectivityService.loadBalancerIP ""}}
+  loadBalancerIP: {{ $.Values.ndbapp.externalconnectivityService.loadBalancerIP | quote }}
+  {{- end }}
+  {{- end }}
+  {{- if .Values.global.useIPv6 }}
+  ipFamilyPolicy: {{ .Values.global.services.ipFamilyPolicy }}
+  ipFamilies:
+      - {{ .Values.global.services.primaryDualStackIpFamily }}
+  {{- else }}
+  ipFamilyPolicy: {{ .Values.global.services.ipFamilyPolicy }}
+  ipFamilies:
+      - IPv4
+  {{- end }}
+  selector:
+    isForConnectivityService: "true"
+  ports:
+  - port: {{ $node.port }}
+    protocol: TCP
+    name: tcp
+{{- end }}

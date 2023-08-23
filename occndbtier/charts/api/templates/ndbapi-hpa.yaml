@@ -1,0 +1,43 @@
+{{- if (ne 0 (int .Values.global.ndbappReplicaCount)) }}
+{{- if or (.Values.ndbapp.horizontalPodAutoscaler.cpu.enabled) (.Values.ndbapp.horizontalPodAutoscaler.memory.enabled) }}
+{{- if .Capabilities.APIVersions.Has "autoscaling/v2" }}
+apiVersion: autoscaling/v2
+{{- else }}
+apiVersion: autoscaling/v2beta2
+{{- end }}
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ template "ndbapp.ndbappstsnamewithoutprefix" . }}
+  namespace: {{ .Values.global.namespace }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: {{ template "ndbapp.apistsname" . }}
+{{- if and (or (ne .Values.global.serviceAccount.name "") (.Values.global.serviceAccount.create)) (.Values.global.autoscaling.ndbapp.enabled) }}
+  maxReplicas: {{ .Values.global.ndbappReplicaMaxCount | int }}
+  minReplicas: {{ .Values.global.ndbappReplicaCount | int }}
+{{- else }}
+  maxReplicas: {{ .Values.global.ndbappReplicaCount | int }}
+  minReplicas: {{ .Values.global.ndbappReplicaCount | int }}
+{{- end }}
+  metrics:
+{{- if .Values.ndbapp.horizontalPodAutoscaler.cpu.enabled }}
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.ndbapp.horizontalPodAutoscaler.cpu.averageUtilization | int }}
+{{- end }}
+{{- if .Values.ndbapp.horizontalPodAutoscaler.memory.enabled }}
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.ndbapp.horizontalPodAutoscaler.memory.averageUtilization | int }}
+{{- end }}
+{{- end }}
+{{- end }}
+

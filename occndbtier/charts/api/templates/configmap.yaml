@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysqldconfig
+  labels:
+    {{- include "labels.commonlabels" . }}
+    {{- range .Values.commonlabels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- range .Values.selector }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+data:
+  my.cnf: |-
+    {{- $g := .Values.global }}
+    [mysqld]
+    ndbcluster=on
+    ndb-connectstring=
+      {{- $mgmstsname := (include "api.mgmtstsname" .) }}
+      {{- range untilStep 0 ($g.mgmReplicaCount | int) 1 }}
+        {{- if ne . 0 -}}
+          ,
+        {{- end }}
+        {{- $i := . }}
+        {{- with $g }}
+          {{- $mgmstsname }}-{{ $i }}.{{ template "mgm.subdomain" . }}.{{ .namespace }}.svc.{{ .domain }}:{{ .mgm.port }}
+        {{- end }}
+      {{- end }}
+
+    {{ with $g.ndbconfigurations.api -}}
+    # binlog options
+    ndb_log_bin={{ .all_row_changes_to_bin_log | default 0 }}
+    binlog-format={{ .binlog_format }}
+    log-bin={{ .BaseDataDir }}/{{ .binlogdir }}/{{ .log_bin }}
+    binlog-expire-logs-seconds={{ .binlog_expire_logs_seconds | default 86400 }}
+    max_binlog_size={{ .max_binlog_size | int64 }}
+    ndb-log-update-as-write={{ .ndb_log_update_as_write | default 0 }}
+    ndb-log-apply-status={{ .ndb_log_apply_status | default 0 }}
+    log_replica_updates={{ .log_replica_updates }}
+    wait_timeout={{ .wait_timeout | default 600 }}
+    interactive_timeout={{ .interactive_timeout | default 600 }}
+
+
+    # other geo-replication options
+    relay_log_index={{ .BaseDataDir }}/{{ .datadir }}/{{ .relay_log_index }}
+    relay_log={{ .BaseDataDir }}/{{ .datadir }}/{{ .relay_log }}
+    skip-replica-start={{ .skip_slave_start }}
+
+    # db options
+    user={{ .user | default "mysql" }}
+    auto-increment-increment={{ .auto_increment_increment | default 2}}
+    auto-increment-offset={{ .auto_increment_offset | default 2 }}
+    log_error_verbosity={{ .log_error_verbosity | default 3 }}
+
+    # other server options
+    max_connections={{ .max_connections | default 2047 }}
+    datadir={{ .BaseDataDir }}/{{ .datadir }}
+    pid-file={{ .BaseDataDir }}/{{ .datadir }}/{{ .pid_file }}
+    log-error={{ .BaseDataDir }}/{{ .datadir }}/{{ .log_error }}
+    {{- end }}
+    server_id=SQLSERVERID
+    ndb_nodeid=SQLNDBNODEID
+    general_log=GENERALLOG
+    port={{ $g.api.port | default 3306 }}
+    default-storage-engine=NDBCLUSTER
+    symbolic_links=0
+    socket=/tmp/mysql.sock
+    character-set-server=utf8
+    collation-server=utf8_general_ci
+    default-authentication-plugin=mysql_native_password
+    
+    {{- range $key, $value := $g.additionalndbconfigurations.mysqld }}
+    {{ $key }}={{ $value }}
+    {{- end }}

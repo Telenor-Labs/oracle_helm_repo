@@ -1,0 +1,33 @@
+{{- if (ne 0 (int .Values.global.apiReplicaCount)) }}
+{{ range $i, $dbReplSvcDeploy := .Values.dbreplsvcdeployments }}
+{{ $dbReplSvcDict := dict "Values" $.Values  "Chart" $.Chart "dbReplSvcDeploy" $dbReplSvcDeploy "Release" $.Release }}
+{{ if $dbReplSvcDeploy.enabled }}
+{{ if $dbReplSvcDeploy.podDisruptionBudget.enabled }}
+---
+{{- if $.Capabilities.APIVersions.Has "policy/v1" }}
+apiVersion: policy/v1
+{{- else }}
+apiVersion: policy/v1beta1
+{{- end }}
+kind: PodDisruptionBudget
+metadata:
+  name: {{ template "dbreplicationsvc-pdb.fullname" ($dbReplSvcDict) }}
+  labels:
+    app: {{ template "db-replication-svc.name" ($dbReplSvcDict) }}
+    chart: {{ template "db-replication-svc.chart" ($dbReplSvcDict) }}
+    release: {{ $.Release.Name }}
+    heritage: {{ $.Release.Service }}
+    {{- include "labels.commonlabels" ($dbReplSvcDict) }}
+    {{- with $dbReplSvcDeploy.service.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  maxUnavailable: {{ $dbReplSvcDeploy.podDisruptionBudget.maxUnavailable }}
+  selector:
+    matchLabels:
+      app: {{ template "db-replication-svc.name" ($dbReplSvcDict) }}
+      release: {{ $.Release.Name }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

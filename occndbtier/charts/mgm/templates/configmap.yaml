@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ndbmgmdconfig
+  labels:
+    {{- include "labels.commonlabels" . }}
+    {{- range .Values.commonlabels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- range .Values.selector }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+data: {{- include "mgm.configmap.data" . | indent 0 }}

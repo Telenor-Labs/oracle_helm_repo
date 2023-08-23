@@ -1,0 +1,323 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Release.Name }}-node-connection-test"
+  labels:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/component: microService
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    category: occnecndbtier
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  backoffLimit: 0
+  template:
+  {{- if .Values.test.annotations }}
+    metadata:
+      annotations:
+        {{- range .Values.test.annotations }}
+        {{ toYaml . }}
+        {{- end }}
+  {{- end }}
+    spec:
+{{- if or (ne .Values.global.serviceAccount.name "") (.Values.global.serviceAccount.create) }}
+      serviceAccountName: {{ template "cndbtier.serviceaccount" . }}
+{{- end }}
+      securityContext:
+        runAsUser: 27
+        runAsGroup: 27
+      containers:
+      - name: {{ .Release.Name }}-node-connection-test
+        {{- if ne .Values.global.repository "" }}
+        image: {{ .Values.global.repository }}/{{ .Values.test.image.repository }}:{{ .Values.test.image.tag }}
+        {{- else }}
+        image: {{ .Values.test.image.repository }}:{{ .Values.test.image.tag }}
+        {{- end }}
+        imagePullPolicy: {{ .Values.test.image.pullPolicy }}
+        env:
+        {{- if ($.Values.global.https.enable) }}
+          - name: HTTPS_CERTIFICATE_PATH
+            value: "/home/mysql/certificates"
+          - name: HTTPS_CERTIFICATE_PATH_CURL
+            value: "/home/mysql/curl_certificates"
+          - name: HTTPS_CERTIFICATE_FILE
+            value: "keystore"
+          - name: HTTPS_CERTIFICATE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ $.Values.global.https.secrets.httpscertcred.name }}
+                key: keystorepassword
+          - name: HTTPS_CERTIFICATE_ALIAS
+            valueFrom:
+              secretKeyRef:
+                name: {{ $.Values.global.https.secrets.httpscertcred.name }}
+                key: keyalias
+          - name: HTTPS_CERTIFICATE_TYPE
+            valueFrom:
+              secretKeyRef:
+                name: {{ $.Values.global.https.secrets.httpscertcred.name }}
+                key: keystoretype
+        {{- end }}
+          - name: HTTPS_ENABLE
+            value: "{{ $.Values.global.https.enable }}"
+        command:
+          - /bin/bash
+          - -c
+          - |
+{{- if .Values.global.useasm }}
+            trap "curl --max-time 2 -s -f -XPOST {{ .Values.global.istioSidecarQuitUrl }}" EXIT
+            while ! curl -s -f {{ .Values.global.istioSidecarReadyUrl }}; do sleep 1; done
+            sleep 2
+{{- end }}
+            {{- .Files.Get "files/k8s.sh" | nindent 12 }}
+            apiemptryslotsnodeids="{{ template "apiemptyslots" . }}"
+            if [ -z "${apiemptryslotsnodeids}" ]; then
+                apiemptryslotsnodeids="NOEMPTYSLOTNODEIDS"
+            fi
+{{- if or (ne .Values.global.serviceAccount.name "") (.Values.global.serviceAccount.create) }}
+{{- if (ne 0 (int .Values.global.ndbappReplicaCount)) }}
+            get_ndbapp_current_replica_count() {
+                local ndbappReplicaCurrentCount=$(kubectl get sts -n {{ .Values.global.namespace }} | grep {{ template "ndbapp.apistsname" . }} | awk '{print $2}' | awk -F '/' '{print $2}')
+                echo $ndbappReplicaCurrentCount
+            }
+            get_ndbapp_ignore_indexes() {
+                local startNodeId={{ .Values.global.ndbapp.startNodeId }}
+                local ndbappReplicaCurrentCount=$(get_ndbapp_current_replica_count)
+                local ndbappReplicaMaxCount={{ .Values.global.ndbappReplicaMaxCount }}
+
+                local ignoreIndexes=""
+                local skip_counter=0
+                if [[ $ndbappReplicaCurrentCount -ne $ndbappReplicaMaxCount ]]; then
+                    for index in $(seq 0 $(($ndbappReplicaMaxCount - 1))); do
+                        if [[ $skip_counter -ge $ndbappReplicaCurrentCount ]]; then
+                            if [[ -z $ignoreIndexes ]]; then
+                                ignoreIndexes+="id\=$(($index+$startNodeId))"
+                            else
+                                ignoreIndexes+="\|id\=$(($index+$startNodeId))"
+                            fi
+                        fi
+                        skip_counter=$(($skip_counter+1))
+                    done
+                fi
+                if [[ -z $ignoreIndexes ]]; then
+                    echo "NA"
+                else
+                    echo $ignoreIndexes
+                fi
+            }
+{{- end }}
+            is_ndb_pods_running() {
+                {
+                    mgm_running_pod_count=$(kubectl get pods -n {{ .Values.global.namespace }} | grep {{ template "mgm.mgmtstsnamewithoutprefix" . }} | grep Running | wc -l)
+                    ndb_running_pod_count=$(kubectl get pods -n {{ .Values.global.namespace }} | grep {{ template "ndb.ndbstsnamewithoutprefix" . }} | grep Running | wc -l)
+                    api_running_pod_count=$(kubectl get pods -n {{ .Values.global.namespace }} | grep {{ template "api.apistsnamewithoutprefix" . }} | grep Running | wc -l)
+                    ndbapp_running_pod_count=$(kubectl get pods -n {{ .Values.global.namespace }} | grep {{ template "ndbapp.ndbappstsnamewithoutprefix" . }} | grep Running | wc -l)
+                    if [ ${mgm_running_pod_count} -ne {{ .Values.global.mgmReplicaCount }} ] || [ ${ndb_running_pod_count} -ne {{ .Values.global.ndbReplicaCount }} ] || [ ${api_running_pod_count} -ne {{ .Values.global.apiReplicaCount }} ] || [ ${ndbapp_running_pod_count} -ne {{ .Values.global.ndbappReplicaCount }} ]; then
+                        echo "ERROR: $(date) - Required no of NDB pods are not in Running State"
+                        return 0
+                    else
+                        echo "INFO: $(date) - All the NDB pods are there in the Running State"
+                        kubectl get pods -n {{ .Values.global.namespace }} | grep "{{ template "mgm.mgmtstsnamewithoutprefix" . }}\|{{ template "ndb.ndbstsnamewithoutprefix" . }}\|{{ template "api.apistsnamewithoutprefix" . }}"
+                        return 1
+                    fi
+                } || {
+                    echo "INFO: $(date) - Error in executing kubectl commands"
+                    return 0
+                }
+            }
+{{- end }}
+            is_ndb_cluster_healthy() {
+                {
+                    if ! ndb_mgm {{ template "mgm.subdomain" . }} {{ .Values.global.mgm.port }} -e "show" | grep -q "\[mysqld(API)\]"; then
+                        echo "ERROR: $(date) - [mysqld(API)] group not present"
+                        return 0
+                    fi
+{{- if and (or (ne .Values.global.serviceAccount.name "") (.Values.global.serviceAccount.create)) (ne 0 (int .Values.global.ndbappReplicaCount)) }}
+                    ignoreIndexes=$(get_ndbapp_ignore_indexes)
+                    if ndb_mgm {{ template "mgm.subdomain" . }} {{ .Values.global.mgm.port }} -e "show" | grep -v "${apiemptryslotsnodeids}" | grep -v $ignoreIndexes | grep -q "accepting connect\|not connected"; then
+                        echo "ERROR: $(date) - Not all ndb nodes are connected"
+                        ndb_mgm {{ template "mgm.subdomain" . }} {{ .Values.global.mgm.port }} -e "show" | grep -v "${apiemptryslotsnodeids}" | grep -v $ignoreIndexes | grep "accepting connect\|not connected"
+                        return 0
+                    fi
+{{- else }}
+                    if ndb_mgm {{ template "mgm.subdomain" . }} {{ .Values.global.mgm.port }} -e "show" | grep -v "${apiemptryslotsnodeids}" | grep -q "accepting connect\|not connected"; then
+                        echo "ERROR: $(date) - Not all ndb nodes are connected"
+                        ndb_mgm {{ template "mgm.subdomain" . }} {{ .Values.global.mgm.port }} -e "show" | grep -v "${apiemptryslotsnodeids}" | grep "accepting connect\|not connected"
+                        return 0
+                    fi
+{{- end }}
+                    echo "INFO: $(date) - All ndb nodes are connected"
+                    ndb_mgm {{ template "mgm.subdomain" . }} {{ .Values.global.mgm.port }} -e "show"
+                    return 1
+                } || {
+                    echo "ERROR: $(date) - Error in executing ndb_mgm cmd"
+                    return 0
+                }
+            }
+            {{- if ($.Values.test.statusCheck.monitor.enable) }}
+            is_db_monitor_svc_healthy() {
+                {
+                    if ! $(curl http://{{ template "dbmonitorsvc-service.fullname" . }}:{{ index .Values "db-monitor-svc" "service" "actuatorPort" }}/actuator/health | grep -q "\"status\":\"UP\""); then
+                        echo "ERROR: $(date) - db-monitor-svc not healthy"
+                        return 0
+                    fi
+
+                    http_status_code=$(curl -I -L http://{{ template "dbmonitorsvc-service.fullname" . }}:{{ index .Values "db-monitor-svc" "service" "statusApiPort" }}/db-tier/status/cluster/local/realtime | grep HTTP | awk '{print $2}')
+
+                    if [[ "${http_status_code}" != "200" ]]; then
+                        echo "ERROR: $(date) - db-monitor-svc not healthy"
+                        curl -v http://{{ template "dbmonitorsvc-service.fullname" . }}:{{ index .Values "db-monitor-svc" "service" "statusApiPort" }}/db-tier/status/cluster/local/realtime
+                        return 0
+                    fi
+
+                    echo "INFO: $(date) - db-monitor-svc not healthy"
+                    echo curl http://{{ template "dbmonitorsvc-service.fullname" . }}:{{ index .Values "db-monitor-svc" "service" "actuatorPort" }}/actuator/health
+                    curl http://{{ template "dbmonitorsvc-service.fullname" . }}:{{ index .Values "db-monitor-svc" "service" "actuatorPort" }}/actuator/health
+                    echo ""
+                    return 1
+                } || {
+                    echo "ERROR: $(date) - Error in executing curl cmd"
+                    return 0
+                }
+            }
+            {{- end }}
+            
+            {{- if ($.Values.test.statusCheck.replication.enable) }}
+            is_db_replication_svc_healthy() {
+                cndbtier_namespace_name="{{ .Values.global.namespace }}"
+{{- if or (ne .Values.global.serviceAccount.name "") (.Values.global.serviceAccount.create) }}
+{{ range $i, $dbReplSvcDeploy := index .Values "db-replication-svc" "dbreplsvcdeployments" }}
+{{ $dbReplSvcDict := dict "Values" $.Values "dbReplSvcDeploy" $dbReplSvcDeploy "Release" $.Release }}
+{{ if $dbReplSvcDeploy.enabled }}
+                {
+                    local deployment={{ template "db-replication-svc.fullname" ($dbReplSvcDict) }}
+                    # if deployment name is larger than 58 chars, only keep the first 58 to search for the pod
+                    local pod="${deployment:0:58}"
+
+                    replication_pod_status=$(kubectl get pods -n ${cndbtier_namespace_name} | grep $pod | awk '{print $3}')
+                    local replication_pod_name=$(kubectl get pods -n ${cndbtier_namespace_name} | grep $pod | awk '{print $1}')
+                    if [[ ${replication_pod_status} != "Running" ]]; then
+                        echo "ERROR: $(date) - $replication_pod_name pod health check Failed"
+                        kubectl get pods -n ${cndbtier_namespace_name} | grep $pod
+                        return 0
+                    fi
+
+                    if ! is_pod_ready $pod $cndbtier_namespace_name; then
+                        echo "ERROR: $(date) - $replication_pod_name pod is not up yet. Waiting for some time."
+                        return 0
+                    fi
+                    
+                    {{- if ($.Values.global.https.enable) }}
+                    certificate_type=$(echo "${HTTPS_CERTIFICATE_TYPE}" | awk '{print tolower($0)}')
+                    cp -r ${HTTPS_CERTIFICATE_PATH} ${HTTPS_CERTIFICATE_PATH_CURL}
+                    openssl ${certificate_type} -in ${HTTPS_CERTIFICATE_PATH_CURL}/${HTTPS_CERTIFICATE_FILE} -out ${HTTPS_CERTIFICATE_PATH_CURL}/file.key.pem -nocerts -nodes -passin pass:${HTTPS_CERTIFICATE_PASSWORD}
+                    openssl ${certificate_type} -in ${HTTPS_CERTIFICATE_PATH_CURL}/${HTTPS_CERTIFICATE_FILE} -out ${HTTPS_CERTIFICATE_PATH_CURL}/file.crt.pem -clcerts -nokeys -passin pass:${HTTPS_CERTIFICATE_PASSWORD}
+                    http_status_code=$(curl -I -L -k --cert ${HTTPS_CERTIFICATE_PATH_CURL}/file.crt.pem --cert-type PEM --key ${HTTPS_CERTIFICATE_PATH_CURL}/file.key.pem --key-type PEM --pass ${HTTPS_CERTIFICATE_PASSWORD}  "https://{{ template "dbreplicationsvc-service.fullname" ($dbReplSvcDict) }}:{{ template "db-replication-svc.localsiteport" ($dbReplSvcDict) }}/db-tier/health/status" | grep HTTP | awk '{print $2}')
+                    {{- else }}
+                    http_status_code=$(curl -I -L "http://{{ template "dbreplicationsvc-service.fullname" ($dbReplSvcDict) }}:{{ template "db-replication-svc.localsiteport" ($dbReplSvcDict) }}/db-tier/health/status" | grep HTTP | awk '{print $2}')
+                    {{- end }}
+
+
+                    if [[ "${http_status_code}" != "200" ]]; then
+                        echo "ERROR: $(date) - $replication_pod_name pod health check Failed"
+                        {{- if ($.Values.global.https.enable) }}
+                        curl -I -L -k --cert ${HTTPS_CERTIFICATE_PATH_CURL}/file.crt.pem --cert-type PEM --key ${HTTPS_CERTIFICATE_PATH_CURL}/file.key.pem --key-type PEM --pass ${HTTPS_CERTIFICATE_PASSWORD}  "https://{{ template "dbreplicationsvc-service.fullname" ($dbReplSvcDict) }}:{{ template "db-replication-svc.localsiteport" ($dbReplSvcDict) }}/db-tier/health/status" | grep HTTP | awk '{print $2}'
+                        {{- else }}
+                        curl -I -L "http://{{ template "dbreplicationsvc-service.fullname" ($dbReplSvcDict) }}:{{ template "db-replication-svc.localsiteport" ($dbReplSvcDict) }}/db-tier/health/status" | grep HTTP | awk '{print $2}'
+                        {{- end }}
+                        return 0
+                    fi
+
+                    kubectl get pods -n ${cndbtier_namespace_name} | grep $pod
+                    echo "INFO: $(date) - $replication_pod_name pod health check Successfully"
+                } || {
+                    return 0
+                }
+{{- end }}
+{{- end }}
+{{- end }}
+                return 1
+            }
+{{- end }}   
+
+            test_completed=false
+            waitCount=0
+            while ! ${test_completed} ; do
+                sleep 5
+                let "waitCount+=5"
+                if [ ${waitCount} -gt  {{ .Values.test.waittimeout | default 300 }} ]; then
+                    if ! ${test_completed} ; then 
+                        echo "Test for NDB Cluster Failed.. exiting .."
+                        exit 1
+                    fi
+                fi
+{{- if or (ne .Values.global.serviceAccount.name "") (.Values.global.serviceAccount.create) }}
+                # to check if all the NDB Pods are in the running state
+                is_ndb_pods_running_test_completed=false
+                if ! $is_ndb_pods_running_test_completed ; then  
+                    is_ndb_pods_running
+                    output=$?
+                    if [ $output -eq 1 ]; then
+                        is_ndb_pods_running_test_completed=true
+                    else
+                        continue
+                    fi
+                fi
+{{- end }}
+                # to check if NDB Cluster status is healthy
+                is_ndb_cluster_healthy_test_completed=false
+                if ! $is_ndb_cluster_healthy_test_completed ; then  
+                    is_ndb_cluster_healthy
+                    output=$?
+                    if [ $output -eq 1 ]; then
+                        is_ndb_cluster_healthy_test_completed=true
+                    else
+                        continue
+                    fi
+                fi
+
+                # to check if db-monitor-svc is running
+                {{- if ($.Values.test.statusCheck.monitor.enable) }}
+                is_db_monitor_svc_healthy_test_completed=false
+                if ! $is_db_monitor_svc_healthy_test_completed ; then
+                    is_db_monitor_svc_healthy
+                    output=$?
+                    if [ $output -eq 1 ]; then
+                        is_db_monitor_svc_healthy_test_completed=true
+                    else
+                        continue
+                    fi
+                fi
+                {{- end }}
+
+                # to check if db-replication-svc is running
+                {{- if ($.Values.test.statusCheck.replication.enable) }}
+                is_db_replication_svc_healthy_test_completed=false
+                if ! $is_db_replication_svc_healthy_test_completed ; then
+                    is_db_replication_svc_healthy
+                    output=$?
+                    if [ $output -eq 1 ]; then
+                        is_db_replication_svc_healthy_test_completed=true
+                    else
+                        continue
+                    fi
+                fi
+                {{- end }}
+                test_completed=true
+            done
+        resources:
+{{ toYaml .Values.test.resources | indent 10 }}
+        {{- if ($.Values.global.https.enable) }}
+        volumeMounts:
+        - mountPath: /home/mysql/certificates
+          name: https-cert-file
+        {{- end }}
+      restartPolicy: Never
+      volumes:
+      {{- if ($.Values.global.https.enable) }}
+      - name: https-cert-file
+        secret:
+          secretName: {{ $.Values.global.https.secrets.httpscertfile.name }}
+      {{- end }}

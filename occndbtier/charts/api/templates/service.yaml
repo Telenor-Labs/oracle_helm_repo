@@ -1,0 +1,47 @@
+# Headless service for geo-replication api nodes.
+# It is used for mysql cluster internal communications.
+{{- if (ne 0 (int .Values.global.apiReplicaCount)) }}
+{{- $node := .Values.global.api }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "api.subdomain" . }}
+  labels:
+    {{- include "labels.commonlabels" . }}
+    {{- range .Values.commonlabels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if $.Values.service.labels }}
+      {{- range $.Values.service.labels }}
+        {{- toYaml . | nindent 4 }}
+      {{- end }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  {{- if .Values.global.useIPv6 }}
+  ipFamilyPolicy: {{ .Values.global.services.ipFamilyPolicy }}
+  ipFamilies:
+      - {{ .Values.global.services.primaryDualStackIpFamily }}
+  {{- else }}
+  ipFamilyPolicy: {{ .Values.global.services.ipFamilyPolicy }}
+  ipFamilies:
+      - IPv4
+  {{- end }}
+  clusterIP: None
+  selector:
+    {{- range $.Values.service.selector }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  ports:
+  - port: {{ $node.port }}
+    name: tcp
+  {{- if and .Values.global.inframonitor.pvchealth.enable.api .Values.global.inframonitor.pvchealth.enable.all }}
+  - port: {{ .Values.global.inframonitor.rest.port }}
+    targetPort: {{ .Values.global.inframonitor.service.containerPort  }}
+    protocol: TCP
+    appProtocol: {{ .Values.global.inframonitor.service.appProtocol }}
+    name: {{ .Values.global.inframonitor.service.portName }}
+  {{- end }}
+  publishNotReadyAddresses: true
+
+{{- end }}

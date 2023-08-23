@@ -1,0 +1,490 @@
+{{ if .Values.global.prometheusOperator.alerts.enable }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  creationTimestamp: null
+  labels:
+    role: cnc-alerting-rules
+  name: occndbtier-alerting-rules
+spec:
+  groups:
+  - name: DB_MONITOR_SERVICE_ALERTS
+    rules:
+    - alert: NODE_DOWN
+      expr: db_tier_node_status == 0
+      labels:
+        severity: "critical"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2001"
+      annotations:
+        summary: "MySQL {{ "{{" }} $labels.node_type }} node having node id \
+          {{ "{{" }} $labels.node_id }} is down for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "MySQL {{ "{{" }} $labels.node_type }} node with node id \
+          {{ "{{" }} $labels.node_id }} is down for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: HIGH_CPU
+      expr: ((100 - (avg(avg_over_time(db_tier_cpu_os_idle[10m])) by (node_id, site_name, namespace))) >= 80) and ((100 - (avg(avg_over_time(db_tier_cpu_os_idle[10m])) by (node_id, site_name, namespace))) < 90)
+      for: 1m
+      labels:
+        severity: "major"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2002"
+      annotations:
+        summary: "Node ID {{ "{{" }} $labels.node_id }} CPU utilization \
+          at {{ "{{" }} $value }} for cnDBTier site {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "Node ID {{ "{{" }} $labels.node_id }} CPU utilization \
+          at {{ "{{" }} $value }} for cnDBTier site {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: HIGH_CPU
+      expr: (100 - (avg(avg_over_time(db_tier_cpu_os_idle[10m])) by (node_id, site_name, namespace))) >= 90
+      for: 1m
+      labels:
+        severity: "critical"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2002"
+      annotations:
+        summary: "Node ID {{ "{{" }} $labels.node_id }} CPU utilization \
+          at {{ "{{" }} $value }} for cnDBTier site {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "Node ID {{ "{{" }} $labels.node_id }} CPU utilization \
+          at {{ "{{" }} $value }} for cnDBTier site {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: LOW_MEMORY
+      expr: ((avg_over_time(db_tier_memory_used_bytes[1m]) / avg_over_time(db_tier_memory_total_bytes[1m])) * 100) >= 80
+      for: 1m
+      labels:
+        severity: "major"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2003"
+      annotations:
+        summary: "Node ID {{ "{{" }} $labels.node_id }}, memory utilization at \
+          {{ "{{" }} $value }} percent for memory type {{ "{{" }} $labels.memory_type }} \
+          for cnDBTier site {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "Node ID {{ "{{" }} $labels.node_id }}, memory utilization at \
+          {{ "{{" }} $value }} percent for memory type {{ "{{" }} $labels.memory_type }} \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: OUT_OF_MEMORY
+      expr: ((avg_over_time(db_tier_memory_used_bytes[1m]) / avg_over_time(db_tier_memory_total_bytes[1m])) * 100) >= 90
+      for: 1m
+      labels:
+        severity: "critical"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2004"
+      annotations:
+        summary: "Node ID {{ "{{" }} $labels.node_id }} out of memory \
+          for memory type {{ "{{" }} $labels.memory_type }} \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "Node ID {{ "{{" }} $labels.node_id }} out of memory \
+          for memory type {{ "{{" }} $labels.memory_type }} \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: REPLICATION_CHANNEL_DOWN
+      expr: (db_tier_replication_status{role="failed"} == 0) or (db_tier_replication_status{role="active"} == 0)
+      labels:
+        severity: "major"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2005"
+      annotations:
+        summary: "Cross-site replication is down \
+          on node {{ "{{" }} $labels.node_id }} \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "Cross-site replication is down \
+          on node {{ "{{" }} $labels.node_id }} \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: REPLICATION_FAILED
+      expr: (count by(site_name, namespace, replchannel_group_id) (db_tier_replication_status) == count by(site_name, namespace, replchannel_group_id) (db_tier_replication_status{role="standby"})) or (count by(site_name, namespace, replchannel_group_id) (db_tier_replication_status) == count by(site_name, namespace, replchannel_group_id) (db_tier_replication_status{role="failed"}))
+      labels:
+        severity: "critical"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2006"
+      annotations:
+        summary: "Cross-site replication is down \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "Cross-site replication is down \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: SLAVE_REPLICATION_DELAY_HIGH
+      expr: avg(avg_over_time(db_tier_replication_slave_delay[5m])) by (master_node_ip,slave_node_ip, site_name, namespace) >= 300 and avg(avg_over_time(db_tier_replication_slave_delay[5m])) by (master_node_ip,slave_node_ip, site_name, namespace) < 48*3600
+      for: 1m
+      labels:
+        severity: "major"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2009"
+      annotations:
+        summary: "Slave replication on SQL node at \
+          {{ "{{" }} $labels.slave_node_ip }} is {{ "{{" }} $value }} \
+          seconds behind the master \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "Slave replication on SQL node at \
+          {{ "{{" }} $labels.slave_node_ip }} is {{ "{{" }} $value }} \
+          seconds behind the master \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: SLAVE_REPLICATION_FAILED
+      expr: avg(avg_over_time(db_tier_replication_slave_delay[5m])) by (master_node_ip,slave_node_ip, site_name, namespace) >= 48*3600
+      for: 1m
+      labels:
+        severity: "critical"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2010"
+      annotations:
+        summary: "Slave replication has fallen more than 48 hours \
+          behind the master. Manual restore from backup may be required \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "Slave replication has fallen more than 48 hours \
+          behind the master. Manual restore from backup may be required \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: BINLOG_STORAGE_LOW
+      expr: (avg_over_time(db_tier_binlog_used_bytes_percentage[5m]) >= 70) and (avg_over_time(db_tier_binlog_used_bytes_percentage[5m]) < 80)
+      for: 5m
+      labels:
+        severity: "minor"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2007"
+      annotations:
+        summary: "Disk storage on SQL node with \
+          node ID {{ "{{" }} $labels.node_id }} at {{ "{{" }} $value }} percent \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "Disk storage on SQL node with \
+          node ID {{ "{{" }} $labels.node_id }} at {{ "{{" }} $value }} percent \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: BINLOG_STORAGE_LOW
+      expr: (avg_over_time(db_tier_binlog_used_bytes_percentage[5m]) >= 80) and (avg_over_time(db_tier_binlog_used_bytes_percentage[5m]) < 95)
+      for: 5m
+      labels:
+        severity: "major"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2007"
+      annotations:
+        summary: "Disk storage on SQL node with \
+          node ID {{ "{{" }} $labels.node_id }} at {{ "{{" }} $value }} percent \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "Disk storage on SQL node with \
+          node ID {{ "{{" }} $labels.node_id }} at {{ "{{" }} $value }} percent \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: BINLOG_STORAGE_FULL
+      expr: avg_over_time(db_tier_binlog_used_bytes_percentage[5m]) >= 95
+      labels:
+        severity: "critical"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2008"
+      annotations:
+        summary: "Disk storage on SQL node with \
+          node ID {{ "{{" }} $labels.node_id }} is full \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "Disk storage on SQL node with \
+          node ID {{ "{{" }} $labels.node_id }} is full \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: BACKUP_FAILED
+      expr: db_tier_backup{status='FAILED'}
+      labels:
+        severity: "minor"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2011"
+      annotations:
+        summary: "Could not back up database \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "Could not back up database \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: BACKUP_PURGED_EARLY
+      expr: db_tier_backup{status='PURGED_EARLY'}
+      labels:
+        severity: "minor"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2012"
+      annotations:
+        summary: "A backup was deleted prematurely \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "A backup was deleted prematurely \
+          so that a new backup could be created. Less than \
+          the configured number of backups are retained \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+
+    - alert: BACKUP_SIZE_GROWTH
+      expr: (db_tier_backup_used_disk_percentage/(avg_over_time(db_tier_backup_used_disk_percentage[5d])))>{{ .Values.global.prometheusOperator.backupSizeGrowthAlertThreshold }}
+      labels:
+        severity: "minor"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2013"
+      annotations:
+        summary: "Backup size exceeded expected size \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "Backup size has increased {{ "{{" }} $value }} percent \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: BACKUP_STORAGE_LOW
+      expr: (avg_over_time(db_tier_backup_used_disk_percentage[5m])>=70) and (avg_over_time(db_tier_backup_used_disk_percentage[5m])<80)
+      labels:
+        severity: "minor"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2014"
+      annotations:
+        summary: "Disk storage on DATA node with node ID \
+          {{ "{{" }} $labels.node_id }} at {{ "{{" }} $value }} percent \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "Disk storage on DATA node with node ID \
+          {{ "{{" }} $labels.node_id }} at {{ "{{" }} $value }} percent \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: BACKUP_STORAGE_LOW
+      expr: (avg_over_time(db_tier_backup_used_disk_percentage[5m])>=80) and (avg_over_time(db_tier_backup_used_disk_percentage[5m])<95)
+      labels:
+        severity: "major"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2015"
+      annotations:
+        summary: "Disk storage on DATA node with node ID \
+          {{ "{{" }} $labels.node_id }} at {{ "{{" }} $value }} percent \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "Disk storage on DATA node with node ID \
+          {{ "{{" }} $labels.node_id }} at {{ "{{" }} $value }} percent \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: BACKUP_STORAGE_FULL
+      expr: (avg_over_time(db_tier_backup_used_disk_percentage[5m])>=95)
+      labels:
+        severity: "critical"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2016"
+      annotations:
+        summary: "Disk storage on DATA node with node ID \
+          {{ "{{" }} $labels.node_id }} is full \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "Disk storage on DATA node with node ID \
+          {{ "{{" }} $labels.node_id }} is full \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+
+    - alert: CLUSTER_DOWN
+      expr: db_tier_cluster_status == 0
+      for: 1m
+      labels:
+        severity: "critical"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2017"
+      annotations:
+        summary: "MySQL Cluster is down \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "MySQL Cluster is down \
+          for cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"        
+
+    - alert: GEOREPLICATION_RECOVERY_IN_PROGRESS
+      expr: db_tier_georeplication_recovery_state == 1
+      for: 1m   
+      labels:
+        severity: "critical"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2018"
+      annotations:
+        summary: "Identified cnDBTier Site {{ "{{" }} $labels.site_name }} \
+          georeplication recovery is in progress \
+          from kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "Identified cnDBTier Site {{ "{{" }} $labels.site_name }} \
+          georeplication recovery is in progress \
+          from kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: REPLICATION_SKIP_ERRORS_LOW
+      expr: (db_tier_replication_halted_due_to_skiperror > 0) and (db_tier_replication_halted_due_to_skiperror <= 5)
+      labels:
+        severity: "minor"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2021"
+      annotations:
+        summary: "Cross-site replication errors are skipped"
+        description: "Cross-site replication errors are skipped \
+          for remote site {{ "{{" }} $labels.mate_site_name }} with channel \
+          group id {{ "{{" }} $labels.replchannel_group_id }}"
+
+
+    - alert: REPLICATION_SKIP_ERRORS_HIGH
+      expr: db_tier_replication_halted_due_to_skiperror > 5
+      labels:
+        severity: "major"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2022"
+      annotations:
+        summary: "Cross-site replication errors are skipped"
+        description: "Cross-site replication errors are skipped \
+          for remote site {{ "{{" }} $labels.mate_site_name }} with channel \
+          group id {{ "{{" }} $labels.replchannel_group_id }}"
+
+    - alert: REPLICATION_SWITCHOVER_DUE_CLUSTERDISCONNECT
+      expr: db_tier_replication_switchover_due_to_clusterdisconnect == 1 
+      labels:
+        severity: "info"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2019"
+      annotations:
+        summary: "Replication channel on SQL node with node ID {{ "{{" }} $labels.node_id }} \
+          had switchover due to cluster disconnect error number {{ "{{" }} $labels.error_number }}"
+        description: "Replication channel on SQL node with node ID {{ "{{" }}  $labels.node_id }} \ 
+          had switchover due to cluster disconnect error number {{ "{{" }} $labels.error_number }} \ 
+          for remote site {{ "{{" }} $labels.remote_site_name }} with channel group id {{ "{{" }} $labels.replchannel_group_id }} \
+          in kubernetes namespace {{ "{{" }}  $labels.namespace }}"
+
+    - alert: REPLICATION_TOO_MANY_EPOCHS_LOST
+      expr: (db_tier_epochs_lost_due_to_skiperror > 10000) and (db_tier_epochs_lost_due_to_skiperror <= 80000)  
+      labels:
+        severity: "major"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2020"
+      annotations:
+        summary: "Epochs are lost for skipping replication errors"
+        description: "Epochs are lost for skipping replication errors for remote site {{ "{{" }} $labels.remote_site_name }} \
+         with channel group id {{ "{{" }} $labels.replchannel_group_id }} due to cluster disconnect error number \ 
+         {{ "{{" }} $labels.error_number }} in kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: REPLICATION_EPOCHS_LOST
+      expr: db_tier_epochs_lost_due_to_skiperror > 0 and db_tier_epochs_lost_due_to_skiperror <= {{ .Values.global.replicationskiperrors.epochTimeIntervalLowerThreshold | default 10000 }}
+      labels:
+        severity: "info"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2023"
+      annotations:
+        summary: "Epochs are lost for skipping replication errors"
+        description: "Epochs for {{ "{{" }} $value }} milli seconds \
+          are lost for skipping replication errors \
+          for remote site {{ "{{" }} $labels.mate_site_name }} \
+          with channel group id {{ "{{" }} $labels.replchannel_group_id }}"
+
+    - alert: BINLOG_INJECTOR_STOPPED
+      expr: db_tier_binlog_injector_thread_latest_epoch == 1 or db_tier_binlog_injector_thread == 1
+      labels:
+        severity: "critical"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2024"
+      annotations:
+        summary: "BinLog Injector Thread is stoppped for MySQL node having node id \
+          {{ "{{" }} $labels.node_id }} on cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "BinLog Injector Thread is stoppped for MySQL node having node id \
+          {{ "{{" }} $labels.node_id }} on cnDBTier site \
+          {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: HEARTBEAT_FAILED
+      expr: db_tier_heartbeat_failure == 1
+      labels:
+        severity: "critical"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2025"
+      annotations:
+        summary: "HeartBeat failed on cnDBTier site {{ "{{" }} $labels.site_name }} \
+          connected to mate site {{ "{{" }} $labels.mate_site_name }} \
+          on replication channel group id {{ "{{" }} $labels.replchannel_group_id }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+        description: "HeartBeat failed on cnDBTier site {{ "{{" }} $labels.site_name }} \
+          connected to mate site {{ "{{" }} $labels.mate_site_name }} \
+          on replication channel group id {{ "{{" }} $labels.replchannel_group_id }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: BACKUP_TRANSFER_LOCAL_FAILED
+      expr: db_tier_backup_transfer_status == 2
+      labels:
+        severity: "major"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2026"
+      annotations:
+        summary: "Failed to transfer backup from data node to replication service pod on cnDBTier site {{ "{{" }} $labels.site_name }}"
+        description: "Failed to transfer backup from data node to replication service pod on cnDBTier site {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: BACKUP_TRANSFER_FAILED
+      expr: db_tier_backup_transfer_status == 3
+      labels:
+        severity: "major"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2027"
+      annotations:
+        summary: "Failed to transfer backup to remote site from cnDBTier site {{ "{{" }} $labels.site_name }}"
+        description: "Failed to transfer backup to remote site from cnDBTier site {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: BACKUP_TRANSFER_IN_PROGRESS
+      expr: db_tier_backup_transfer_status == 1
+      labels:
+        severity: "info"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2028"
+      annotations:
+        summary: "Backup Transfer is In Progress on cnDBTier site {{ "{{" }} $labels.site_name }}"
+        description: "Backup Transfer is In Progress on cnDBTier site {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: PVC_NOT_ACCESSIBLE
+      expr: db_tier_pvc_is_accesible == 0
+      for: 1m
+      labels:
+        severity: "critical"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2029"
+      annotations:
+        summary: "PVC is not accessible on cnDBTier site {{ "{{" }} $labels.site_name }}"
+        description: "PVC of {{ "{{" }} $labels.hostname }} \
+          is not accessible on cnDBTier site {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+    - alert: PVC_FAILURE_COUNT
+      expr: sum(sum_over_time(db_tier_pvc_failure_count[10m])) by (hostname, site_name, namespace, mount_path) > 0
+      for: 5m
+      labels:
+        severity: "info"
+        oid: "1.3.6.1.4.1.323.5.3.50.1.2.2030"
+      annotations:
+        summary: "PVC of {{ "{{" }} $labels.hostname }} \
+          was unavailable for {{ "{{" }} $value }} \
+          times in the last 10m on cnDBTier site {{ "{{" }} $labels.site_name }}"
+        description: "PVC of {{ "{{" }} $labels.hostname }} \
+          was unavailable for {{ "{{" }} $value }} \
+          times in the last 10m on cnDBTier site {{ "{{" }} $labels.site_name }} \
+          and kubernetes namespace {{ "{{" }} $labels.namespace }}"
+
+{{ end }}

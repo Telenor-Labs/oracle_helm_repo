@@ -1,0 +1,330 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "db-monitor-svc.fullname" . }}
+  labels:
+    app: {{ template "db-monitor-svc.name" . }}
+    chart: {{ template "db-monitor-svc.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    {{- include "labels.commonlabels" . }}
+{{- with .Values.labels }}
+{{ toYaml . | indent 4 }}
+{{- end }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ template "db-monitor-svc.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      annotations:
+        prometheus.io/port: "{{ .Values.service.actuatorPort }}"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/scrape: "true"
+        {{- range $key, $value := .Values.podAnnotations }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+      labels:
+        app: {{ template "db-monitor-svc.name" . }}
+        release: {{ .Release.Name }}
+        {{- include "labels.commonlabels" . | nindent 4 }}
+        {{- range $key, $value := .Values.labels }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+    spec:
+{{- if and (or (ne .Values.global.serviceAccount.name "") (.Values.global.serviceAccount.create)) (ne 0 (int .Values.global.ndbappReplicaCount)) }}
+      serviceAccountName: {{ template "cndbtier.serviceaccount" . }}
+      automountServiceAccountToken: true
+{{- else }}
+      automountServiceAccountToken: {{ .Values.global.automountServiceAccountToken }}
+{{- end }}
+      {{- if .Values.global.use_affinity_rules }}
+      affinity:
+        {{- if .Values.nodeAffinity.enable }}
+        nodeAffinity:
+          {{- if .Values.nodeAffinity.requiredDuringScheduling.enable }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+            {{- range $affinitykeyvalue := .Values.nodeAffinity.requiredDuringScheduling.affinitykeyvalues }}
+              - key: {{ $affinitykeyvalue.keyname | quote }}
+                operator: In
+                values: 
+                {{- range $affinitykeyvalue.keyvalues }}
+                - {{ . }}
+                {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.nodeAffinity.preferredDuringScheduling.enable }}
+          preferredDuringSchedulingIgnoredDuringExecution:
+          {{- range $expression := .Values.nodeAffinity.preferredDuringScheduling.expressions }}
+          - weight: {{ $expression.weight }}
+            preference:
+              matchExpressions:
+              {{- range $affinitykeyvalue := $expression.affinitykeyvalues }}
+              - key: {{ $affinitykeyvalue.keyname | quote }}
+                operator: In
+                values: 
+                {{- range $affinitykeyvalue.keyvalues }}
+                - {{ . }}
+                {{- end }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- if .Values.nodeSelector }}
+      nodeSelector:
+        {{- range .Values.nodeSelector }}
+        {{ toYaml . }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: {{ template "db-monitor-svc.containerfullname" . }}
+          {{- if ne .Values.global.repository "" }}
+          image: "{{ .Values.global.repository }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          {{- else }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          {{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          livenessProbe:
+            tcpSocket:
+              port: {{ .Values.container.actuatorContainerPort  }}
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+          startupProbe:
+            tcpSocket:
+              port: {{ .Values.container.actuatorContainerPort  }}
+            initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+            successThreshold: {{ .Values.startupProbe.successThreshold }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+          readinessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  passProbe() {
+                      return 0;
+                  }
+                  passProbe
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+            successThreshold: {{ .Values.readinessProbe.successThreshold }}
+          env:
+            - name: LOG_LEVEL
+              value: "{{ .Values.log.level }}"
+            - name: HIKARI_POOL_SIZE
+              value: "{{ .Values.hikariPoolSize }}"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: APP_NAME
+              value: {{ template "db-monitor-svc.fullname" . }}
+            - name: APP_VERSION
+              value: "{{ .Chart.AppVersion }}"
+            - name: MYSQL_SQL_PVC_SIZE
+              value: "{{ .Values.global.api.ndbdisksize}}"
+{{- if .Values.global.ndb.use_separate_backup_disk }}
+            - name: MYSQL_DATA_PVC_SIZE
+              value: "{{ .Values.global.ndb.ndbbackupdisksize}}"
+{{- else }}
+            - name: MYSQL_DATA_PVC_SIZE
+              value: "{{ .Values.global.ndb.ndbdisksize}}"
+{{- end }}
+            - name: MYSQL_PRIMARY_HOST
+              value: "{{ .Values.mysql.primaryhost}}"
+            - name: MYSQL_PRIMARY_SIGNAL_HOST
+              value: "{{ .Values.mysql.primarysignalhost}}"
+            - name: MYSQL_SECONDARY_HOST
+              value: "{{ .Values.mysql.secondaryhost }}"
+            - name: MYSQL_SECONDARY_SIGNAL_HOST
+              value: "{{ .Values.mysql.secondarysignalhost }}"
+            - name: MYSQL_DBTIER_CONNECTIVITY_SERVICE
+              value: "{{ .Values.mysql.dbtierservice}}"
+            - name: MYSQL_DBTIER_REPL_CONNECTIVITY_SERVICE
+              value: {{ template "api.subdomain" . }}
+            - name: MYSQL_PORT
+              value: "{{ .Values.mysql.port }}"
+            - name: MYSQL_DATA_BACKUP_RETAIN_NO
+              value: "{{ .Values.mysql.backupretentioncount | default 0 }}" 
+            - name: MYSQL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.secrets.dbmonitorsecret }}
+                  key: mysql_username_for_metrics
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.secrets.dbmonitorsecret }}
+                  key: mysql_password_for_metrics 
+            - name: BACKUP_ENCRYPTION_ENABLE
+              value: "{{ .Values.global.backupencryption.enable}}" 
+            - name: MYSQL_CLUSTER_ID
+              value: "{{ .Values.global.siteid }}"
+            - name: MYSQL_REPLICATION_SITE_NAME
+              value: "{{ .Values.global.sitename }}"
+            - name: MYSQL_NAMESPACE_NAME
+              value: "{{ .Values.global.namespace }}"
+            - name: APPLICATION_NAME
+              value: {{ template "db-monitor-svc.name" . }}
+            - name: IS_DEPLOYMENT_TYPE_CNDBTIER
+              value: "{{ .Values.global.isDeploymentTypeCndbtier | default false }}"
+            - name: NDB_APP_REPLICA_COUNT
+              value: "{{ .Values.global.ndbappReplicaCount }}"
+            - name: NDB_APP_REPLICA_MIN_COUNT
+              value: "{{ .Values.global.ndbappReplicaCount }}"
+            - name: NDB_APP_REPLICA_MAX_COUNT
+              value: "{{ .Values.global.ndbappReplicaMaxCount }}"
+            {{- if (ne 0 (int .Values.global.ndbappReplicaCount)) }}
+            - name: REPL_SQL_NODES_IN_CONNECTIVITYSVC
+              value: "{{ .Values.replSqlInConnectvitySvc | default false }}"
+            {{- else }}
+            - name: REPL_SQL_NODES_IN_CONNECTIVITYSVC
+              value: "true"
+            {{- end }}
+            - name: START_EMPTY_API_SLOT_NODEID
+              value: "{{ .Values.global.api.startEmptyApiSlotNodeId }}"
+            - name: NUM_OF_EMPTY_API_SLOTS
+              value: "{{ .Values.global.api.numOfEmptyApiSlots }}"
+            - name: START_NDB_REPL_API_NODEID
+              value: "{{ .Values.global.api.startNodeId }}"
+            - name: NDB_REPL_API_REPLICA_COUNT
+              value: "{{ .Values.global.apiReplicaCount }}"
+{{- if and (or (ne .Values.global.serviceAccount.name "") (.Values.global.serviceAccount.create)) (.Values.global.autoscaling.ndbapp.enabled) }}
+            - name: "NDBAPP_SCALE_SUPPORT_ENABLED"
+              value: "true"
+{{- end }}
+            - name: START_NDB_APP_NODEID
+              value: "{{ .Values.global.ndbapp.startNodeId }}"
+            - name: START_MGM_NODEID
+              value: "{{ .Values.global.ndbconfigurations.mgm.startNodeId }}"
+            - name: MGM_REPLICA_COUNT
+              value: "{{ .Values.global.mgmReplicaCount }}"
+            - name: NDB_REPLICA_COUNT
+              value: "{{ .Values.global.ndbReplicaCount }}"
+            - name: REPLCHANNEL_GROUP_COUNT
+              value: "{{- $count := 1 }}
+                        {{- if .Values.global.multiplereplicationgroups.enabled }}
+                          {{- range $key, $channelgroup := .Values.global.multiplereplicationgroups.replicationchannelgroups }}
+                            {{- if ne $key 0 -}}
+                              {{- $count = add $count 1 -}}
+                            {{- end }}
+                          {{- end }}
+                        {{- end }}
+                      {{- $count }}"
+            - name: REPLICATION_SKIP_ERROR_LIST
+              value: "{{- if $.Values.global.replicationskiperrors.enable }}
+                        {{- range $key, $replicationerror := $.Values.global.replicationskiperrors.replicationerrornumbers }}
+                          {{- if ne $key 0 -}}
+                            ---
+                          {{- end }}
+                          {{- $replicationerror.errornumber }}
+                        {{- end }}
+                      {{- end }}"
+            - name: REPLICATION_SKIP_ERROR_ENABLED
+              value: "{{ $.Values.global.replicationskiperrors.enable | default false }}"
+            - name: HTTP_SERVER_PORT
+              value: "{{ .Values.container.statusApiContainerPort }}"
+            - name: MANAGEMENT_SERVER_PORT
+              value: "{{ .Values.container.actuatorContainerPort }}"
+            - name: DBTIER_MONITOR_CONFIG_FIXED_RATE
+              value: "{{ .Values.schedulertimer | default 5000 }}"
+            - name: BIN_LOG_INJECTOR_STALL_COUNT
+              value: "{{ .Values.binlogthreadstore.capacity | default 5 }}"
+            - name: CNDBTIER_VERSION
+              value: "{{ .Values.global.version }}"
+            - name: DBTIER_MONITOR_METRICS_FETCH_INTERVAL
+              value: "{{ .Values.metricsFetchSchedulerTimer | default 55000 }}"
+            - name: DBTIER_MONITOR_METRICS_FETCH_THREAD_COUNT
+              value: "{{ .Values.metricsFetchSchedulerThreadCount | default 8 }}"
+            - name: MGM_STS_NAME
+              value: {{ template "mgm.mgmtstsname" . }}
+            - name: MGM_SUB_DOMAIN
+              value: {{ template "mgm.subdomain" . }}
+            - name: NDB_STS_NAME
+              value: {{ template "ndb.ndbstsname" . }}
+            - name: NDB_SUB_DOMAIN
+              value: {{ template "ndb.subdomain" . }}
+            - name: API_STS_NAME
+              value: {{ template "api.apistsname" . }}
+            - name: API_SUB_DOMAIN
+              value: {{ template "api.subdomain" . }}
+            - name: NDBAPP_STS_NAME
+              value: {{ template "ndbapp.apistsname" . }}
+            - name: NDBAPP_SUB_DOMAIN
+              value: {{ template "ndbapp.subdomain" . }}
+            - name: OCCNE_DOMAIN
+              value: "{{ .Values.global.domain }}"
+            - name: INFRA_MONITOR_SVC_PORT_NO
+              value: "{{ .Values.global.inframonitor.rest.port | default 8083 }}"
+            - name: ENABLE_PVC_HEALTH_MONITOR_FOR_ALL
+              value: "{{ .Values.global.inframonitor.pvchealth.enable.all }}"
+            - name: ENABLE_PVC_HEALTH_MONITOR_FOR_MGM
+              value: "{{ .Values.global.inframonitor.pvchealth.enable.mgm }}"
+            - name: ENABLE_PVC_HEALTH_MONITOR_FOR_NDB
+              value: "{{ .Values.global.inframonitor.pvchealth.enable.ndb }}"
+            - name: ENABLE_PVC_HEALTH_MONITOR_FOR_API
+              value: "{{ .Values.global.inframonitor.pvchealth.enable.api }}"
+            - name: ENABLE_PVC_HEALTH_MONITOR_FOR_NDBAPP
+              value: "{{ .Values.global.inframonitor.pvchealth.enable.ndbapp }}"
+            - name: ENABLE_PVC_HEALTH_MONITOR_FOR_REPL
+              value: "{{ .Values.global.inframonitor.pvchealth.enable.repl }}"
+            - name: RESTART_SQL_NODES_IF_BINLOG_THREAD_STALLED
+              value: "{{ .Values.restartSQLNodesIfBinlogThreadStalled  }}"
+            - name: INITIAL_SCHEDULER_DELAY_FOR_SQL_NODE_RESTART
+              value: "{{ .Values.initialDelayForRestartSQLScheduler  | default 300}}"
+            - name: SCHEDULER_GAP_FOR_SQL_NODE_RESTART
+              value: "{{ .Values.fixedDelayForRestartSQLScheduler  | default 30}}"
+            - name: DBTIER_HBREPLICAGROUP_DATABASE
+              value: {{ $.Values.global.api.hbreplicagroupdatabase | default "hbreplica_info" | quote }}
+          {{- if .Values.global.https.enable }}
+            - name: HTTPS_CERTIFICATE_FULL_PATH
+              value: "/opt/certificates/keystore"
+            - name: HTTPS_CERTIFICATE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.global.https.secrets.httpscertcred.name }}
+                  key: keystorepassword
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.container.statusApiContainerPort  }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.container.actuatorContainerPort  }}
+              protocol: TCP
+          {{- if .Values.global.https.enable }}
+          volumeMounts:
+            - mountPath: /opt/certificates
+              name: https-cert-file
+          {{- end }}
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+      {{- if .Values.global.https.enable }}
+      volumes:
+        - name: https-cert-file
+          secret:
+            secretName: {{ .Values.global.https.secrets.httpscertfile.name }}
+      {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+      securityContext:
+    {{- with .Values.securityContext }}
+{{ toYaml . | indent 8 }}
+    {{- end }}
+        runAsUser: 27
+        runAsGroup: 27

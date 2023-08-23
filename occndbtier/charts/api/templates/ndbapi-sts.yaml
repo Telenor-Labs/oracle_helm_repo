@@ -1,0 +1,494 @@
+{{- if (ne 0 (int .Values.global.ndbappReplicaCount)) }}
+{{ $node := .Values.global.ndbapp}}
+---
+{{ $mgmReplicaCount :=  .Values.global.mgmReplicaCount | int }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ template "ndbapp.apistsname" . }}
+spec:
+  replicas: {{ .Values.global.ndbappReplicaCount | int }}
+  serviceName: {{ template "ndbapp.subdomain" . }}
+  updateStrategy:
+    type: {{ .Values.global.updateStrategy | default "OnDelete" }}
+  selector:
+    matchLabels:
+      {{- range .Values.ndbapp.service.selector }}
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "false"
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if $.Values.ndbapp.annotations }}
+        {{- range $.Values.ndbapp.annotations }}
+        {{ toYaml . }}
+        {{- end }}
+        {{- end }}
+      labels:
+        {{- if (.Values.global.useBothSqlTypeInConnectivityService) }}
+        isForConnectivityService: "true"
+        {{- else }}
+        {{- if (ne 0 (int .Values.global.ndbappReplicaCount)) }}
+        isForConnectivityService: "true"
+        {{- else }}
+        isForConnectivityService: "false"
+        {{- end }}
+        {{- end }}
+        {{- include "labels.commonlabels" . | nindent 4 }}
+        {{- range $.Values.ndbapp.commonlabels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- range .Values.ndbapp.service.selector }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- range .Values.ndbapp.connectivityService.selector }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- range .Values.ndbapp.connectivityService.ndbappconnetselector }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if .Values.ndbapp.externalconnectivityService.enable }}
+        {{- range .Values.ndbapp.externalconnectivityService.selector }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- end }}
+        {{- range $value := $.Values.ndbapp.anti_pod_affinity.anti_affinity_values }}
+          {{- $.Values.ndbapp.anti_pod_affinity.anti_affinity_key | nindent 8 }}: {{ $value }}
+        {{- end }}
+    spec:
+{{- if (.Values.global.multus.enable) }}
+{{- if or (ne .Values.global.multus.serviceAccount.name "") (.Values.global.multus.serviceAccount.create) }}
+      serviceAccountName: {{ template "cndbtier.multus.serviceaccount" . }}
+{{- end }}
+{{- end }}
+      automountServiceAccountToken: {{ .Values.global.automountServiceAccountToken }}
+      {{- if .Values.ndbapp.nodeSelector }}
+      nodeSelector:
+        {{- range .Values.ndbapp.nodeSelector }}
+        {{ toYaml . }}
+        {{- end }}
+      {{- end }}
+      {{- if .Values.global.use_affinity_rules }}
+      affinity:
+        {{- if .Values.ndbapp.anti_pod_affinity }}
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: {{ .Values.ndbapp.anti_pod_affinity.anti_affinity_topologyKey }}
+              labelSelector:
+                matchLabels:
+                  {{- range $value := .Values.ndbapp.anti_pod_affinity.anti_affinity_values }}
+                    {{- $.Values.ndbapp.anti_pod_affinity.anti_affinity_key | nindent 18 }}: {{ $value }}
+                  {{- end }}
+        {{- end }}
+        {{- if .Values.ndbapp.use_pod_affinity_rules }}
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: {{ .Values.ndbapp.pod_affinity.pod_affinity_key }}
+                operator: In
+                values:
+                {{- range .Values.ndbapp.anti_pod_affinity.anti_affinity_values }}
+                - {{ . }}
+                {{- end }}
+            topologyKey: {{ .Values.ndbapp.pod_affinity.pod_affinity_topologyKey }}
+        {{- end }}
+        {{- if .Values.ndbapp.nodeAffinity.enable }}
+        nodeAffinity:
+          {{- if .Values.ndbapp.nodeAffinity.requiredDuringScheduling.enable }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+            {{- range $affinitykeyvalue := .Values.ndbapp.nodeAffinity.requiredDuringScheduling.affinitykeyvalues }}
+              - key: {{ $affinitykeyvalue.keyname | quote }}
+                operator: In
+                values: 
+                {{- range $affinitykeyvalue.keyvalues }}
+                - {{ . }}
+                {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.ndbapp.nodeAffinity.preferredDuringScheduling.enable }}
+          preferredDuringSchedulingIgnoredDuringExecution:
+          {{- range $expression := .Values.ndbapp.nodeAffinity.preferredDuringScheduling.expressions }}
+          - weight: {{ $expression.weight }}
+            preference:
+              matchExpressions:
+              {{- range $affinitykeyvalue := $expression.affinitykeyvalues }}
+              - key: {{ $affinitykeyvalue.keyname | quote }}
+                operator: In
+                values: 
+                {{- range $affinitykeyvalue.keyvalues }}
+                - {{ . }}
+                {{- end }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      containers:
+      - name: {{ template "api.containerfullname" . }}
+        imagePullPolicy: {{ .Values.global.image.imagePullPolicy }}
+        {{- if ne .Values.global.repository "" }}
+        image: {{ .Values.global.repository }}/{{ .Values.global.image.name }}:{{ .Values.global.image.tag }}
+        {{- else }}
+        image: {{ .Values.global.image.name }}:{{ .Values.global.image.tag }}
+        {{- end }}
+        livenessProbe:
+          exec:
+            command:
+              - /bin/bash
+              - -c
+              - |
+                {{- .Files.Get "files/mysql.sh" | nindent 16 }}
+                {{- .Files.Get "files/livenessProbe.sh" | nindent 16 }}
+                probe_liveness
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+        startupProbe:
+          exec:
+            command:
+              - /bin/bash
+              - -c
+              - |
+                {{- .Files.Get "files/probes_gen.sh" | nindent 16 }}
+                {{- .Files.Get "files/probes.sh" | nindent 16 }}
+                probe_startup
+          initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+          periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+          failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+          successThreshold: {{ .Values.startupProbe.successThreshold }}
+        readinessProbe:
+          exec:
+            command:
+              - /bin/bash
+              - -c
+              - |
+                {{- .Files.Get "files/probes_gen.sh" | nindent 16 }}
+                {{- .Files.Get "files/probes.sh" | nindent 16 }}
+          {{- if .Values.global.multus.enable }}
+          {{- if .Values.connectivityService.multus.enable }}
+                {{- .Files.Get "files/probes_multus.sh" | nindent 16 }}
+          {{- end }}
+          {{- end }}
+                probe_readiness {{ .Values.readinessProbe.successThreshold }}
+          {{- if .Values.global.multus.enable }}
+          {{- if .Values.connectivityService.multus.enable }}
+                readiness_probe_return_value=$?
+                if [[ "${readiness_probe_return_value}" == "0"  ]]; then
+                    inject_endpoint $readiness_probe_return_value
+                else
+                    remove_endpoint $readiness_probe_return_value
+                fi
+          {{- end }}
+          {{- end }}
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+          successThreshold: {{ .Values.readinessProbe.successThreshold }}
+        {{- if .Values.global.multus.enable }}
+        {{- if .Values.connectivityService.multus.enable }}
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/bash
+              - -c
+              - |
+                {{- .Files.Get "files/probes_multus.sh" | nindent 16 }}
+                remove_endpoint
+        {{- end }}
+        {{- end }}
+        env:
+          - name: NDB_MGMD_CONNECTSTRING
+            value: '
+              {{- $mgmstsname := (include "api.mgmtstsname" .) }}
+              {{- range untilStep 0 $mgmReplicaCount 1 }}
+                {{- if ne . 0 -}}
+                  ,
+                {{- end }}
+                {{- $mgmstsname }}-{{ . }}.{{ template "mgm.subdomain" . }}.
+                  {{- $.Values.global.namespace }}.svc.{{ $.Values.global.domain }}:{{ $.Values.global.mgm.port }}
+              {{- end }}'
+          - name: NDB_MYSQLD_BASE_DATADIR
+            value: {{ .Values.global.ndbconfigurations.api.BaseDataDir | quote }}
+          - name: NDB_SQL_DATADIR
+            value: {{ .Values.global.ndbconfigurations.api.datadir | quote }}
+          - name: NDB_SQL_BINLOGSDIR
+            value: {{ .Values.global.ndbconfigurations.api.binlogdir | quote }}
+          - name: NDB_CONFIGMAP_DIR
+            value: "/etc/ndbconf"
+          - name: SITE_IDENTIFIER
+            value: {{ $.Values.global.siteid | default 1 | quote }}
+          - name: IS_NODE_FOR_GEO_REPLICATION
+            value: "0"
+          - name: STARTING_SQL_NODEID
+            value: {{ .Values.global.ndbapp.startNodeId | default 70 | quote }}
+          - name : NDB_CLUSTER_CONNECTION_POOL
+            value: {{ .Values.global.ndbapp.ndb_cluster_connection_pool | quote }}
+          - name : NDB_CLUSTER_CONNECTION_POOL_BASE_NODEID
+            value: {{ .Values.global.ndbapp.ndb_cluster_connection_pool_base_nodeid | quote }}
+          {{- if ne .Values.global.secrets.mysqlndbrootsecret "" }}
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.global.secrets.mysqlndbrootsecret }}
+                key: mysql_root_password
+          {{- end }}
+          - name: MYSQL_OCCNE_USER
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.global.secrets.dbmonitorsecret }}
+                key: mysql_username_for_metrics
+          - name: MYSQL_OCCNE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.global.secrets.dbmonitorsecret }}
+                key: mysql_password_for_metrics
+          - name: MYSQL_OCCNE_REPLICATION_USER
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.global.secrets.dbgeoreplicationusersecret }}
+                key: mysql_username_for_replication
+          - name: MYSQL_OCCNE_REPLICATION_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.global.secrets.dbgeoreplicationusersecret }}
+                key: mysql_password_for_replication
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: CONNECTIVITY_SVC_NAME
+            value: {{ .Values.connectivityService.name}}
+          - name: CONNECTIVITY_SVC_PORT_NO
+            value: {{ .Values.global.api.port | quote }}
+          - name: OCCNE_NAMESPACE 
+            value: {{ .Values.global.namespace | quote }}
+          {{- if .Values.global.multus.enable }}
+          {{- if .Values.connectivityService.multus.enable }}
+          {{- if (ne 0 (int .Values.global.ndbappReplicaCount)) }}
+          - name: NETWORK_ATTACHMENT_DEFINATION_API_NAME
+            value: {{ .Values.connectivityService.multus.networkAttachmentDefinationApiName | default "k8s.v1.cni.cncf.io" }}
+          - name: NETWORK_ATTACHMENT_DEFINATION_API_TAG_NAME
+            value: {{ .Values.connectivityService.multus.networkAttachmentDefinationTagName }}
+          {{- end }}
+          {{- end }}
+          {{- end }}
+          - name: DBTIER_REPLICATION_SVC_DATABASE
+            value: {{ .Values.global.api.replicationSvcDatabase | default "replication_info" }}
+          - name: DBTIER_HBREPLICAGROUP_DATABASE
+            value: {{ .Values.global.api.hbreplicagroupdatabase | default "hbreplica_info" }}
+          - name: DBTIER_BACKUP_SVC_DATABASE
+            value: {{ .Values.global.api.backupSvcDatabase | default "backup_info" }}
+          - name: NDB_MGM_SUBDOMAIN
+            value: {{ template "mgm.subdomain" . }}
+          - name: NDB_MGMD_PORT
+            value: "{{ .Values.global.mgm.port }}"
+          - name: NDB_API_REPLICA_COUNT
+            value: "{{ $.Values.global.apiReplicaCount }}"
+          - name: NDB_WAIT_TIMEOUT
+            value: "{{ .Values.ndbWaitTimeout | default 600 }}"
+          - name: MYSQL_INITIALIZED_FILE
+            value: "mysql-initialized"
+          - name: START_EMPTY_API_SLOT_NODEID
+            value: "{{ .Values.global.api.startEmptyApiSlotNodeId }}"
+          - name: NUM_OF_EMPTY_API_SLOTS
+            value: "{{ .Values.global.api.numOfEmptyApiSlots }}"
+          - name: NDB_MYSQLD_EXTRA_LOGGING
+            value: "{{ .Values.global.ndbapp.ndb_extra_logging | default 1 }}"
+          - name : ENABLE_QUERY_LOGGING
+            value: {{ .Values.global.ndbapp.general_log | default "OFF" | quote }}
+        {{- if .Values.waitforndbmtd }}
+        command: 
+          - /bin/bash
+          - -ec
+          - |
+            ndb_nodes="{{ template "ndbnodes" . }}"
+            if [[ -f "${NDB_MYSQLD_BASE_DATADIR}/${MYSQL_INITIALIZED_FILE}" ]]; then
+                echo "[Entrypoint] NOT first time running. Skipping the ndb wait process.."
+            else
+                echo "[Entrypoint] Waiting for the ndbmtd pods to become online"
+                ndbmtd_process_online=false
+                waitCount=0
+                while ! ${ndbmtd_process_online} ; do
+                    {
+                        sleep 5
+                        let "waitCount+=5"
+                        if [ ${waitCount} -gt ${NDB_WAIT_TIMEOUT} ]; then
+                            if ! ${ndbmtd_process_online} ; then
+                                echo "[Entrypoint] ERROR: $(date) - Timeout in waiting for ndbmtd pods to become online."
+                            fi
+                            break
+                        fi
+                        if ! ndb_mgm ${NDB_MGM_SUBDOMAIN} ${NDB_MGMD_PORT} -e "show" | grep -q "\[ndbd(NDB)\]"; then
+                            echo "[Entrypoint] ERROR: $(date) - [ndbd(NDB)] group not present"
+                            continue
+                        fi
+                        if ndb_mgm ${NDB_MGM_SUBDOMAIN} ${NDB_MGMD_PORT} -e "show" | grep -w ${ndb_nodes} | grep -q "accepting connect\|not connected"; then
+                            echo "ERROR: $(date) - Not all ndbmtd nodes are connected"
+                            ndb_mgm ${NDB_MGM_SUBDOMAIN} ${NDB_MGMD_PORT} -e "show" | grep -w ${ndb_nodes} | grep "accepting connect\|not connected"
+                            continue
+                        fi
+                        ndbmtd_process_online=true
+                    } || {
+                        echo "[Entrypoint] ERROR: $(date) - Exception occurred while checking for ndb_mgmd status...retrying..!!"  
+                    }
+                done
+            fi
+            /entrypoint.sh mysqld
+        {{- else }}
+        command: ["/entrypoint.sh"]
+        args: ["mysqld"]
+        {{- end }}
+        resources:
+          {{ toYaml .Values.ndbapp.resources | indent 10 | trim }}
+        volumeMounts:
+          - mountPath: "/etc/ndbconf"
+            name: mysqldconfigfile
+          - mountPath: {{ .Values.global.ndbconfigurations.api.BaseDataDir | quote }}
+            name: pvc-{{ template "ndbapp.ndbappstsnamewithoutprefix" . }}
+      - name: {{ template "api.initsidecarfullname" . }}
+        imagePullPolicy: {{ .Values.initsidecar.image.imagePullPolicy }}
+        {{- if ne .Values.global.repository "" }}
+        image: {{ .Values.global.repository }}/{{ .Values.initsidecar.image.repository }}:{{ .Values.initsidecar.image.tag }}
+        {{- else }}
+        image: {{ .Values.initsidecar.image.repository }}:{{ .Values.initsidecar.image.tag }}
+        {{- end }}
+        command:
+          - /bin/bash
+          - -ec
+          - |
+            ndbconfigurations_api_BaseDataDir={{ .Values.global.ndbconfigurations.api.BaseDataDir }}
+            ndbconfigurations_api_datadir={{ .Values.global.ndbconfigurations.api.datadir }}
+            ndbconfigurations_api_log_error={{ .Values.global.ndbconfigurations.api.log_error }}
+            logrotate_maxRotateCounter={{ .Values.logrotate.maxRotateCounter }}
+            logrotate_rotateSize={{ .Values.logrotate.rotateSize }}
+            secsToWaitBetweenChecks={{ .Values.initsidecar.secsToWaitBetweenChecks | default 5 }}
+            secsToWaitForClusterTimeout={{ .Values.initsidecar.secsToWaitForClusterTimeout | default 120 }}
+            mgm_subdomain={{ template "mgm.subdomain" . }} 
+            mgm_port={{ .Values.global.mgm.port }}
+            logrotate_checkInterval={{ .Values.logrotate.checkInterval }}
+            api_initsidecarfullname={{ template "api.initsidecarfullname" . }}
+            api_replica_count={{ .Values.global.apiReplicaCount }}
+            ndbapp_replica_count={{ .Values.global.ndbappReplicaCount }}
+            apiemptryslotsnodeids="{{ template "apiemptyslots" . }}"
+{{- .Files.Get "files/mysqlhelper.sh" | nindent 12 }}
+        env:
+          {{- if ne .Values.global.secrets.mysqlndbrootsecret "" }}
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.global.secrets.mysqlndbrootsecret }}
+                key: mysql_root_password
+          {{- end }}
+          - name: MYSQL_OCCNE_USER
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.global.secrets.dbmonitorsecret }}
+                key: mysql_username_for_metrics
+          - name: MYSQL_OCCNE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.global.secrets.dbmonitorsecret }}
+                key: mysql_password_for_metrics
+          - name: MYSQL_OCCNE_REPLICATION_USER
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.global.secrets.dbgeoreplicationusersecret }}
+                key: mysql_username_for_replication
+          - name: MYSQL_OCCNE_REPLICATION_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.global.secrets.dbgeoreplicationusersecret }}
+                key: mysql_password_for_replication
+          - name: DBTIER_REPLICATION_SVC_DATABASE
+            value: {{ .Values.global.api.replicationSvcDatabase | default "replication_info" }}
+          - name: DBTIER_HBREPLICAGROUP_DATABASE
+            value: {{ .Values.global.api.hbreplicagroupdatabase | default "hbreplica_info" }}
+          - name: IS_NODE_FOR_GEO_REPLICATION
+            value: "0"
+          - name: DBTIER_BACKUP_SVC_DATABASE
+            value: {{ .Values.global.api.backupSvcDatabase | default "backup_info" }}
+          - name: START_EMPTY_API_SLOT_NODEID
+            value: "{{ .Values.global.api.startEmptyApiSlotNodeId }}"
+          - name: NUM_OF_EMPTY_API_SLOTS
+            value: "{{ .Values.global.api.numOfEmptyApiSlots }}"
+          - name: LOOPBACK_IP
+            value: {{ template "loopback.ip" }}
+          - name: STARTING_SQL_NODEID
+            value: {{ .Values.global.ndbapp.startNodeId | default 70 | quote }}
+          - name: REPLCHANNEL_GROUP_COUNT
+            value: "{{- $count := 1 }}
+                      {{- if .Values.global.multiplereplicationgroups.enabled }}
+                        {{- range $key, $channelgroup := .Values.global.multiplereplicationgroups.replicationchannelgroups }}
+                          {{- if ne $key 0 -}}
+                            {{- $count = add $count 1 -}}
+                          {{- end }}
+                        {{- end }}
+                      {{- end }}
+                    {{- $count }}"
+        resources:
+          {{ toYaml .Values.initSidecarResources | indent 10 | trim }}
+        volumeMounts:
+          - mountPath: {{ .Values.global.ndbconfigurations.api.BaseDataDir | quote }}
+            name: pvc-{{ template "ndbapp.ndbappstsnamewithoutprefix" . }}
+      {{- if and .Values.global.inframonitor.pvchealth.enable.ndbapp .Values.global.inframonitor.pvchealth.enable.all }}
+      - name: {{ template "inframonitorsidecarcontainer.fullname" . }}
+        imagePullPolicy: {{ .Values.ndbapp.inframonitor.image.imagePullPolicy }}
+        {{- if ne .Values.global.repository "" }}
+        image: {{ .Values.global.repository }}/{{ .Values.ndbapp.inframonitor.image.repository }}:{{ .Values.ndbapp.inframonitor.image.tag }}
+        {{- else }}
+        image: {{ .Values.ndbapp.inframonitor.image.repository }}:{{ .Values.ndbapp.inframonitor.image.tag }}
+        {{- end }}
+        volumeMounts:
+          - mountPath: {{ .Values.global.ndbconfigurations.api.BaseDataDir | quote }}
+            name: pvc-{{ template "ndbapp.ndbappstsnamewithoutprefix" . }}
+        env:
+          - name: REST_PORT
+            value: "{{ .Values.global.inframonitor.rest.port }}"
+          - name: LOG_LEVEL
+            value: "{{ .Values.ndbapp.inframonitor.log.level }}"
+          - name: USEIPV6
+            value: "{{ .Values.global.useIPv6 }}"
+          - name: PVC_MOUNT_POINT_LIST
+            value: "{{ .Values.global.ndbconfigurations.api.BaseDataDir }}"
+          - name: INSERT_GARBAGE_DATA_INTO_DD_IF
+            value: "{{ .Values.ndbapp.inframonitor.command.fill_dd_if }}"
+          - name: DD_IF
+            value: "{{ .Values.ndbapp.inframonitor.command.dd_if }}"
+          - name: DD_OF
+            value: "{{ .Values.ndbapp.inframonitor.command.dd_of }}"
+          - name: DD_BS
+            value: "{{ .Values.ndbapp.inframonitor.command.dd_bs }}"
+          - name: DD_COUNT
+            value: "{{ .Values.ndbapp.inframonitor.command.dd_count }}"
+          - name: DD_OFLAG
+            value: "{{ .Values.ndbapp.inframonitor.command.dd_oflag }}"
+        resources:
+          {{ toYaml .Values.ndbapp.inframonitor.resources | indent 10 | trim }}
+      {{- end }}
+      securityContext:
+        fsGroup: 27
+      volumes:
+        - name: mysqldconfigfile
+          configMap:
+            name: mysqldconfig
+  volumeClaimTemplates:
+  - metadata:
+      name: pvc-{{ template "ndbapp.ndbappstsnamewithoutprefix" . }}
+    spec:
+      accessModes:
+        - {{ .Values.global.accessModes | quote }}
+      storageClassName: "{{ .Values.global.storageClassName }}"
+      resources:
+        requests:
+          storage: "{{ .Values.global.ndbapp.ndbdisksize }}"
+{{- end }}

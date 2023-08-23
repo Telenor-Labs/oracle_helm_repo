@@ -1,0 +1,187 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "db-backup-manager-svc.fullname" . }}
+  labels:
+    app: {{ template "db-backup-manager-svc.name" . }}
+    chart: {{ template "db-backup-manager-svc.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    {{- include "labels.commonlabels" . }}
+{{- with .Values.labels }}
+{{ toYaml . | indent 4 }}
+{{- end }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ template "db-backup-manager-svc.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      annotations:
+        {{- range $key, $value := .Values.pod.annotations }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+      labels:
+        app: {{ template "db-backup-manager-svc.name" . }}
+        release: {{ .Release.Name }}
+        {{- include "labels.commonlabels" . | nindent 4 }}
+        {{- range $key, $value := .Values.labels }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+    spec:
+      automountServiceAccountToken: {{ .Values.global.automountServiceAccountToken }}
+      {{- if .Values.nodeSelector }}
+      nodeSelector:
+        {{- range .Values.nodeSelector }}
+        {{ toYaml . }}
+        {{- end }}
+      {{- end }}
+      {{- if .Values.global.use_affinity_rules }}
+      affinity:
+        {{- if .Values.nodeAffinity.enable }}
+        nodeAffinity:
+          {{- if .Values.nodeAffinity.requiredDuringScheduling.enable }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+            {{- range $affinitykeyvalue := .Values.nodeAffinity.requiredDuringScheduling.affinitykeyvalues }}
+              - key: {{ $affinitykeyvalue.keyname | quote }}
+                operator: In
+                values: 
+                {{- range $affinitykeyvalue.keyvalues }}
+                - {{ . }}
+                {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.nodeAffinity.preferredDuringScheduling.enable }}
+          preferredDuringSchedulingIgnoredDuringExecution:
+          {{- range $expression := .Values.nodeAffinity.preferredDuringScheduling.expressions }}
+          - weight: {{ $expression.weight }}
+            preference:
+              matchExpressions:
+              {{- range $affinitykeyvalue := $expression.affinitykeyvalues }}
+              - key: {{ $affinitykeyvalue.keyname | quote }}
+                operator: In
+                values: 
+                {{- range $affinitykeyvalue.keyvalues }}
+                - {{ . }}
+                {{- end }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: {{ template "db-backup-manager-svc.containerfullname" . }}
+          {{- if ne .Values.global.repository "" }}
+          image: "{{ .Values.global.repository }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          {{- else }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          {{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          livenessProbe:
+            tcpSocket:
+              port: {{ .Values.container.containerPort  }}
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+          startupProbe:
+            tcpSocket:
+              port: {{ .Values.container.containerPort  }}
+            initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+            successThreshold: {{ .Values.startupProbe.successThreshold }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: APP_NAME
+              value: {{ template "db-backup-manager-svc.fullname" . }}
+            - name: APP_VERSION
+              value: "{{ .Chart.AppVersion }}"
+            - name: MYSQL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.secrets.dbmonitorsecret }}
+                  key: mysql_username_for_metrics
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.secrets.dbmonitorsecret }}
+                  key: mysql_password_for_metrics
+            {{- if .Values.global.backupencryption.enable }}      
+            - name: BACKUP_ENCRYPTION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.backupencryption.backupencryptionsecret }}
+                  key: backup_encryption_password
+            {{- end }}
+            - name: BACKUP_ENCRYPTION_ENABLE
+              value: "{{ .Values.global.backupencryption.enable}}" 
+            - name: MYSQL_DBTIER_CONNECTIVITY_SERVICE
+              value: "{{ .Values.mysql.dbtierservice}}"
+            - name: MYSQL_PORT
+              value: "{{ .Values.mysql.port }}"
+            - name: CLUSTER_ID
+              value: "{{ .Values.global.siteid }}"
+            - name: SITE_NAME
+              value: "{{ .Values.global.sitename }}"
+            - name: RETAIN_BACKUP_NO
+              value: "{{ .Values.ndb.retainbackupno }}"
+            - name: MAX_RETRY_NO
+              value: "{{ .Values.ndb.maxretryno }}"
+            - name: RETRY_INTERVAL
+              value: "{{ .Values.ndb.retryinterval }}"
+            - name: SCHEDULER_ENABLED
+              value: "{{ .Values.scheduler.enabled }}"
+            - name: CRONJOB_EXPRESSION
+              value: "{{ .Values.scheduler.cronjobExpression }}"
+            - name: REST_PORT
+              value: "{{ .Values.container.containerPort }}"
+            - name: LOG_LEVEL
+              value: "{{ .Values.log.level }}"
+            - name: CNDBTIER_VERSION
+              value: "{{ .Values.global.version }}"
+            - name: DEPLOYMENT_TIME
+              value: {{ now | date "2006-01-02 15:04:05" | quote }}
+            - name: ROUTINE_BACKUP_CHECK_INTERVAL
+              value: "{{ .Values.scheduler.routinebackupcheckinterval | default 600 }}"
+            - name: PROCESS_REQUEST_CHECK_INTERVAL
+              value: "{{ .Values.scheduler.processrequestcheckinterval | default 10 }}"
+            - name: USEIPV6
+              value: "{{ .Values.global.useIPv6 }}"
+            - name: EXECUTOR_STATUS_VERIFY_RETRY_COUNT
+              value: "{{ .Values.executor_status_verify_retry.count | default 100 }}"
+            - name: EXECUTOR_STATUS_VERIFY_RETRY_GAP
+              value: "{{ .Values.executor_status_verify_retry.gap | default 10 }}"
+            - name: DELETE_PURGED_BACKUP_RECORDS_ENABLED
+              value: "{{ .Values.deletePurgedRecords.enabled }}"
+            {{- if .Values.deletePurgedRecords.enabled }}
+            - name: RETAIN_PURGED_BACKUP_RECORDS_FOR_DAYS
+              value: "{{ .Values.deletePurgedRecords.retainPurgedBackupForDays | default 30 }}"
+            - name: DELETE_PURGED_BACKUP_RECORDS_CHECK_INTERVAL              
+              value: "{{ .Values.deletePurgedRecords.schedulerInterval | default 1 }}"
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.container.containerPort  }}
+              protocol: TCP
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+      securityContext:
+    {{- with .Values.securityContext }}
+{{ toYaml . | indent 8 }}
+    {{- end }}
+        runAsUser: 27
+        runAsGroup: 27

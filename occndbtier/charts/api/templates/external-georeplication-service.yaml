@@ -1,0 +1,79 @@
+{{ $node := .Values.global.api }}
+{{ $apiReplicaCount :=  .Values.global.apiReplicaCount | int }}
+{{ $apistsname := include "api.apistsname" . }}
+{{ range untilStep 0 $apiReplicaCount 1 }}
+{{ $apisubdomain := include "api.subdomain" . }}
+{{ $ndbsqlsvcname := print $apisubdomain "-" . }}
+{{ $sqlSvcCommonDict := dict "Values" $.Values "Chart" $.Chart "Release" $.Release "ndbmysqldsvcname" $ndbsqlsvcname "loopindex" . }}
+---
+# These services provide external IPs for geo-replication api nodes.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "api.subdomain" . }}-{{ . }}
+  labels:
+    {{- include "labels.commonlabels" ($sqlSvcCommonDict) }}
+    {{- range $.Values.commonlabels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with $.Values.externalService.labels }}
+      {{- range $.Values.externalService.labels }}
+        {{- toYaml . | nindent 4 }}
+      {{- end }}
+    {{- end }}
+    {{- range $index, $sqlnodelabel := $.Values.externalService.sqlgeorepsvclabels }}
+      {{- if $sqlnodelabel.labels }}
+        {{- if eq $sqlnodelabel.name $ndbsqlsvcname }}
+          {{- range $sqlnodelabel.labels }}
+            {{- toYaml . | nindent 4 }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+{{- if or $.Values.externalService.annotations (or (include "checkannotationsdefinedforservice" ($sqlSvcCommonDict)) true) }} 
+  annotations:
+    {{- if $.Values.externalService.annotations }}
+    {{- range $key, $value := $.Values.externalService.annotations }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+    {{- end }}
+    {{- range $annotindex, $sqlnodeservice := $.Values.externalService.sqlgeorepsvclabels }}
+    {{- if $sqlnodeservice.annotations }}
+    {{- if eq $sqlnodeservice.name $ndbsqlsvcname }}
+    {{- range $keyanno, $valanno := $sqlnodeservice.annotations }}
+    {{ $keyanno }}: {{ $valanno | quote }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+{{- end }}
+spec:
+  type: {{ $.Values.externalService.type | default "LoadBalancer" }}
+  {{- if eq $.Values.externalService.type "LoadBalancer" }}
+  {{- range $index, $sqlnodelabel := $.Values.externalService.sqlgeorepsvclabels }}
+  {{- if eq $sqlnodelabel.name $ndbsqlsvcname }}
+  {{- if ne $sqlnodelabel.loadBalancerIP "" }}
+  loadBalancerIP: {{ $sqlnodelabel.loadBalancerIP | quote }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- if eq $.Values.externalService.type "LoadBalancer" }}
+  externalTrafficPolicy: Cluster
+  {{- end }}
+  {{- if $.Values.global.useIPv6 }}
+  ipFamilyPolicy: {{ $.Values.global.services.ipFamilyPolicy }}
+  ipFamilies:
+      - {{ $.Values.global.services.primaryDualStackIpFamily }}
+  {{- else }}
+  ipFamilyPolicy: {{ $.Values.global.services.ipFamilyPolicy }}
+  ipFamilies:
+      - IPv4
+  {{- end }}
+  selector:
+    statefulset.kubernetes.io/pod-name: {{ $apistsname }}-{{ . }}
+  ports:
+  - port: {{ $node.port }}
+    protocol: TCP
+    name: tcp
+{{- end }}

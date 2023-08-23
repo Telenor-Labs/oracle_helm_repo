@@ -1,0 +1,231 @@
+{{ $mgmReplicaCount :=  .Values.global.mgmReplicaCount | int }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ template "mgm.mgmtstsname" . }}
+spec:
+  serviceName: {{ template "mgm.subdomain" . }}
+  updateStrategy:
+    type: OnDelete
+  replicas: {{ .Values.global.mgmReplicaCount }}
+  selector:
+    matchLabels:
+      {{- range .Values.selector }}
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
+  template:
+    metadata:
+      annotations: 
+        prometheus.io/scrape: "false"
+        checksum/config: {{ include "mgm.configmap.data" . | sha256sum }}
+        {{- if $.Values.annotations }}
+        {{- range $.Values.annotations }}
+        {{ toYaml . }}
+        {{- end }}
+        {{- end }}
+      labels:
+        {{- include "labels.commonlabels" . | nindent 4 }}
+        {{- range .Values.commonlabels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- range .Values.selector }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- range $value := $.Values.anti_pod_affinity.anti_affinity_values }}
+          {{- $.Values.anti_pod_affinity.anti_affinity_key | nindent 8 }}: {{ $value }}
+        {{- end }}
+    spec:
+      automountServiceAccountToken: {{ .Values.global.automountServiceAccountToken }}
+      {{- if .Values.nodeSelector }}
+      nodeSelector:
+        {{- range .Values.nodeSelector }}
+        {{ toYaml . }}
+        {{- end }}
+      {{- end }}
+      {{- if .Values.global.use_affinity_rules }}
+      affinity:
+        {{- if .Values.anti_pod_affinity }}
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: {{ .Values.anti_pod_affinity.anti_affinity_topologyKey }}
+              labelSelector:
+                matchLabels:
+                  {{- range $value := .Values.anti_pod_affinity.anti_affinity_values }}
+                    {{- $.Values.anti_pod_affinity.anti_affinity_key | nindent 18 }}: {{ $value }}
+                  {{- end }}
+        {{- end }}
+        {{- if .Values.use_pod_affinity_rules }}
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: {{ .Values.pod_affinity.pod_affinity_key }}
+                operator: In
+                values:
+                {{- range .Values.anti_pod_affinity.anti_affinity_values }}
+                - {{ . }}
+                {{- end }}
+            topologyKey: {{ .Values.pod_affinity.pod_affinity_topologyKey }}
+        {{- end }}
+        {{- if .Values.nodeAffinity.enable }}
+        nodeAffinity:
+          {{- if .Values.nodeAffinity.requiredDuringScheduling.enable }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+            {{- range $affinitykeyvalue := .Values.nodeAffinity.requiredDuringScheduling.affinitykeyvalues }}
+              - key: {{ $affinitykeyvalue.keyname | quote }}
+                operator: In
+                values: 
+                {{- range $affinitykeyvalue.keyvalues }}
+                - {{ . }}
+                {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.nodeAffinity.preferredDuringScheduling.enable }}
+          preferredDuringSchedulingIgnoredDuringExecution:
+          {{- range $expression := .Values.nodeAffinity.preferredDuringScheduling.expressions }}
+          - weight: {{ $expression.weight }}
+            preference:
+              matchExpressions:
+              {{- range $affinitykeyvalue := $expression.affinitykeyvalues }}
+              - key: {{ $affinitykeyvalue.keyname | quote }}
+                operator: In
+                values: 
+                {{- range $affinitykeyvalue.keyvalues }}
+                - {{ . }}
+                {{- end }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      containers:
+      - name: {{ template "mgm.containerfullname" . }}
+        imagePullPolicy: {{ .Values.global.image.imagePullPolicy }}
+        {{- if ne .Values.global.repository "" }}
+        image: {{ .Values.global.repository }}/{{ .Values.global.image.name }}:{{ .Values.global.image.tag }}
+        {{- else }}
+        image: {{ .Values.global.image.name }}:{{ .Values.global.image.tag }}
+        {{- end }}
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.global.mgm.port }}
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+        startupProbe:
+          exec:
+            command:
+              - /bin/bash
+              - -c
+              - |
+                {{- .Files.Get "files/probes_gen.sh" | nindent 16 }}
+                {{- .Files.Get "files/probes.sh" | nindent 16 }}
+                probe_startup
+          initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+          periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+          failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+          successThreshold: {{ .Values.startupProbe.successThreshold }}
+        readinessProbe:
+          exec:
+            command:
+              - /bin/bash
+              - -c
+              - |
+                {{- .Files.Get "files/probes_gen.sh" | nindent 16 }}
+                {{- .Files.Get "files/probes.sh" | nindent 16 }}
+                probe_readiness {{ .Values.readinessProbe.successThreshold }}
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+          successThreshold: {{ .Values.readinessProbe.successThreshold }}
+        env:
+          - name: NDB_MGMD_CONNECTSTRING
+            value: '
+              {{- $mgmstsname := (include "api.mgmtstsname" .) }}
+              {{- range untilStep 0 $mgmReplicaCount 1 }}
+                {{- if ne . 0 -}}
+                  ,
+                {{- end }}
+                {{- $mgmstsname }}-{{ . }}.{{ template "mgm.subdomain" . }}.
+                  {{- $.Values.global.namespace }}.svc.{{ $.Values.global.domain }}:{{ $.Values.global.mgm.port }}
+              {{- end }}'
+          - name: NDB_MGMD_BASE_DATADIR
+            value: {{ .Values.global.ndbconfigurations.mgm.BaseDataDir | quote }}
+          - name: NDB_MGMD_DATADIR
+            value: {{ .Values.global.ndbconfigurations.mgm.MgmDataDir | quote }}
+          - name: NDB_CONFIGMAP_DIR
+            value: "/etc/ndbconf"
+          - name : NDB_CLUSTER_CONNECTION_POOL
+            value: {{ .Values.global.ndb_cluster_connection_pool | quote }}
+          {{- if .Values.global.useasm }}
+          - name: USE_NO_NODEID_CHECKS
+            value: "1"
+          - name: USE_NDB_NODEID
+            value: "1"
+          - name: STARTING_NDBMGMD_NODEID
+            value: {{ .Values.global.ndbconfigurations.mgm.startNodeId | default 49 | quote }}
+          {{- end }}
+        command: ["/entrypoint.sh"]
+        args: ["ndb_mgmd"]
+        resources:
+          {{ toYaml .Values.resources | indent 10 | trim }}
+        volumeMounts:
+          - mountPath: "/etc/ndbconf"
+            name: ndbmgmdconfigfile
+          - mountPath: {{ .Values.global.ndbconfigurations.mgm.BaseDataDir | quote }}
+            name: pvc-{{ template "mgm.mgmtstsnamewithoutprefix" . }}
+      {{- if and .Values.global.inframonitor.pvchealth.enable.mgm .Values.global.inframonitor.pvchealth.enable.all }}
+      - name: {{ template "inframonitorsidecarcontainer.fullname" . }}
+        imagePullPolicy: {{ .Values.inframonitor.image.imagePullPolicy }}
+        {{- if ne .Values.global.repository "" }}
+        image: {{ .Values.global.repository }}/{{ .Values.inframonitor.image.repository }}:{{ .Values.inframonitor.image.tag }}
+        {{- else }}
+        image: {{ .Values.inframonitor.image.repository }}:{{ .Values.inframonitor.image.tag }}
+        {{- end }}
+        volumeMounts:
+          - mountPath: {{ .Values.global.ndbconfigurations.mgm.BaseDataDir | quote }}
+            name: pvc-{{ template "mgm.mgmtstsnamewithoutprefix" . }}
+        env:
+          - name: REST_PORT
+            value: "{{ .Values.global.inframonitor.rest.port }}"
+          - name: LOG_LEVEL
+            value: "{{ .Values.inframonitor.log.level }}"
+          - name: USEIPV6
+            value: "{{ .Values.global.useIPv6 }}"
+          - name: PVC_MOUNT_POINT_LIST
+            value: "{{ .Values.global.ndbconfigurations.mgm.BaseDataDir }}"
+          - name: DD_IF
+            value: "{{ .Values.inframonitor.command.dd_if }}"
+          - name: INSERT_GARBAGE_DATA_INTO_DD_IF
+            value: "{{ .Values.inframonitor.command.fill_dd_if }}"
+          - name: DD_OF
+            value: "{{ .Values.inframonitor.command.dd_of }}"
+          - name: DD_BS
+            value: "{{ .Values.inframonitor.command.dd_bs }}"
+          - name: DD_COUNT
+            value: "{{ .Values.inframonitor.command.dd_count }}"
+          - name: DD_OFLAG
+            value: "{{ .Values.inframonitor.command.dd_oflag }}"
+        resources:
+          {{ toYaml .Values.inframonitor.resources | indent 10 | trim }}
+      {{- end }}
+      securityContext:
+        fsGroup: 27
+      volumes:
+        - name: ndbmgmdconfigfile
+          configMap:
+            name: ndbmgmdconfig
+  volumeClaimTemplates:
+  - metadata:
+      name: pvc-{{ template "mgm.mgmtstsnamewithoutprefix" . }}
+    spec:
+      accessModes: [ {{ .Values.global.accessModes | quote }} ]
+      storageClassName: "{{ .Values.global.storageClassName }}"
+      resources:
+        requests:
+          storage: "{{ .Values.global.mgm.ndbdisksize }}"

@@ -1,0 +1,27 @@
+{{ range $i, $dbReplSvcDeploy := .Values.dbreplsvcdeployments }}
+{{ $dbReplSvcDict := dict "Values" $.Values  "Chart" $.Chart "dbReplSvcDeploy" $dbReplSvcDeploy "Release" $.Release }}
+{{ if $dbReplSvcDeploy.enabled }}
+{{- if eq $i 0 }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: "{{ $dbReplSvcDeploy.pvc.name }}"
+  labels:
+    app: {{ template "db-replication-svc.name" ($dbReplSvcDict) }}
+    chart: {{ template "db-replication-svc.chart" ($dbReplSvcDict) }}
+    release: {{ $.Release.Name }}
+    heritage: {{ $.Release.Service }}
+    {{- include "labels.commonlabels" ($dbReplSvcDict) }}
+    {{- with $dbReplSvcDeploy.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  accessModes: [ {{ $.Values.global.accessModes | quote }} ]
+  resources:
+    requests:
+      storage: "{{ $dbReplSvcDeploy.pvc.disksize }}"
+  storageClassName: "{{ $.Values.global.storageClassName }}"
+{{- end }}
+{{- end }}
+{{- end }}
