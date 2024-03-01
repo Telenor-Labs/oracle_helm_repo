@@ -2,8 +2,43 @@ apiVersion: v1
 entries:
   occndbtier:
   - apiVersion: v2
+    appVersion: 23.3.0.0.0
+    created: "2023-10-24T12:17:39.390873392Z"
+    dependencies:
+    - condition: "true"
+      name: mgm
+      repository: ""
+      version: 23.3.0
+    - condition: "true"
+      name: ndb
+      repository: ""
+      version: 23.3.0
+    - condition: "true"
+      name: api
+      repository: ""
+      version: 23.3.0
+    - condition: db-backup-manager-svc.enabled
+      name: db-backup-manager-svc
+      repository: ""
+      version: 23.3.0
+    - condition: "true"
+      name: db-monitor-svc
+      repository: ""
+      version: 23.3.0
+    - condition: db-replication-svc.enabled
+      name: db-replication-svc
+      repository: ""
+      version: 23.3.0
+    description: A Helm chart for Kubernetes
+    digest: f312cbc084e6655ecf219e2dc72efeafaec6e989f25abbec4424cc47b402ccf1
+    name: occndbtier
+    type: application
+    urls:
+    - occndbtier-23.3.0.tgz
+    version: 23.3.0
+  - apiVersion: v2
     appVersion: 23.2.1.0.0
-    created: "2023-08-23T18:14:18.238914905Z"
+    created: "2023-10-24T12:17:39.367286022Z"
     dependencies:
     - condition: "true"
       name: mgm
@@ -38,7 +73,7 @@ entries:
     version: 23.2.1
   - apiVersion: v2
     appVersion: 22.4.1.0.0
-    created: "2023-08-23T18:14:18.228196856Z"
+    created: "2023-10-24T12:17:39.354992133Z"
     dependencies:
     - condition: "true"
       name: mgm
@@ -73,8 +108,122 @@ entries:
     version: 22.4.1
   occnp:
   - apiVersion: v1
+    appVersion: 23.2.2.0.0
+    created: "2023-10-24T12:17:39.534755731Z"
+    dependencies:
+    - condition: ingress-gateway.enabled
+      name: ingress-gateway
+      repository: alias:cne-helm-repo
+      version: 23.2.7
+    - condition: egress-gateway.enabled
+      name: egress-gateway
+      repository: alias:cne-helm-repo
+      version: 23.2.7
+    - condition: nrf-client.enabled
+      name: nrf-client
+      repository: alias:ocnrf-helm-repo
+      version: 23.2.1
+    - condition: alternate-route.enabled
+      name: alternate-route
+      repository: alias:cne-helm-repo
+      version: 23.2.7
+    - condition: am-service.enabled
+      name: am-service
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: sm-service.enabled
+      name: sm-service
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: config-server.enabled
+      name: config-server
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: user-service.enabled
+      name: user-service
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: pre-service.enabled
+      name: pre-service
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: queryservice.enabled
+      name: queryservice
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: bulwark.enabled
+      name: bulwark
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: ldap-gateway.enabled
+      name: ldap-gateway
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: binding.enabled
+      name: binding
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: notifier.enabled
+      name: notifier
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: usage-mon.enabled
+      name: usage-mon
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: diam-gateway.enabled
+      name: diam-gateway
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: diam-connector.enabled
+      name: diam-connector
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: ue-service.enabled
+      name: ue-service
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: cm-service.enabled
+      name: cm-service
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: perf-info.enabled
+      name: perf-info
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: appinfo.enabled
+      name: appinfo
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: audit-service.enabled
+      name: audit-service
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: policyds.enabled
+      name: policyds
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: pcrf-core.enabled
+      name: pcrf-core
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: soap-connector.enabled
+      name: soap-connector
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    - condition: nwdaf-agent.enabled
+      name: nwdaf-agent
+      repository: alias:occnp-helm-repo
+      version: 23.2.2
+    description: Helm chart for occnp components
+    digest: 1c7189103d6ad300f4ef2462fb86e7da5907aed697f8396e11182178692fe552
+    name: occnp
+    urls:
+    - occnp-23.2.2.tgz
+    version: 23.2.2
+  - apiVersion: v1
     appVersion: 23.2.1.0.0
-    created: "2023-08-23T18:14:18.311307482Z"
+    created: "2023-10-24T12:17:39.467011942Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -188,7 +337,7 @@ entries:
     version: 23.2.1
   - apiVersion: v1
     appVersion: 22.4.1.0.0
-    created: "2023-08-23T18:14:18.732347439Z"
+    created: "2023-10-24T12:17:40.06252304Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -302,7 +451,7 @@ entries:
     version: 22.4.1
   - apiVersion: v1
     appVersion: 22.4.1.0.0
-    created: "2023-08-23T18:14:18.787231411Z"
+    created: "2023-10-24T12:17:40.121864269Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -415,7 +564,7 @@ entries:
     - ocpcf-svalbard-22.4.1.tgz
     version: 22.4.1
   - apiVersion: v1
-    created: "2023-08-23T18:14:18.673184668Z"
+    created: "2023-10-24T12:17:40.000460192Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -517,8 +666,65 @@ entries:
     version: 22.1.0
   ocnrf:
   - apiVersion: v2
+    appVersion: 23.3.0
+    created: "2023-10-24T12:17:39.703509349Z"
+    dependencies:
+    - condition: nfregistration.enabled
+      name: nfregistration
+      repository: alias:helm-repo
+      version: 23.3.0
+    - condition: nfsubscription.enabled
+      name: nfsubscription
+      repository: alias:helm-repo
+      version: 23.3.0
+    - condition: nrfauditor.enabled
+      name: nrfauditor
+      repository: alias:helm-repo
+      version: 23.3.0
+    - condition: nfdiscovery.enabled
+      name: nfdiscovery
+      repository: alias:helm-repo
+      version: 23.3.0
+    - condition: nrfconfiguration.enabled
+      name: nrfconfiguration
+      repository: alias:helm-repo
+      version: 23.3.0
+    - condition: nfaccesstoken.enabled
+      name: nfaccesstoken
+      repository: alias:helm-repo
+      version: 23.3.0
+    - condition: global.enableNrfArtisanService
+      name: nrfartisan
+      repository: alias:helm-repo
+      version: 23.3.0
+    - name: egress-gateway
+      repository: alias:helm-repo-1
+      version: 23.3.4
+    - name: ingress-gateway
+      repository: alias:helm-repo-1
+      version: 23.3.4
+    - condition: global.alternateRouteServiceEnable
+      name: alternate-route
+      repository: alias:helm-repo-1
+      version: 23.3.4
+    - condition: appinfo.enabled
+      name: appinfo
+      repository: alias:helm-repo-1
+      version: 23.3.1
+    - condition: global.performanceServiceEnable
+      name: perf-info
+      repository: alias:helm-repo-1
+      version: 23.3.1
+    description: NRF helm chart
+    digest: d9ae707b65901b807acf754f50e199bef864ae2cdae236354331c613d488880f
+    name: ocnrf
+    type: application
+    urls:
+    - ocnrf-23.3.0.tgz
+    version: 23.3.0
+  - apiVersion: v2
     appVersion: 23.2.0
-    created: "2023-08-23T18:14:18.435124451Z"
+    created: "2023-10-24T12:17:39.651732075Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -575,7 +781,7 @@ entries:
     version: 23.2.0
   - apiVersion: v2
     appVersion: 22.4.0.0.0
-    created: "2023-08-23T18:14:18.390763023Z"
+    created: "2023-10-24T12:17:39.606899252Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -632,7 +838,7 @@ entries:
     version: 22.4.0
   - apiVersion: v2
     appVersion: 22.4.0.0.0
-    created: "2023-08-23T18:14:18.471484094Z"
+    created: "2023-10-24T12:17:39.74522165Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -689,7 +895,7 @@ entries:
     version: 22.4.0
   - apiVersion: v2
     appVersion: 22.1.0.0.0
-    created: "2023-08-23T18:14:18.343837536Z"
+    created: "2023-10-24T12:17:39.570333388Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -742,8 +948,45 @@ entries:
     version: 22.1.0
   ocnssf:
   - apiVersion: v1
+    appVersion: 23.3.0.0.0
+    created: "2023-10-24T12:17:39.900264269Z"
+    dependencies:
+    - name: ingress-gateway
+      repository: alias:comsvc-helm-repo
+      version: 23.3.3
+    - name: egress-gateway
+      repository: alias:comsvc-helm-repo
+      version: 23.3.3
+    - name: nrfclient
+      repository: alias:comsvc-helm-repo
+      version: 23.3.2
+    - name: alternate-route
+      repository: alias:comsvc-helm-repo
+      version: 23.3.3
+    - name: nsselection
+      repository: file://../nssf-helm-charts/nsselection
+      version: 23.3.0
+    - name: nsconfig
+      repository: file://../nssf-helm-charts/nsconfig
+      version: 23.3.0
+    - name: nsavailability
+      repository: file://../nssf-helm-charts/nsavailability
+      version: 23.3.0
+    - name: nssubscription
+      repository: file://../nssf-helm-charts/nssubscription
+      version: 23.3.0
+    - name: nsauditor
+      repository: file://../nssf-helm-charts/nsauditor
+      version: 23.3.0
+    description: Oracle Communications NSSF
+    digest: b02e1e5ce129f688e75e669bba38b0d6e21975b15f73659dd9fcf7f4e08c2c2d
+    name: ocnssf
+    urls:
+    - ocnssf-23.3.0.0.0.tgz
+    version: 23.3.0
+  - apiVersion: v1
     appVersion: 23.2.0.0.0
-    created: "2023-08-23T18:14:18.595815275Z"
+    created: "2023-10-24T12:17:39.853758133Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -780,7 +1023,7 @@ entries:
     version: 23.2.0
   - apiVersion: v1
     appVersion: 22.4.1.0.0
-    created: "2023-08-23T18:14:18.540654997Z"
+    created: "2023-10-24T12:17:39.812866338Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -814,7 +1057,7 @@ entries:
     version: 22.4.1
   - apiVersion: v1
     appVersion: 22.4.1.0.0
-    created: "2023-08-23T18:14:18.628051922Z"
+    created: "2023-10-24T12:17:39.941426066Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -848,7 +1091,7 @@ entries:
     version: 22.4.1
   - apiVersion: v1
     appVersion: 22.1.1.0.0
-    created: "2023-08-23T18:14:18.502495413Z"
+    created: "2023-10-24T12:17:39.7798708Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:ocnrf-helm-repo
@@ -883,7 +1126,7 @@ entries:
   test-hello-openshift-oracle:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2023-08-23T18:14:18.787825024Z"
+    created: "2023-10-24T12:17:40.122506673Z"
     description: A Helm chart for Kubernetes
     digest: 8a4df93e9ae971bfc7fa3fc44dc7465a7d73fffdbd3c5e63c0d285dddf03b539
     name: test-hello-openshift-oracle
@@ -891,4 +1134,4 @@ entries:
     urls:
     - test-hello-openshift-oracle.tgz
     version: 0.1.0
-generated: "2023-08-23T18:14:18.2171344Z"
+generated: "2023-10-24T12:17:39.33791181Z"
