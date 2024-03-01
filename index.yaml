@@ -2,8 +2,43 @@ apiVersion: v1
 entries:
   occndbtier:
   - apiVersion: v2
+    appVersion: 23.4.2.0.0
+    created: "2024-03-01T16:09:24.466220597Z"
+    dependencies:
+    - condition: "true"
+      name: mgm
+      repository: ""
+      version: 23.4.2
+    - condition: "true"
+      name: ndb
+      repository: ""
+      version: 23.4.2
+    - condition: "true"
+      name: api
+      repository: ""
+      version: 23.4.2
+    - condition: db-backup-manager-svc.enabled
+      name: db-backup-manager-svc
+      repository: ""
+      version: 23.4.2
+    - condition: "true"
+      name: db-monitor-svc
+      repository: ""
+      version: 23.4.2
+    - condition: db-replication-svc.enabled
+      name: db-replication-svc
+      repository: ""
+      version: 23.4.2
+    description: A Helm chart for Kubernetes
+    digest: 920b7741d57a6cbae0e994cdf64672c5173350a4805841b22761ce3f15570dc2
+    name: occndbtier
+    type: application
+    urls:
+    - occndbtier-23.4.2.tgz
+    version: 23.4.2
+  - apiVersion: v2
     appVersion: 23.3.0.0.0
-    created: "2023-10-24T12:17:39.390873392Z"
+    created: "2024-03-01T16:09:24.45843708Z"
     dependencies:
     - condition: "true"
       name: mgm
@@ -38,7 +73,7 @@ entries:
     version: 23.3.0
   - apiVersion: v2
     appVersion: 23.2.1.0.0
-    created: "2023-10-24T12:17:39.367286022Z"
+    created: "2024-03-01T16:09:24.451656493Z"
     dependencies:
     - condition: "true"
       name: mgm
@@ -73,7 +108,7 @@ entries:
     version: 23.2.1
   - apiVersion: v2
     appVersion: 22.4.1.0.0
-    created: "2023-10-24T12:17:39.354992133Z"
+    created: "2024-03-01T16:09:24.445351768Z"
     dependencies:
     - condition: "true"
       name: mgm
@@ -109,7 +144,7 @@ entries:
   occnp:
   - apiVersion: v1
     appVersion: 23.2.2.0.0
-    created: "2023-10-24T12:17:39.534755731Z"
+    created: "2024-03-01T16:09:24.538215189Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -223,7 +258,7 @@ entries:
     version: 23.2.2
   - apiVersion: v1
     appVersion: 23.2.1.0.0
-    created: "2023-10-24T12:17:39.467011942Z"
+    created: "2024-03-01T16:09:24.501723132Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -337,7 +372,7 @@ entries:
     version: 23.2.1
   - apiVersion: v1
     appVersion: 22.4.1.0.0
-    created: "2023-10-24T12:17:40.06252304Z"
+    created: "2024-03-01T16:09:24.844178771Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -451,7 +486,7 @@ entries:
     version: 22.4.1
   - apiVersion: v1
     appVersion: 22.4.1.0.0
-    created: "2023-10-24T12:17:40.121864269Z"
+    created: "2024-03-01T16:09:24.884981866Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -564,7 +599,7 @@ entries:
     - ocpcf-svalbard-22.4.1.tgz
     version: 22.4.1
   - apiVersion: v1
-    created: "2023-10-24T12:17:40.000460192Z"
+    created: "2024-03-01T16:09:24.799476413Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -666,8 +701,69 @@ entries:
     version: 22.1.0
   ocnrf:
   - apiVersion: v2
+    appVersion: 23.4.0
+    created: "2024-03-01T16:09:24.641598926Z"
+    dependencies:
+    - condition: nfregistration.enabled
+      name: nfregistration
+      repository: alias:helm-repo
+      version: 23.4.0
+    - condition: nfsubscription.enabled
+      name: nfsubscription
+      repository: alias:helm-repo
+      version: 23.4.0
+    - condition: nrfauditor.enabled
+      name: nrfauditor
+      repository: alias:helm-repo
+      version: 23.4.0
+    - condition: nfdiscovery.enabled
+      name: nfdiscovery
+      repository: alias:helm-repo
+      version: 23.4.0
+    - condition: nrfconfiguration.enabled
+      name: nrfconfiguration
+      repository: alias:helm-repo
+      version: 23.4.0
+    - condition: nfaccesstoken.enabled
+      name: nfaccesstoken
+      repository: alias:helm-repo
+      version: 23.4.0
+    - condition: global.enableNrfArtisanService
+      name: nrfartisan
+      repository: alias:helm-repo
+      version: 23.4.0
+    - condition: global.enableNrfCacheDataService
+      name: nrfcachedata
+      repository: alias:helm-repo
+      version: 23.4.0
+    - name: egress-gateway
+      repository: alias:helm-repo-1
+      version: 23.4.3
+    - name: ingress-gateway
+      repository: alias:helm-repo-1
+      version: 23.4.3
+    - condition: global.alternateRouteServiceEnable
+      name: alternate-route
+      repository: alias:helm-repo-1
+      version: 23.4.3
+    - condition: appinfo.enabled
+      name: appinfo
+      repository: alias:helm-repo-1
+      version: 23.4.1
+    - condition: global.performanceServiceEnable
+      name: perf-info
+      repository: alias:helm-repo-1
+      version: 23.4.1
+    description: NRF helm chart
+    digest: d7c2a7c3c0ba657b19983c394f081161238452b0aefc1043be620ee167802f72
+    name: ocnrf
+    type: application
+    urls:
+    - ocnrf-23.4.0.tgz
+    version: 23.4.0
+  - apiVersion: v2
     appVersion: 23.3.0
-    created: "2023-10-24T12:17:39.703509349Z"
+    created: "2024-03-01T16:09:24.618324781Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -724,7 +820,7 @@ entries:
     version: 23.3.0
   - apiVersion: v2
     appVersion: 23.2.0
-    created: "2023-10-24T12:17:39.651732075Z"
+    created: "2024-03-01T16:09:24.595273268Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -781,7 +877,7 @@ entries:
     version: 23.2.0
   - apiVersion: v2
     appVersion: 22.4.0.0.0
-    created: "2023-10-24T12:17:39.606899252Z"
+    created: "2024-03-01T16:09:24.573962235Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -838,7 +934,7 @@ entries:
     version: 22.4.0
   - apiVersion: v2
     appVersion: 22.4.0.0.0
-    created: "2023-10-24T12:17:39.74522165Z"
+    created: "2024-03-01T16:09:24.660473338Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -895,7 +991,7 @@ entries:
     version: 22.4.0
   - apiVersion: v2
     appVersion: 22.1.0.0.0
-    created: "2023-10-24T12:17:39.570333388Z"
+    created: "2024-03-01T16:09:24.554041517Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -949,7 +1045,7 @@ entries:
   ocnssf:
   - apiVersion: v1
     appVersion: 23.3.0.0.0
-    created: "2023-10-24T12:17:39.900264269Z"
+    created: "2024-03-01T16:09:24.743747094Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -986,7 +1082,7 @@ entries:
     version: 23.3.0
   - apiVersion: v1
     appVersion: 23.2.0.0.0
-    created: "2023-10-24T12:17:39.853758133Z"
+    created: "2024-03-01T16:09:24.720791986Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -1023,7 +1119,7 @@ entries:
     version: 23.2.0
   - apiVersion: v1
     appVersion: 22.4.1.0.0
-    created: "2023-10-24T12:17:39.812866338Z"
+    created: "2024-03-01T16:09:24.695286679Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -1057,7 +1153,7 @@ entries:
     version: 22.4.1
   - apiVersion: v1
     appVersion: 22.4.1.0.0
-    created: "2023-10-24T12:17:39.941426066Z"
+    created: "2024-03-01T16:09:24.771500276Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -1091,7 +1187,7 @@ entries:
     version: 22.4.1
   - apiVersion: v1
     appVersion: 22.1.1.0.0
-    created: "2023-10-24T12:17:39.7798708Z"
+    created: "2024-03-01T16:09:24.676588532Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:ocnrf-helm-repo
@@ -1126,7 +1222,7 @@ entries:
   test-hello-openshift-oracle:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2023-10-24T12:17:40.122506673Z"
+    created: "2024-03-01T16:09:24.885307511Z"
     description: A Helm chart for Kubernetes
     digest: 8a4df93e9ae971bfc7fa3fc44dc7465a7d73fffdbd3c5e63c0d285dddf03b539
     name: test-hello-openshift-oracle
@@ -1134,4 +1230,4 @@ entries:
     urls:
     - test-hello-openshift-oracle.tgz
     version: 0.1.0
-generated: "2023-10-24T12:17:39.33791181Z"
+generated: "2024-03-01T16:09:24.439311408Z"
