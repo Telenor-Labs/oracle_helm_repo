@@ -3,7 +3,7 @@ entries:
   occndbtier:
   - apiVersion: v2
     appVersion: 23.4.2.0.0
-    created: "2024-03-01T16:20:42.117276873Z"
+    created: "2024-03-05T17:57:18.662053062Z"
     dependencies:
     - condition: "true"
       name: mgm
@@ -38,7 +38,7 @@ entries:
     version: 23.4.2
   - apiVersion: v2
     appVersion: 23.3.0.0.0
-    created: "2024-03-01T16:20:42.106129487Z"
+    created: "2024-03-05T17:57:18.654199143Z"
     dependencies:
     - condition: "true"
       name: mgm
@@ -73,7 +73,7 @@ entries:
     version: 23.3.0
   - apiVersion: v2
     appVersion: 23.2.1.0.0
-    created: "2024-03-01T16:20:42.095487268Z"
+    created: "2024-03-05T17:57:18.647197993Z"
     dependencies:
     - condition: "true"
       name: mgm
@@ -108,7 +108,7 @@ entries:
     version: 23.2.1
   - apiVersion: v2
     appVersion: 22.4.1.0.0
-    created: "2024-03-01T16:20:42.088591442Z"
+    created: "2024-03-05T17:57:18.640234894Z"
     dependencies:
     - condition: "true"
       name: mgm
@@ -144,7 +144,7 @@ entries:
   occnp:
   - apiVersion: v1
     appVersion: 23.4.1.0.0
-    created: "2024-03-01T16:20:42.244975245Z"
+    created: "2024-03-05T17:57:18.7781072Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -258,7 +258,7 @@ entries:
     version: 23.4.1
   - apiVersion: v1
     appVersion: 23.2.2.0.0
-    created: "2024-03-01T16:20:42.202880221Z"
+    created: "2024-03-05T17:57:18.734362744Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -372,7 +372,7 @@ entries:
     version: 23.2.2
   - apiVersion: v1
     appVersion: 23.2.1.0.0
-    created: "2024-03-01T16:20:42.158649862Z"
+    created: "2024-03-05T17:57:18.697678321Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -486,7 +486,7 @@ entries:
     version: 23.2.1
   - apiVersion: v1
     appVersion: 22.4.1.0.0
-    created: "2024-03-01T16:20:42.550137959Z"
+    created: "2024-03-05T17:57:19.113165421Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -600,7 +600,7 @@ entries:
     version: 22.4.1
   - apiVersion: v1
     appVersion: 22.4.1.0.0
-    created: "2024-03-01T16:20:42.584673146Z"
+    created: "2024-03-05T17:57:19.164759214Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -713,7 +713,7 @@ entries:
     - ocpcf-svalbard-22.4.1.tgz
     version: 22.4.1
   - apiVersion: v1
-    created: "2024-03-01T16:20:42.515921777Z"
+    created: "2024-03-05T17:57:19.075485015Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -816,7 +816,7 @@ entries:
   ocnrf:
   - apiVersion: v2
     appVersion: 23.4.0
-    created: "2024-03-01T16:20:42.352133205Z"
+    created: "2024-03-05T17:57:18.905054196Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -877,7 +877,7 @@ entries:
     version: 23.4.0
   - apiVersion: v2
     appVersion: 23.3.0
-    created: "2024-03-01T16:20:42.32781831Z"
+    created: "2024-03-05T17:57:18.876997711Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -934,7 +934,7 @@ entries:
     version: 23.3.0
   - apiVersion: v2
     appVersion: 23.2.0
-    created: "2024-03-01T16:20:42.305034529Z"
+    created: "2024-03-05T17:57:18.850103665Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -991,7 +991,7 @@ entries:
     version: 23.2.0
   - apiVersion: v2
     appVersion: 22.4.0.0.0
-    created: "2024-03-01T16:20:42.282143271Z"
+    created: "2024-03-05T17:57:18.824611652Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -1048,7 +1048,7 @@ entries:
     version: 22.4.0
   - apiVersion: v2
     appVersion: 22.4.0.0.0
-    created: "2024-03-01T16:20:42.37268881Z"
+    created: "2024-03-05T17:57:18.924776697Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -1105,7 +1105,7 @@ entries:
     version: 22.4.0
   - apiVersion: v2
     appVersion: 22.1.0.0.0
-    created: "2024-03-01T16:20:42.261227943Z"
+    created: "2024-03-05T17:57:18.795775674Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -1158,8 +1158,45 @@ entries:
     version: 22.1.0
   ocnssf:
   - apiVersion: v1
+    appVersion: 23.4.0.0.0
+    created: "2024-03-05T17:57:19.030084051Z"
+    dependencies:
+    - name: ingress-gateway
+      repository: alias:comsvc-helm-repo
+      version: 23.4.3
+    - name: egress-gateway
+      repository: alias:comsvc-helm-repo
+      version: 23.4.3
+    - name: nrfclient
+      repository: alias:comsvc-helm-repo
+      version: 23.4.2
+    - name: alternate-route
+      repository: alias:comsvc-helm-repo
+      version: 23.4.3
+    - name: nsselection
+      repository: file://../nssf-helm-charts/nsselection
+      version: 23.4.0
+    - name: nsconfig
+      repository: file://../nssf-helm-charts/nsconfig
+      version: 23.4.0
+    - name: nsavailability
+      repository: file://../nssf-helm-charts/nsavailability
+      version: 23.4.0
+    - name: nssubscription
+      repository: file://../nssf-helm-charts/nssubscription
+      version: 23.4.0
+    - name: nsauditor
+      repository: file://../nssf-helm-charts/nsauditor
+      version: 23.4.0
+    description: Oracle Communications NSSF
+    digest: febfe8173e8f58521b42ff05a5091d6a8e55cee294d0fd81992a423968edd658
+    name: ocnssf
+    urls:
+    - ocnssf-23.4.0.0.0.tgz
+    version: 23.4.0
+  - apiVersion: v1
     appVersion: 23.3.0.0.0
-    created: "2024-03-01T16:20:42.46862422Z"
+    created: "2024-03-05T17:57:19.007373033Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -1196,7 +1233,7 @@ entries:
     version: 23.3.0
   - apiVersion: v1
     appVersion: 23.2.0.0.0
-    created: "2024-03-01T16:20:42.444500433Z"
+    created: "2024-03-05T17:57:18.984406533Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -1233,7 +1270,7 @@ entries:
     version: 23.2.0
   - apiVersion: v1
     appVersion: 22.4.1.0.0
-    created: "2024-03-01T16:20:42.411072624Z"
+    created: "2024-03-05T17:57:18.961225988Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -1267,7 +1304,7 @@ entries:
     version: 22.4.1
   - apiVersion: v1
     appVersion: 22.4.1.0.0
-    created: "2024-03-01T16:20:42.487740385Z"
+    created: "2024-03-05T17:57:19.049422615Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -1301,7 +1338,7 @@ entries:
     version: 22.4.1
   - apiVersion: v1
     appVersion: 22.1.1.0.0
-    created: "2024-03-01T16:20:42.390636348Z"
+    created: "2024-03-05T17:57:18.941656763Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:ocnrf-helm-repo
@@ -1336,7 +1373,7 @@ entries:
   test-hello-openshift-oracle:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2024-03-01T16:20:42.58507879Z"
+    created: "2024-03-05T17:57:19.165202141Z"
     description: A Helm chart for Kubernetes
     digest: 8a4df93e9ae971bfc7fa3fc44dc7465a7d73fffdbd3c5e63c0d285dddf03b539
     name: test-hello-openshift-oracle
@@ -1344,4 +1381,4 @@ entries:
     urls:
     - test-hello-openshift-oracle.tgz
     version: 0.1.0
-generated: "2024-03-01T16:20:42.082341081Z"
+generated: "2024-03-05T17:57:18.634259085Z"
