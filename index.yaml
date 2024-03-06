@@ -1,9 +1,32 @@
 apiVersion: v1
 entries:
+  occncc:
+  - apiVersion: v1
+    appVersion: 23.4.0.0.0
+    created: "2024-03-06T12:51:07.662260971Z"
+    dependencies:
+    - condition: global.cncc-iam.enabled
+      name: cncc-iam
+      repository: alias:cgbu-occncc-dev-helm
+      version: 23.4.0
+    - condition: global.mcncc-core.enabled
+      name: mcncc-core
+      repository: alias:cgbu-occncc-dev-helm
+      version: 23.4.0
+    - condition: global.acncc-core.enabled
+      name: acncc-core
+      repository: alias:cgbu-occncc-dev-helm
+      version: 23.4.0
+    description: An umbrella helm chart for CNC Console deployment
+    digest: 7d60d639a9250035f8c36dfd3fd30086f8ba0eb72aa0d276fd5661a2bfa3788f
+    name: occncc
+    urls:
+    - occncc-23.4.0.tgz
+    version: 23.4.0
   occndbtier:
   - apiVersion: v2
     appVersion: 23.4.2.0.0
-    created: "2024-03-05T17:57:18.662053062Z"
+    created: "2024-03-06T12:51:07.689034666Z"
     dependencies:
     - condition: "true"
       name: mgm
@@ -38,7 +61,7 @@ entries:
     version: 23.4.2
   - apiVersion: v2
     appVersion: 23.3.0.0.0
-    created: "2024-03-05T17:57:18.654199143Z"
+    created: "2024-03-06T12:51:07.680858764Z"
     dependencies:
     - condition: "true"
       name: mgm
@@ -73,7 +96,7 @@ entries:
     version: 23.3.0
   - apiVersion: v2
     appVersion: 23.2.1.0.0
-    created: "2024-03-05T17:57:18.647197993Z"
+    created: "2024-03-06T12:51:07.674010413Z"
     dependencies:
     - condition: "true"
       name: mgm
@@ -108,7 +131,7 @@ entries:
     version: 23.2.1
   - apiVersion: v2
     appVersion: 22.4.1.0.0
-    created: "2024-03-05T17:57:18.640234894Z"
+    created: "2024-03-06T12:51:07.667883025Z"
     dependencies:
     - condition: "true"
       name: mgm
@@ -144,7 +167,7 @@ entries:
   occnp:
   - apiVersion: v1
     appVersion: 23.4.1.0.0
-    created: "2024-03-05T17:57:18.7781072Z"
+    created: "2024-03-06T12:51:07.798195668Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -258,7 +281,7 @@ entries:
     version: 23.4.1
   - apiVersion: v1
     appVersion: 23.2.2.0.0
-    created: "2024-03-05T17:57:18.734362744Z"
+    created: "2024-03-06T12:51:07.761094215Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -372,7 +395,7 @@ entries:
     version: 23.2.2
   - apiVersion: v1
     appVersion: 23.2.1.0.0
-    created: "2024-03-05T17:57:18.697678321Z"
+    created: "2024-03-06T12:51:07.726123236Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -486,7 +509,7 @@ entries:
     version: 23.2.1
   - apiVersion: v1
     appVersion: 22.4.1.0.0
-    created: "2024-03-05T17:57:19.113165421Z"
+    created: "2024-03-06T12:51:08.104610076Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -600,7 +623,7 @@ entries:
     version: 22.4.1
   - apiVersion: v1
     appVersion: 22.4.1.0.0
-    created: "2024-03-05T17:57:19.164759214Z"
+    created: "2024-03-06T12:51:08.136821202Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -713,7 +736,7 @@ entries:
     - ocpcf-svalbard-22.4.1.tgz
     version: 22.4.1
   - apiVersion: v1
-    created: "2024-03-05T17:57:19.075485015Z"
+    created: "2024-03-06T12:51:08.072829304Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -816,7 +839,7 @@ entries:
   ocnrf:
   - apiVersion: v2
     appVersion: 23.4.0
-    created: "2024-03-05T17:57:18.905054196Z"
+    created: "2024-03-06T12:51:07.902037752Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -877,7 +900,7 @@ entries:
     version: 23.4.0
   - apiVersion: v2
     appVersion: 23.3.0
-    created: "2024-03-05T17:57:18.876997711Z"
+    created: "2024-03-06T12:51:07.879044773Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -934,7 +957,7 @@ entries:
     version: 23.3.0
   - apiVersion: v2
     appVersion: 23.2.0
-    created: "2024-03-05T17:57:18.850103665Z"
+    created: "2024-03-06T12:51:07.85705122Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -991,7 +1014,7 @@ entries:
     version: 23.2.0
   - apiVersion: v2
     appVersion: 22.4.0.0.0
-    created: "2024-03-05T17:57:18.824611652Z"
+    created: "2024-03-06T12:51:07.834847073Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -1048,7 +1071,7 @@ entries:
     version: 22.4.0
   - apiVersion: v2
     appVersion: 22.4.0.0.0
-    created: "2024-03-05T17:57:18.924776697Z"
+    created: "2024-03-06T12:51:07.922598932Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -1105,7 +1128,7 @@ entries:
     version: 22.4.0
   - apiVersion: v2
     appVersion: 22.1.0.0.0
-    created: "2024-03-05T17:57:18.795775674Z"
+    created: "2024-03-06T12:51:07.81426331Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -1159,7 +1182,7 @@ entries:
   ocnssf:
   - apiVersion: v1
     appVersion: 23.4.0.0.0
-    created: "2024-03-05T17:57:19.030084051Z"
+    created: "2024-03-06T12:51:08.027485534Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -1196,7 +1219,7 @@ entries:
     version: 23.4.0
   - apiVersion: v1
     appVersion: 23.3.0.0.0
-    created: "2024-03-05T17:57:19.007373033Z"
+    created: "2024-03-06T12:51:08.005048102Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -1233,7 +1256,7 @@ entries:
     version: 23.3.0
   - apiVersion: v1
     appVersion: 23.2.0.0.0
-    created: "2024-03-05T17:57:18.984406533Z"
+    created: "2024-03-06T12:51:07.982848213Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -1270,7 +1293,7 @@ entries:
     version: 23.2.0
   - apiVersion: v1
     appVersion: 22.4.1.0.0
-    created: "2024-03-05T17:57:18.961225988Z"
+    created: "2024-03-06T12:51:07.959304536Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -1304,7 +1327,7 @@ entries:
     version: 22.4.1
   - apiVersion: v1
     appVersion: 22.4.1.0.0
-    created: "2024-03-05T17:57:19.049422615Z"
+    created: "2024-03-06T12:51:08.046755594Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -1338,7 +1361,7 @@ entries:
     version: 22.4.1
   - apiVersion: v1
     appVersion: 22.1.1.0.0
-    created: "2024-03-05T17:57:18.941656763Z"
+    created: "2024-03-06T12:51:07.939635563Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:ocnrf-helm-repo
@@ -1373,7 +1396,7 @@ entries:
   test-hello-openshift-oracle:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2024-03-05T17:57:19.165202141Z"
+    created: "2024-03-06T12:51:08.137160285Z"
     description: A Helm chart for Kubernetes
     digest: 8a4df93e9ae971bfc7fa3fc44dc7465a7d73fffdbd3c5e63c0d285dddf03b539
     name: test-hello-openshift-oracle
@@ -1381,4 +1404,4 @@ entries:
     urls:
     - test-hello-openshift-oracle.tgz
     version: 0.1.0
-generated: "2024-03-05T17:57:18.634259085Z"
+generated: "2024-03-06T12:51:07.638916855Z"
