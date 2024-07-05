@@ -3,7 +3,7 @@ entries:
   occncc:
   - apiVersion: v1
     appVersion: 23.4.0.0.0
-    created: "2024-05-20T05:58:11.79481358Z"
+    created: "2024-07-05T17:01:56.595575342Z"
     dependencies:
     - condition: global.cncc-iam.enabled
       name: cncc-iam
@@ -26,7 +26,7 @@ entries:
   occndbtier:
   - apiVersion: v2
     appVersion: 23.4.2.0.0
-    created: "2024-05-20T05:58:11.823216376Z"
+    created: "2024-07-05T17:01:56.624041137Z"
     dependencies:
     - condition: "true"
       name: mgm
@@ -61,7 +61,7 @@ entries:
     version: 23.4.2
   - apiVersion: v2
     appVersion: 23.3.0.0.0
-    created: "2024-05-20T05:58:11.814732408Z"
+    created: "2024-07-05T17:01:56.61590134Z"
     dependencies:
     - condition: "true"
       name: mgm
@@ -96,7 +96,7 @@ entries:
     version: 23.3.0
   - apiVersion: v2
     appVersion: 23.2.1.0.0
-    created: "2024-05-20T05:58:11.808156948Z"
+    created: "2024-07-05T17:01:56.608569854Z"
     dependencies:
     - condition: "true"
       name: mgm
@@ -131,7 +131,7 @@ entries:
     version: 23.2.1
   - apiVersion: v2
     appVersion: 22.4.1.0.0
-    created: "2024-05-20T05:58:11.800589769Z"
+    created: "2024-07-05T17:01:56.60158248Z"
     dependencies:
     - condition: "true"
       name: mgm
@@ -167,7 +167,7 @@ entries:
   occnp:
   - apiVersion: v1
     appVersion: 24.1.0.0.0
-    created: "2024-05-20T05:58:11.977806106Z"
+    created: "2024-07-05T17:01:56.778361854Z"
     dependencies:
     - condition: am-service.enabled
       name: am-service
@@ -281,7 +281,7 @@ entries:
     version: 24.1.0
   - apiVersion: v1
     appVersion: 23.4.1.0.0
-    created: "2024-05-20T05:58:11.937640906Z"
+    created: "2024-07-05T17:01:56.738253326Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -395,7 +395,7 @@ entries:
     version: 23.4.1
   - apiVersion: v1
     appVersion: 23.2.2.0.0
-    created: "2024-05-20T05:58:11.896186833Z"
+    created: "2024-07-05T17:01:56.698833728Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -509,7 +509,7 @@ entries:
     version: 23.2.2
   - apiVersion: v1
     appVersion: 23.2.1.0.0
-    created: "2024-05-20T05:58:11.860124495Z"
+    created: "2024-07-05T17:01:56.661049908Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -623,7 +623,7 @@ entries:
     version: 23.2.1
   - apiVersion: v1
     appVersion: 22.4.1.0.0
-    created: "2024-05-20T05:58:12.306068335Z"
+    created: "2024-07-05T17:01:57.162987916Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -737,7 +737,7 @@ entries:
     version: 22.4.1
   - apiVersion: v1
     appVersion: 22.4.1.0.0
-    created: "2024-05-20T05:58:12.338791846Z"
+    created: "2024-07-05T17:01:57.196989785Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -850,7 +850,7 @@ entries:
     - ocpcf-svalbard-22.4.1.tgz
     version: 22.4.1
   - apiVersion: v1
-    created: "2024-05-20T05:58:12.272480145Z"
+    created: "2024-07-05T17:01:57.103818146Z"
     dependencies:
     - condition: ingress-gateway.enabled
       name: ingress-gateway
@@ -950,10 +950,111 @@ entries:
     urls:
     - ocpcf-22.1.0.tgz
     version: 22.1.0
+  - apiVersion: v1
+    created: "2024-07-05T17:01:57.129607086Z"
+    dependencies:
+    - condition: ingress-gateway.enabled
+      name: ingress-gateway
+      repository: alias:cne-helm-repo
+      version: 22.1.4
+    - condition: egress-gateway.enabled
+      name: egress-gateway
+      repository: alias:cne-helm-repo
+      version: 22.1.4
+    - condition: nrf-client.enabled
+      name: nrf-client
+      repository: alias:ocnrf-helm-repo
+      version: 22.1.2
+    - condition: alternate-route.enabled
+      name: alternate-route
+      repository: alias:cne-helm-repo
+      version: 22.1.2
+    - condition: diam-gateway.enabled
+      name: diam-gateway
+      repository: alias:occnp-helm-repo
+      version: 22.1.0
+    - condition: diam-connector.enabled
+      name: diam-connector
+      repository: alias:occnp-helm-repo
+      version: 22.1.0
+    - condition: am-service.enabled
+      name: am-service
+      repository: alias:occnp-helm-repo
+      version: 22.1.0
+    - condition: sm-service.enabled
+      name: sm-service
+      repository: alias:occnp-helm-repo
+      version: 22.1.0
+    - condition: ue-service.enabled
+      name: ue-service
+      repository: alias:occnp-helm-repo
+      version: 22.1.0
+    - condition: config-server.enabled
+      name: config-server
+      repository: alias:occnp-helm-repo
+      version: 22.1.0
+    - condition: user-service.enabled
+      name: user-service
+      repository: alias:occnp-helm-repo
+      version: 22.1.0
+    - condition: pre-service.enabled
+      name: pre-service
+      repository: alias:occnp-helm-repo
+      version: 22.1.0
+    - condition: cm-service.enabled
+      name: cm-service
+      repository: alias:occnp-helm-repo
+      version: 22.1.0
+    - condition: perf-info.enabled
+      name: perf-info
+      repository: alias:occnp-helm-repo
+      version: 22.1.0
+    - condition: appinfo.enabled
+      name: appinfo
+      repository: alias:occnp-helm-repo
+      version: 22.1.0
+    - condition: queryservice.enabled
+      name: queryservice
+      repository: alias:occnp-helm-repo
+      version: 22.1.0
+    - condition: bulwark.enabled
+      name: bulwark
+      repository: alias:occnp-helm-repo
+      version: 22.1.0
+    - condition: audit-service.enabled
+      name: audit-service
+      repository: alias:occnp-helm-repo
+      version: 22.1.0
+    - condition: ldap-gateway.enabled
+      name: ldap-gateway
+      repository: alias:occnp-helm-repo
+      version: 22.1.0
+    - condition: policyds.enabled
+      name: policyds
+      repository: alias:occnp-helm-repo
+      version: 22.1.0
+    - condition: binding.enabled
+      name: binding
+      repository: alias:occnp-helm-repo
+      version: 22.1.0
+    - condition: pcrf-core.enabled
+      name: pcrf-core
+      repository: alias:occnp-helm-repo
+      version: 22.1.0
+    - condition: soap-connector.enabled
+      name: soap-connector
+      repository: alias:occnp-helm-repo
+      version: 22.1.0
+    description: Helm chart for occnp components
+    digest: 0c4ef18cb561a8e8a10c126823783345463755f431810b9f9c6c15dabef2abc2
+    name: occnp
+    urls:
+    - ocpcf-22.1.0_patch.tgz
+    version: 22.1.0
   ocnrf:
   - apiVersion: v2
     appVersion: 23.4.0
-    created: "2024-05-20T05:58:12.085981203Z"
+    created: "2024-07-05T17:01:56.907412824Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -1014,7 +1115,7 @@ entries:
     version: 23.4.0
   - apiVersion: v2
     appVersion: 23.3.0
-    created: "2024-05-20T05:58:12.06114738Z"
+    created: "2024-07-05T17:01:56.864233873Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -1071,7 +1172,7 @@ entries:
     version: 23.3.0
   - apiVersion: v2
     appVersion: 23.2.0
-    created: "2024-05-20T05:58:12.036763164Z"
+    created: "2024-07-05T17:01:56.839014394Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -1128,7 +1229,7 @@ entries:
     version: 23.2.0
   - apiVersion: v2
     appVersion: 22.4.0.0.0
-    created: "2024-05-20T05:58:12.013692036Z"
+    created: "2024-07-05T17:01:56.815781724Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -1185,7 +1286,7 @@ entries:
     version: 22.4.0
   - apiVersion: v2
     appVersion: 22.4.0.0.0
-    created: "2024-05-20T05:58:12.105758465Z"
+    created: "2024-07-05T17:01:56.927945217Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -1242,7 +1343,7 @@ entries:
     version: 22.4.0
   - apiVersion: v2
     appVersion: 22.1.0.0.0
-    created: "2024-05-20T05:58:11.993668799Z"
+    created: "2024-07-05T17:01:56.794770327Z"
     dependencies:
     - condition: nfregistration.enabled
       name: nfregistration
@@ -1296,7 +1397,7 @@ entries:
   ocnssf:
   - apiVersion: v1
     appVersion: 23.4.0.0.0
-    created: "2024-05-20T05:58:12.225937658Z"
+    created: "2024-07-05T17:01:57.057734496Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -1333,7 +1434,7 @@ entries:
     version: 23.4.0
   - apiVersion: v1
     appVersion: 23.3.0.0.0
-    created: "2024-05-20T05:58:12.203331474Z"
+    created: "2024-07-05T17:01:57.034553802Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -1370,7 +1471,7 @@ entries:
     version: 23.3.0
   - apiVersion: v1
     appVersion: 23.2.0.0.0
-    created: "2024-05-20T05:58:12.181015264Z"
+    created: "2024-07-05T17:01:57.011850824Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -1407,41 +1508,7 @@ entries:
     version: 23.2.0
   - apiVersion: v1
     appVersion: 22.4.1.0.0
-    created: "2024-05-20T05:58:12.153391624Z"
-    dependencies:
-    - name: ingress-gateway
-      repository: alias:comsvc-helm-repo
-      version: 22.4.1
-    - name: egress-gateway
-      repository: alias:comsvc-helm-repo
-      version: 22.4.1
-    - name: nrfclient
-      repository: alias:comsvc-helm-repo
-      version: 22.4.1
-    - name: nsselection
-      repository: file://../nsselection
-      version: 22.4.1
-    - name: nsconfig
-      repository: file://../nsconfig
-      version: 22.4.1
-    - name: nsavailability
-      repository: file://../nsavailability
-      version: 22.4.1
-    - name: nssubscription
-      repository: file://../nssubscription
-      version: 22.4.1
-    - name: nsauditor
-      repository: file://../nsauditor
-      version: 22.4.1
-    description: Oracle Communications NSSF
-    digest: 61f080755e5b686e048d06d2ddf6a1fafb4664876aadac225d66769de178c30c
-    name: ocnssf
-    urls:
-    - ocnssf-22.4.1.0.0.tgz
-    version: 22.4.1
-  - apiVersion: v1
-    appVersion: 22.4.1.0.0
-    created: "2024-05-20T05:58:12.246148622Z"
+    created: "2024-07-05T17:01:57.076986668Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:comsvc-helm-repo
@@ -1474,8 +1541,76 @@ entries:
     - ocnssf-svalbard-22.4.1.0.0.tgz
     version: 22.4.1
   - apiVersion: v1
+    appVersion: 22.4.1.0.0
+    created: "2024-07-05T17:01:56.988550618Z"
+    dependencies:
+    - name: ingress-gateway
+      repository: alias:comsvc-helm-repo
+      version: 22.4.1
+    - name: egress-gateway
+      repository: alias:comsvc-helm-repo
+      version: 22.4.1
+    - name: nrfclient
+      repository: alias:comsvc-helm-repo
+      version: 22.4.1
+    - name: nsselection
+      repository: file://../nsselection
+      version: 22.4.1
+    - name: nsconfig
+      repository: file://../nsconfig
+      version: 22.4.1
+    - name: nsavailability
+      repository: file://../nsavailability
+      version: 22.4.1
+    - name: nssubscription
+      repository: file://../nssubscription
+      version: 22.4.1
+    - name: nsauditor
+      repository: file://../nsauditor
+      version: 22.4.1
+    description: Oracle Communications NSSF
+    digest: 61f080755e5b686e048d06d2ddf6a1fafb4664876aadac225d66769de178c30c
+    name: ocnssf
+    urls:
+    - ocnssf-22.4.1.0.0.tgz
+    version: 22.4.1
+  - apiVersion: v1
     appVersion: 22.1.1.0.0
-    created: "2024-05-20T05:58:12.123455796Z"
+    created: "2024-07-05T17:01:56.969424511Z"
+    dependencies:
+    - name: ingress-gateway
+      repository: alias:ocnrf-helm-repo
+      version: 22.1.9
+    - name: egress-gateway
+      repository: alias:ocnrf-helm-repo
+      version: 22.1.9
+    - name: nrfclient
+      repository: alias:ocnrf-helm-repo
+      version: 22.1.5
+    - name: nsselection
+      repository: alias:ocnssf-helm-repo
+      version: 22.1.0
+    - name: nsconfig
+      repository: alias:ocnssf-helm-repo
+      version: 22.1.0
+    - name: nsavailability
+      repository: alias:ocnssf-helm-repo
+      version: 22.1.0
+    - name: nssubscription
+      repository: alias:ocnssf-helm-repo
+      version: 22.1.0
+    - name: nsauditor
+      repository: alias:ocnssf-helm-repo
+      version: 22.1.0
+    description: Oracle Communications NSSF
+    digest: ecdebf54bf9ade89d93cd9b573355328fc36bb3b6387167face96ea79a020783
+    name: ocnssf
+    urls:
+    - ocnssf-22.1.1_patch.tgz
+    version: 22.1.1
+  - apiVersion: v1
+    appVersion: 22.1.1.0.0
+    created: "2024-07-05T17:01:56.950216415Z"
     dependencies:
     - name: ingress-gateway
       repository: alias:ocnrf-helm-repo
@@ -1510,7 +1645,7 @@ entries:
   test-hello-openshift-oracle:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2024-05-20T05:58:12.339157167Z"
+    created: "2024-07-05T17:01:57.197396173Z"
     description: A Helm chart for Kubernetes
     digest: 8a4df93e9ae971bfc7fa3fc44dc7465a7d73fffdbd3c5e63c0d285dddf03b539
     name: test-hello-openshift-oracle
@@ -1518,4 +1653,4 @@ entries:
     urls:
     - test-hello-openshift-oracle.tgz
     version: 0.1.0
-generated: "2024-05-20T05:58:11.771007277Z"
+generated: "2024-07-05T17:01:56.57125932Z"
