@@ -1,0 +1,169 @@
+global:
+  diamConnectorEnable: true
+  imagePullPolicy: IfNotPresent
+  # Docker registry name
+  dockerRegistry: docker-registry.openstack.in.oracle.com:5000
+  serviceMeshEnabled: 'false'
+  istioSidecarReadyUrl: http://127.0.0.1:15020/healthz/ready
+  logStorage: 0 #default calculated value 70
+  crictlStorage: 0 #default calculated value 1
+  istioSidecarQuitUrl: http://127.0.0.1:15020/quitquitquit
+  configServerFullNameOverride: ocpm-config
+  envJaegerAgentHost: ''
+  envJaegerAgentPort: 6831
+  envMysqlHost: ''
+  envMysqlPort: ''
+  initContainerEnable: true
+  diamConnetorEnable: true
+  nfInstanceId: "NA"
+  servicePorts:
+      diamConnectorHttp: 8080
+      signalingHttps: 8443
+      diamConnectorDiameter: 3868
+      pcfSmServiceHttp: 5809
+      configServerHttp: 5807
+  containerPorts:
+      monitoringHttp: 9000
+      diamConnectorHttp: 8080
+      signalingHttps: 8443
+      diamConnectorDiameter: 3868
+      javaDebugger: 5801
+      configContainerSignalingHttp: 8100
+      configContainerMonitoringHttp: 8101
+  k8sResource:
+    container:
+      prefix:
+      suffix:
+  customExtension:
+    allResources:
+      labels: {}
+      annotations: {}
+
+    lbServices:
+      labels: {}
+      annotations: {}
+    lbDeployments:
+      labels: {}
+      annotations: {}
+
+    nonlbServices:
+      labels: {}
+      annotations: {}
+    nonlbDeployments:
+      labels: {}
+      annotations: {}
+    cncMetricsName: cnc-metrics
+    exposeObservabilityAtService: false
+
+
+image: occnp/oc-diam-connector
+imageTag: 22.1.0
+configserverContainerImage: occnp/oc-config-server
+configserverContainerImageTag: 22.1.0
+envJaegerSamplerParam: '1'
+envJaegerSamplerType: ratelimiting
+replicas: 1
+envLoggingLevelApp: INFO
+prioritySpecificAction: 'INDICATION_OF_RELEASE_OF_BEARER'
+envConnectorMode: ''
+envDiameterYaml: /etc/ocpm/config/diameter.yaml
+envDiameterPort: 3868
+envDiameterRealm: ''
+envDiameterIdentity: ''
+envDiameterIOThreadCount: 0
+envDiameterIOQueueSize: 0
+envDiameterMsgBufferThreadCount: 0
+envDiameterMsgBufferQueueSize: 0
+envDiameterValidationStrictParsing: true
+envDiameterServiceDiscoverInterval: 15
+envDiameterConnectionReuse: false
+envHttp2Enabled: true
+appName: ocpm
+hookRestartPolicy: OnFailure
+nodeSelectorEnabled: false
+nodeSelectorKey: zone
+nodeSelectorValue: app
+useLbLabelsAndAnnotations: false
+envMaxHttp2ClientConnPerDestination: 6
+envHttpClientConnectionIdleTimeout: 600000
+envPcfRequestTimeout: 5000
+envN5NotifyTimeout: 5000
+envServerHttp2MaxConcurrentStreams: 100
+envServerHttpConnectionIdleTimeout: 660000
+resources:
+  limits:
+    ephemeralStorage: 1Gi
+    cpu: 200m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 1Gi
+
+readinessProbe:
+  initialDelaySeconds: 20
+  timeoutSeconds: 3
+  periodSeconds: 10
+  successThreshold: 1
+  failureThreshold: 3
+
+livenessProbe:
+  initialDelaySeconds: 60
+  timeoutSeconds: 3
+  periodSeconds: 15
+  successThreshold: 1
+  failureThreshold: 3
+
+minReplicas: 2
+maxReplicas: 8
+averageCpuUtil: 60
+
+service:
+  type: ClusterIP
+  port: 0
+  customExtension:
+    labels: {}
+    annotations: {}
+
+deployment:
+  customExtension:
+    labels: {}
+    annotations: {}
+
+metrics:
+  egressLatencyBuckets:
+    max: 10
+    size: 50
+
+fullnameOverride: ocpm-diam-connector
+
+dependenciesLogging:
+  - name: logging.level.org.springframework
+    value: WARN
+  - name: logging.level.org.hibernate
+    value: WARN
+  - name: logging.level.io.undertow
+    value: WARN
+  - name: logging.level.io.jaegertracing
+    value: ERROR
+  - name: logging.level.com.zaxxer.hikari
+    value: WARN
+logging:
+  burst:
+    rate: 750
+    max: 3000
+  consoleFormat: jsonConsole
+  locationInfo: false
+persistence:
+  lock:
+    retryLimit: 3
+    retryInterval: 1000
+extraContainers: USE_GLOBAL_VALUE
+
+bsfm:
+  http2: true
+  connectTimeout: 5000
+  requestTimeout: 3000
+
+#Db hook Configuration
+dbConfig:
+  dbEngine: InnoDB

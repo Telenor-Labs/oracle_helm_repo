@@ -1,0 +1,18 @@
+{{- if or $.Values.global.nrfClientNfDiscoveryEnable $.Values.global.nrfClientNfManagementEnable }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-application-config
+  labels:
+    app.kubernetes.io/name: {{ template "nrf-client.name" . }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/component: microService
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+data:
+{{- range $key, $val := .Values.configmapApplicationConfig }}
+  {{ $key }}: |-
+{{ $val | indent 4}}
+{{- end }}
+{{- end }}

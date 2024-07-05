@@ -1,0 +1,185 @@
+{{- if $.Values.global.alternateRouteServiceEnable }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "deployment.fullname" . }}
+  labels:
+    {{- include "labels.nonlbDeployments" . }}
+  annotations:
+    traffic.sidecar.istio.io/excludeOutboundPorts: "{{ .Values.coherence.messagingPort1 }}, {{ .Values.coherence.messagingPort2 }}, {{ .Values.ports.actuatorPort }}"
+    traffic.sidecar.istio.io/excludeInboundPorts: "{{ .Values.coherence.messagingPort1 }}, {{ .Values.coherence.messagingPort2 }}, {{ .Values.ports.actuatorPort }}"
+    {{- include "annotations.nonlbDeployments" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "alternate-route.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "labels.nonlbDeployments" . |  indent 4 }}
+      annotations:
+        traffic.sidecar.istio.io/excludeOutboundPorts: "{{ .Values.coherence.messagingPort1 }}, {{ .Values.coherence.messagingPort2 }}, {{ .Values.ports.actuatorPort }}"
+        traffic.sidecar.istio.io/excludeInboundPorts: "{{ .Values.coherence.messagingPort1 }}, {{ .Values.coherence.messagingPort2 }}, {{ .Values.ports.actuatorPort }}"         
+        {{- include "annotations.nonlbDeployments" . |  indent 4 }}
+        prometheus.io/port: "{{ .Values.ports.actuatorPort }}"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/scrape: "true"
+        checksum/config: {{ include (print $.Template.BasePath "/configMap.yaml") . | sha256sum }}
+    spec:
+      {{- if $.Values.global.serviceAccountName }}
+      serviceAccountName: {{ .Values.global.serviceAccountName }}
+      {{- else }}
+      serviceAccountName: {{ template "alternate-route.serviceaccount" .}}
+      {{- end }}
+      containers:
+        - name: {{ template "container.fullname" .}}
+          image: "{{ .Values.global.dockerRegistry }}/{{ .Values.deploymentDnsSrv.image }}:{{ .Values.deploymentDnsSrv.tag }}"
+          imagePullPolicy: {{ .Values.deploymentDnsSrv.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.ports.containerPort }}
+              protocol: TCP
+            - containerPort: {{ .Values.ports.actuatorPort }}
+              name: cnc-metrics
+              protocol: TCP 
+          lifecycle:
+            preStop:
+               exec:
+                 command: ["/bin/bash", "-c", "/bin/sleep 100"]
+          startupProbe:
+            httpGet:
+              path: /actuator/health/startup
+              port: {{ .Values.ports.actuatorPort }}
+            initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.startupProbe.successThreshold }}
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+          readinessProbe:
+            #tcpSocket:
+            #  port: {{ .Values.ports.actuatorPort }}
+            httpGet: 
+               path: /actuator/health/readiness
+               port: {{ .Values.ports.actuatorPort }}
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            successThreshold: {{ .Values.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: {{ .Values.ports.actuatorPort }}
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            successThreshold: {{ .Values.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          env:
+          - name: METRIC_PREFIX
+            value: {{ template "metric.prefix" .}}
+          - name: METRIC_SUFFIX
+            value: {{ template "metric.suffix" .}}
+          - name: LOG_LEVEL_ROOT
+            value: {{ .Values.log.level.root }}
+          - name: LOG_LEVEL_ALTROUTE
+            value: {{ .Values.log.level.altroute }}
+          - name: ALTERNATE_ROUTE_SERVICE_NAME
+            value: {{ template "service.fullname" . }}-cache
+          - name: K8S_NAMESPACE
+            value: {{ .Release.Namespace }}
+          - name: COHERENCE_PORT
+            value: {{ .Values.coherence.port | quote}}
+          - name: ACTUATOR_PORT
+            value: {{ .Values.ports.actuatorPort | quote }}
+          - name: CONFIGMAP_NAME
+            value: {{ template "configmap.fullname" .}}
+          - name: COMMON_CFG_CLIENT_ENABLED
+            value: {{ .Values.commonCfgClient.enabled | quote }}
+          - name: COMMON_CFG_SERVER_HOST
+            value: {{ template "service.ConfigServerSvcFullname" .}}
+          - name: COMMON_CFG_SERVER_PORT
+            value: {{ .Values.commonCfgServer.port | quote }}
+          - name: COMMON_CFG_SERVER_POLLING_INTERVAL
+            value: {{ .Values.commonCfgServer.pollingInterval | quote }}
+          - name: COMMONSERVICE_NAME
+            value: {{ .Values.commonServiceName }}  
+          - name: RELEASE_VERSION
+            value: {{ .Chart.Version | quote }}
+          - name: COHERENCE_MODE
+            value: {{ .Values.coherence.mode }}
+          - name: COHERENCE_SERVICE
+            value: {{ template "service.altsvc.CoherenceSvcFullname" . }}
+          - name: SERVICE_MESH_CHECK
+            value: {{ .Values.serviceMeshCheck | quote }}
+          - name: ISTIO_SIDECAR_QUIT_URL
+            value: {{ .Values.istioSidecarQuitUrl }}
+          - name: ISTIO_SIDECAR_READY_URL
+            value: {{ .Values.istioSidecarReadyUrl }}
+          - name: COHERENCE_MESSAGING_PORT_1
+            value: {{ .Values.coherence.messagingPort1 | quote }}
+          - name: COHERENCE_MESSAGING_PORT_2
+            value: {{ .Values.coherence.messagingPort2 | quote }}
+          {{- if .Values.isIpv6Enabled }}
+          - name: KUBERNETES_MASTER
+            value: https://kubernetes.default.svc
+          {{- end }}
+          - name: CONNECTION_TIMEOUT
+            value: {{ .Values.commonCfgServer.connectionTimeout | quote}}
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: "COHERENCE_MACHINE"
+            valueFrom:
+              fieldRef:
+                fieldPath: "spec.nodeName"
+          - name: "COHERENCE_MEMBER"
+            valueFrom:
+              fieldRef:
+                fieldPath: "metadata.name"
+          - name: JAVA_OPTS
+            value: "-Dsun.net.spi.nameservice.provider.1=dns,dnsjava"
+          resources:
+            limits:
+              cpu: {{ .Values.resources.limits.cpu | quote}} 
+              memory: {{ .Values.resources.limits.memory | quote}}
+            {{- if ne (int .Values.global.ephemeralStorageLimit)  0 }}
+              ephemeral-storage: {{ template "alternate-route-ephemeral-storage-limit" .}}
+            {{- end }}
+            requests:
+              cpu: {{ .Values.resources.requests.cpu | quote}}
+              memory: {{ .Values.resources.requests.memory | quote}}
+            {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+              ephemeral-storage: {{ template "alternate-route-ephemeral-storage-request" .}}
+            {{- end }}
+        {{- include "extraContainers" . | nindent 8}}
+      {{- $globalnodeselector := and  .Values.global.nodeSelector.nodeKey .Values.global.nodeSelector.nodeValue }}
+      {{- $localnodeselector := and  .Values.nodeSelector.nodeKey .Values.nodeSelector.nodeValue }}
+      {{- if or $globalnodeselector $localnodeselector }}
+      nodeSelector:
+      {{- if $localnodeselector }}
+         {{ .Values.nodeSelector.nodeKey }}: {{ .Values.nodeSelector.nodeValue }}
+      {{- else}}
+         {{ .Values.global.nodeSelector.nodeKey }}: {{ .Values.global.nodeSelector.nodeValue }}
+      {{- end }}
+      {{- end }} 
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: "app"
+                  operator: In
+                  values:
+                  - {{ template "chart.fullname" . }}
+              topologyKey: "kubernetes.io/hostname"     
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+{{- end }}

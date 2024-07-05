@@ -1,0 +1,160 @@
+global:
+  # Docker registry name
+  imagePullPolicy: IfNotPresent
+  dockerRegistry: docker-registry.openstack.in.oracle.com:5000
+  serviceMeshEnabled: 'false'
+  istioSidecarReadyUrl: http://127.0.0.1:15020/healthz/ready
+  dbCredSecretName: ''
+  envJaegerAgentHost: ''
+  nfInstanceId: "NA"
+  envJaegerAgentPort: 6831
+  envMysqlHost: ''
+  envMysqlPort: ''
+  servicePorts:
+      cmServiceHttp: 5808
+      configServerHttp: 5807
+      preTestHttp: 5805
+      queryServiceHttp: 5805
+  containerPorts:
+      monitoringHttp: 9000
+      cmServiceHttp: 5807
+      configContainerSignalingHttp: 8100
+      configContainerMonitoringHttp: 8101
+  k8sResource:
+    container:
+      prefix:
+      suffix:
+  customExtension:
+    allResources:
+      labels: {}
+      annotations: {}
+
+    lbServices:
+      labels: {}
+      annotations: {}
+    lbDeployments:
+      labels: {}
+      annotations: {}
+
+    nonlbServices:
+      labels: {}
+      annotations: {}
+    nonlbDeployments:
+      labels: {}
+      annotations: {}
+  configFetch:
+    maxRetries: 2
+    retryInterval: 1000
+  logStorage: 0 #default calculated value 70
+  crictlStorage: 0 #default calculated value 1
+  cncMetricsName: cnc-metrics
+  exposeObservabilityAtService: false
+image: occnp/oc-config-mgmt
+imageTag: 22.1.0
+configserverContainerImage: occnp/oc-config-server
+configserverContainerImageTag: 22.1.0
+envOcpmConfigAppId: '-1'
+replicas: 1
+envLoggingLevelRoot: WARN
+envLoggingLevelApp: WARN
+nodeSelectorEnabled: false
+nodeSelectorKey: zone
+nodeSelectorValue: app
+envMysqlDatabase: 'occnp_cmservice'
+envMysqlDatabaseConfigServer: 'occnp_config_server'
+envCommonConfigMysqlDatabase: commonconfig
+enableHttps: false
+appName: ocpm
+useLbLabelsAndAnnotations: true
+envJaegerSamplerParam: '1'
+envJaegerSamplerType: ratelimiting
+hookRestartPolicy: OnFailure
+
+clientTimeouts:
+  cfgserver:
+    connectTimeout: 30000
+    readTimeout: 30000
+  bulkContoller:
+    connectTimeout: 30000
+    connectionRequestTimeout: 120000
+    readTimeout: 120000
+
+policyTables:
+  limits:
+    tables: 20
+    rows: 100
+    columns: 10
+    keyColumns: 5
+
+configRollback:
+  limits:
+    snapshotMax: 5
+
+policyProjects:
+  limits:
+    projects: 10
+    stateHistories: 10
+
+resources:
+  limits:
+    ephemeralStorage: 1Gi
+    cpu: 200m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 1Gi
+
+readinessProbe:
+  initialDelaySeconds: 20
+  timeoutSeconds: 3
+  periodSeconds: 10
+  successThreshold: 1
+  failureThreshold: 3
+
+livenessProbe:
+  initialDelaySeconds: 60
+  timeoutSeconds: 3
+  periodSeconds: 15
+  successThreshold: 1
+  failureThreshold: 3
+
+service:
+  type: LoadBalancer
+  port: 0
+  customExtension:
+    labels: {}
+    annotations: {}
+
+deployment:
+  customExtension:
+    labels: {}
+    annotations: {}
+
+fullnameOverride: oc-config-mgmt
+
+dependenciesLogging:
+  - name: logging.level.org.springframework
+    value: WARN
+  - name: logging.level.org.hibernate
+    value: WARN
+  - name: logging.level.io.undertow
+    value: WARN
+  - name: logging.level.io.jaegertracing
+    value: WARN
+  - name: logging.level.com.zaxxer.hikari
+    value: WARN
+logging:
+  burst:
+    rate: 750
+    max: 3000
+  consoleFormat: jsonConsole
+  locationInfo: false
+persistence:
+  lock:
+    retryLimit: 3
+    retryInterval: 1000
+extraContainers: USE_GLOBAL_VALUE
+
+#Db hook Configuration
+dbConfig:
+  dbEngine: InnoDB

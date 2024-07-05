@@ -1,0 +1,268 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    {{- include "annotations.deployments" . }}
+  labels:
+    {{- include "labels.deployments" . }}
+    io.kompose.service: {{ template "ocpm-pre-deployment-name" . }}
+  name: {{ template "ocpm-pre-deployment-name" . }}
+spec:
+  replicas: {{ .Values.minReplicas }}
+  selector:
+    matchLabels:
+      io.kompose.service: {{ template "ocpm-pre-deployment-name" . }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 50%
+  template:
+    metadata:
+      annotations:
+        {{- include "annotations.deployments" . | indent 4 }}
+      labels:
+        {{- include "labels.deployments" . | indent 4 }}
+        io.kompose.service: {{ template "ocpm-pre-deployment-name" . }}
+    spec:
+      containers:
+      - env:
+        - name: CFG_SERVER_ADDR
+          value: {{ template "service-name-config-server" . }}
+        - name: CFG_SERVER_PORT
+          value: {{ .Values.global.servicePorts.configServerHttp | quote }}
+        - name: CFG_SERVER_READINESS_URL
+          value: "http://{{ template "service-name-config-server" . }}:{{ .Values.global.servicePorts.configServerHttp }}/topics"
+        - name: NODE_ENV
+          value: {{ .Values.envNodeEnv | quote }}
+        - name: PRE_ENV
+          value: "prod"
+        - name: PRE_MASTER_PORT
+          value: {{ .Values.global.containerPorts.monitoringHttp | quote }}
+        - name: PRE_WORKER_PORT
+          value: {{ .Values.global.containerPorts.preServiceHttp | quote }}
+        - name: PRE_MAX_WORKER_COUNT
+          value: {{ .Values.envPreMaxWorkerCount | quote }}
+        - name: ENABLE_IPV6
+          value: {{ .Values.global.enableIPV6 | quote }}
+        - name: JAEGER_AGENT_HOST
+          value: {{ .Values.global.envJaegerAgentHost | quote }}
+        - name: JAEGER_AGENT_PORT
+          value: {{ .Values.envJaegerAgentPort | quote }}
+        - name: JAEGER_SERVICE_NAME
+          value: {{ template "ocpm-pre-deployment-name" . }}
+        - name: JAEGER_SAMPLER_PARAM
+          value: {{ .Values.envJaegerSamplerParam | quote }}
+        - name: JAEGER_SAMPLER_TYPE
+          value: {{ .Values.envJaegerSamplerType | quote }}
+        - name: WRECK_RETRY_INTERVAL
+          value: {{ .Values.wreck.retry.delay | quote }}
+        - name: WRECK_RETRY_MAX
+          value: {{ .Values.wreck.retry.max | quote }}
+        - name: WRECK_REQUEST_TIMEOUT
+          value: {{ .Values.wreck.requestTimeout | quote }}
+        - name: WRECK_HTTP_SOCKETS_MAX
+          value: {{ .Values.wreck.sockets.http | quote }}
+        - name: WRECK_HTTPS_SOCKETS_MAX
+          value: {{ .Values.wreck.sockets.https | quote }}
+        - name: POLLING_INTERVAL
+          value: {{ .Values.timers.policy | quote }}
+        - name: HEART_BEAT_INTERVAL
+          value: {{ .Values.timers.heartbeat | quote }}
+        - name: POLLING_INTERVAL_POLICYTABLE
+          value: {{ .Values.timers.policyTable | quote }}
+        - name: SERVICE_MESH_CHECK
+          value: {{ .Values.global.serviceMeshEnabled | quote }}         
+        - name: ISTIO_SIDECAR_READY_URL
+          value: {{ .Values.global.istioSidecarReadyUrl }}
+
+        {{- if .Values.imageTag }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image }}:{{ .Values.imageTag }}"
+        {{- else }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image }}:{{ .Values.global.imageTag }}"
+        {{- end }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        name: {{ template "container.fullname" . }}
+        livenessProbe:
+          httpGet:
+            path: /v1/health
+            port: {{ .Values.global.containerPorts.monitoringHttp }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.livenessProbe.successThreshold }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+        readinessProbe:
+          httpGet:
+            path: /v1/health
+            port: {{ .Values.global.containerPorts.monitoringHttp }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.readinessProbe.successThreshold }}
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+        ports:
+          - containerPort: {{ .Values.global.containerPorts.preServiceHttp }}
+            protocol: TCP
+            name: http-signaling
+        resources:
+          limits:
+            {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ .Values.resources.limits.ephemeralStorage | quote }}
+            {{- end }}
+            cpu: {{ .Values.resources.limits.cpu | quote}}
+            memory: {{ .Values.resources.limits.memory | quote}}
+          requests:
+            {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ template "policy-runtime-ephemeral-storage-request" .}}
+            {{- end }}
+            cpu: {{ .Values.resources.requests.cpu | quote}}
+            memory: {{ .Values.resources.requests.memory | quote}}
+    {{- include "extraContainers" . | nindent 6}}
+    {{- if $.Values.nodeSelectorEnabled }}
+     nodeSelector:
+        {{ $.Values.nodeSelectorKey }}: {{ $.Values.nodeSelectorValue }}
+    {{- end }}
+    {{- if $.Values.global.serviceAccountName }}
+      serviceAccountName: {{ .Values.global.serviceAccountName }}
+    {{- end }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100 
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: "app.kubernetes.io/name"
+                  operator: In
+                  values:
+                  - {{ template "chart.fullname" .}} 
+              topologyKey: "kubernetes.io/hostname"
+
+      restartPolicy: Always
+      schedulerName: default-scheduler
+
+---
+
+{{- if $.Values.global.testPreServiceEnable }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    {{- include "annotations.deployments" . }}
+  labels:
+    {{- include "labels.deployments" . }}
+    io.kompose.service: {{ template "ocpm-pre-test-deployment-name" . }}
+  name: {{ template "ocpm-pre-test-deployment-name" . }}
+spec:
+  replicas: {{ .Values.minReplicas }}
+  selector:
+    matchLabels:
+      io.kompose.service: {{ template "ocpm-pre-test-deployment-name" . }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 50%
+  template:
+    metadata:
+      annotations:
+        {{- include "annotations.deployments" . | indent 4 }}
+      labels:
+        {{- include "labels.deployments" . | indent 4 }}
+        io.kompose.service: {{ template "ocpm-pre-test-deployment-name" . }}
+    spec:
+      containers:
+      - env:
+        - name: CFG_SERVER_ADDR
+          value: {{ template "service-name-config-server" . }}
+        - name: CFG_SERVER_PORT
+          value: {{ .Values.global.servicePorts.configServerHttp | quote }}
+        - name: CFG_SERVER_READINESS_URL
+          value: "http://{{ template "service-name-config-server" . }}:{{ .Values.global.servicePorts.configServerHttp }}/topics"
+        - name: NODE_ENV
+          value: {{ .Values.envNodeEnv | quote }}
+        - name: PRE_ENV
+          value: {{ .Values.envPreEnv | quote }}
+        - name: PRE_MASTER_PORT
+          value: {{ .Values.global.containerPorts.preTestHttp | quote }}
+        - name: PRE_WORKER_PORT
+          value: {{ .Values.global.containerPorts.monitoringHttp | quote }}
+        - name: PRE_MAX_WORKER_COUNT
+          value: {{ .Values.envPreMaxWorkerCount | quote }}
+        - name: ENABLE_IPV6
+          value: {{ .Values.global.enableIPV6 | quote }}
+        - name: JAEGER_AGENT_HOST
+          value: {{ .Values.global.envJaegerAgentHost | quote }}
+        - name: JAEGER_AGENT_PORT
+          value: {{ .Values.envJaegerAgentPort | quote }}
+
+        {{- if .Values.imageTag }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image }}:{{ .Values.imageTag }}"
+        {{- else }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image }}:{{ .Values.global.imageTag }}"
+        {{- end }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        name: {{ template "container.fullname" . }}
+        livenessProbe:
+          httpGet:
+            path: /v1/health
+            port: {{ .Values.global.containerPorts.monitoringHttp }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.livenessProbe.successThreshold }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+        readinessProbe:
+          httpGet:
+            path: /v1/health
+            port: {{ .Values.global.containerPorts.monitoringHttp }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.readinessProbe.successThreshold }}
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+        ports:
+          - containerPort: {{ .Values.global.containerPorts.preTestHttp }}
+            protocol: TCP
+            name: http-signaling
+        resources:
+          limits:
+            {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ .Values.resources.limits.ephemeralStorage | quote }}
+            {{- end }}
+            cpu: {{ .Values.resources.limits.cpu | quote}}
+            memory: {{ .Values.resources.limits.memory | quote}}
+          requests:
+            {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ template "policy-runtime-ephemeral-storage-request" .}}
+            {{- end }}
+            cpu: {{ .Values.resources.requests.cpu | quote}}
+            memory: {{ .Values.resources.requests.memory | quote}}
+
+    {{- if $.Values.nodeSelectorEnabled }}
+     nodeSelector:
+        {{ $.Values.nodeSelectorKey }}: {{ $.Values.nodeSelectorValue }}
+    {{- end }}
+    {{- if $.Values.global.serviceAccountName }}
+      serviceAccountName: {{ .Values.global.serviceAccountName }}
+    {{- end }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100 
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: "app.kubernetes.io/name"
+                  operator: In
+                  values:
+                  - {{ template "chart.fullname" .}} 
+              topologyKey: "kubernetes.io/hostname"
+
+      restartPolicy: Always
+      schedulerName: default-scheduler
+{{- end }}
+

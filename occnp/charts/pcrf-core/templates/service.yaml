@@ -1,0 +1,38 @@
+{{- if $.Values.global.pcrfCoreEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{- include "annotations.services" . }}
+  labels:
+    {{- include "labels.services" . }}
+    io.kompose.service: {{ template "pcrf-core-deployment-name" . }}
+    category: pcrf
+    {{- if not $.Values.global.serviceMeshEnabled }}
+    primary-port-name: http
+    {{- end }}
+  name: {{ template "service-name-pcrf-core" . }}
+spec:
+  {{- if or (eq .Values.service.type "NodePort") (eq .Values.service.type "LoadBalancer") }}
+  externalTrafficPolicy: Cluster
+  {{- end }}
+  ports:
+    - name: http
+      port: {{ .Values.global.servicePorts.pcrfCoreHttp }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.pcrfCoreHttp }}
+    - name: tcp-diameter 
+      port: {{ .Values.global.servicePorts.pcrfCoreDiameter }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.pcrfCoreDiameter }}
+    {{- if .Values.global.exposeObservabilityAtService }}
+    - name: {{ .Values.global.cncMetricsName }}
+      port: {{ .Values.global.containerPorts.monitoringHttp }}
+      protocol: TCP
+    {{- end }}
+
+  selector:
+    io.kompose.service: {{ template "pcrf-core-deployment-name" . }}
+  sessionAffinity: None
+  type: {{ .Values.service.type }}
+{{- end }}

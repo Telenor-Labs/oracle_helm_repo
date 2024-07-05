@@ -1,0 +1,52 @@
+# Copyright 2019 (C), Oracle and/or its affiliates. All rights reserved.
+
+mysql:
+  primary:
+    host: "ocnssf-mysql"
+  secondary:
+    host: "ocnssf-mysql"
+  port: 3306 
+
+replicaCount: 1
+
+image:
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 5745
+
+loglevel: "ERROR"
+
+resources:
+  limits:
+     cpu: 2
+     memory: 1Gi
+  requests:
+    cpu: 0.01
+    memory: 256Mi
+  target:
+    averageCpuUtil: 10
+
+minReplicas: 2
+maxReplicas: 12
+
+maxExpiryDuration: 240
+minExpiryDuration: 0
+
+# Enable/disable response gzip compression
+contentEncodingEnabled: true
+
+# Minimum response size required for compression to happen
+compressionMinimumResponseSize: 1024
+
+# Maximum limit for request size
+maxRequestSize: 1MB
+
+grEnabled: false
+siteId: "01"
+
+hikariPoolSize: 10
+ioThreads: 10
+workerThreads: 20
+commonServiceName: nsavailability

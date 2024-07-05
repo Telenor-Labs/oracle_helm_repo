@@ -1,0 +1,38 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ template "pcf-pre-hpa-name" . }}
+spec:
+  maxReplicas: {{ .Values.maxReplicas }}
+  minReplicas: {{ .Values.minReplicas }}
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ template "ocpm-pre-deployment-name" . }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: {{ .Values.averageCpuUtil }}
+
+---
+
+{{- if $.Values.global.testPreServiceEnable }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ template "pcf-pre-test-hpa-name" . }}
+spec:
+  maxReplicas: {{ .Values.maxReplicas }}
+  minReplicas: {{ .Values.minReplicas }}
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ template "ocpm-pre-test-deployment-name" . }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: {{ .Values.averageCpuUtil }}
+{{- end }}
+

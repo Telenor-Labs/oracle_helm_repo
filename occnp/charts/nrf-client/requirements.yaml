@@ -1,0 +1,7 @@
+dependencies:
+  - name: nrf-client-nfdiscovery
+    version: 22.1.2
+    repository: alias:ocnrf-helm-repo
+  - name: nrf-client-nfmanagement
+    version: 22.1.2
+    repository: alias:ocnrf-helm-repo

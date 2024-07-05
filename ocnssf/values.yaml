@@ -1,0 +1,1719 @@
+# copyright 2020 (C), Oracle and/or its affiliates. All rights reserved.
+
+#------------------------------------------------------------------------------------------------------------------
+
+#########################################################
+#            Section Start: global attributes           #
+#########################################################
+global:
+  # Docker registry from which ingress, egress, config-server images, nrf-client images will be pulled
+  dockerRegistry: ocnssf.in.oracle.com:5000
+
+  # Mysql K8s Secret Name for application user and password
+  appDbCredSecretName: 'ocnssf-db-creds'
+
+  # Mysql K8s Secret containing user and password for privileged user
+  # This is used by all the Hooks (mandatory parameter for nrfclient i.e same name needs to be used)
+  privilegedDbCredSecretName: &privDbSecret 'privileged-db-creds'
+
+  # Mysql NSSF Database Names
+  stateDbName: 'nssfStateDB'
+  provisionDbName: &provDB 'nssfProvSite1DB'
+
+  # Mysql Release Database Name used to maintain release version
+  releaseDbName: 'ocnssfReleaseDB'
+
+  # NameSpace where secret is deployed
+  nameSpace: &ns ocnssf
+
+  # ********  Sub-Section Start: DB credentials NSSF global Parameters ************
+  #**************************************************************************
+  mysql:
+    primary:
+      host: &dbHost "ocnssf-nsdb.db"
+    secondary:
+      host: "ocnssf-nsdb.db"
+    port: &dbPort 3306
+    enabled: false
+
+  # Db Engine to be used by hooks for nssf services. Default is "NDBCLUSTER"
+  dbEngine: &dbEngine InnoDB
+
+  # ********  Sub-Section End: DB credentials NSSF global Parameters ************
+  #**************************************************************************
+
+  #Only applicable for NSSF microservices
+  #===================================================================
+  # GR params
+  #tag to enable GR
+  grEnabled: false
+  #InstanceId of NSSF used in case of GR
+  nfInstanceId: "9faf1bbc-6e4a-4454-a507-aef01a101a01"
+  #To check db-replication status
+  dbMonitorServiceUrl: "http://ocats-amf-stubserver.ocnssf:8080"
+  #===================================================================
+  #===================================================================
+  # NSSF option supported feature
+  # ES3XX is not supported currently. Values must be false always
+  #@Engineering-start
+  SupportedFeatureNegotiationEnable: true
+  threegppFeatures:
+    NsSelection:
+      ES3XX: false
+    NsAvalability:
+      ONSSAI: true
+      SUMOD: true
+      EANAN: true
+      ES3XX: false
+  #@Engineering-end
+  #===================================================================
+  #===================================================================
+  # Multiple PLMN support, if left blank signifies any PLMN is accepted
+  #supportedPlmnList: []
+  # Multiple PLMN support, Following is the way to ensure only (100,101) and (100,02)
+  # If there are leading zeroes in the value, enclose it in double quotes for it to be considered as string
+  supportedPlmnList:
+    - mcc: 100
+      mnc: 101
+    - mcc: 100
+      mnc: "02"
+    - mcc: 101
+      mnc: 101
+    - mcc: 102
+      mnc: 102
+    - mcc: 100
+      mnc: 100
+    - mcc: 200
+      mnc: 200
+    - mcc: 100
+      mnc: 102
+    - mcc: 100
+      mnc: "001"
+    - mcc: 103
+      mnc: 103
+  #===================================================================
+  #===================================================================
+  # Indirect communication support
+  indirectCommunicationSupportEnable: true
+  # This is the load balancer URL of NSSF. Mandatory to get notifications from NRF.
+  nssfApiRoot: http://10.178.246.56:30075
+  #===================================================================
+  #===================================================================
+  # Nf Set params
+  nfSet:
+    - set1.nssfset.5gc.mnc101.mcc101
+    - set1.nssfset.5gc.mnc102.mcc102
+  #===================================================================
+
+  #===================================================================
+  # Debug tool params
+  # Allowed Values: DISABLED, ENABLED
+  extraContainers: DISABLED
+  extraContainersTpl: |
+    - command:
+        - /bin/sleep
+        - infinity
+      image: ocnssf.in.oracle.com:5000/ocdebug-tools:22.1.1
+      imagePullPolicy: Always
+      name: tools
+      resources:
+        requests:
+          ephemeral-storage: "2Gi"
+          cpu: "0.5"
+          memory: "1Gi"
+        limits:
+          ephemeral-storage: "4Gi"
+          cpu: "1"
+          memory: "2Gi"
+      securityContext:
+        allowPrivilegeEscalation: true
+        capabilities:
+          drop:
+          - ALL
+          add:
+          - NET_RAW
+          - NET_ADMIN
+        readOnlyRootFilesystem: false
+        runAsUser: 7000
+  #===================================================================
+  #===================================================================
+  # Helm test hook related configurations
+  #@Engineering-start
+  test:
+    nfName: ocnssf
+    image:
+      name: helm-test
+      tag: 22.1.2
+    config:
+      logLevel: WARN
+      timeout: 120      #Beyond this duration helm test will be considered failure
+  #@Engineering-end
+  #===================================================================
+
+  #===================================================================
+  # Service Mesh Params
+  # Uncomment this in case service mesh is enabled
+  #initContainerEnable: false
+  # Mandatory: needs to be set with correct url format http://127.0.0.1:<istio management port>/ready" if Service Mesh would be present where NSSF will be deployed
+  istioSidecarReadyUrl: "http://127.0.0.1:15000/ready"
+  # Mandatory: needs to be set with correct url format http://127.0.0.1:<istio management port>/quitquitquit" if Service Mesh would be present where NSSF will be deployed
+  istioSidecarQuitUrl: "http://127.0.0.1:15000/quitquitquit"
+  # Mandatory: This flag needs to be set "true" if Service Mesh would be present where NSSF will be deployed
+  serviceMeshCheck: &serviceMeshCheck false
+  serviceMeshEnabled: *serviceMeshCheck
+  #===================================================================
+
+  # serviceAccountName is a mandatory parameter
+  #
+  # Kubernetes Secret resource is used for below use cases in OCNSSF
+  # - For providing MYSQL DB Details to micro-services
+  # - For providing nssf's Private Key, nssf's Certificate and CA Certificate Details to Ingress/Egress Gateway for TLS
+  # - For providing nssf's Private and nssf's Public Keys to nfAccessToken micro-service for Digitally Signing AccessTokenClaims.
+  # - For providing Producer/Consumer NF's Service/Endpoint details for routing messages from/to Egress/Ingress Gateway.
+  #
+  # The Secret(s) can be under same namespace where OCNSSF is getting deployed (recommended) or
+  # Operator can choose to use different namespaces for different secret(s).
+  #
+  # If all the Secret(s) are under same namespace as OCNSSF, then Kubernetes Role can be bound with the given ServiceAccount.
+  # Otherwise ClusterRole needs to be bound with the given ServiceAccount.
+  #
+  # The Role/ClusterRole needs to be created with resources: (services, configmaps, pods, secrets, endpoints)  and (verbs: get, watch, list)
+  #
+  # E.g:
+  #
+  #     apiVersion: rbac.authorization.k8s.io/v1
+  #     kind: Role
+  #     metadata:
+  #       labels:
+  #       name:  ocnssf-role
+  #       namespace: ocnssf
+  #     rules:
+  #       - apiGroups:
+  #           - ""
+  #         resources:
+  #           - services
+  #           - configmaps
+  #           - pods
+  #           - secrets
+  #           - endpoints
+  #         verbs:
+  #           - get
+  #           - list
+  #           - watch
+
+  serviceAccountName: ''
+
+  # ********  Sub-Section Start: Ingress Gateway Global Parameters   ********
+  #**************************************************************************
+  # port on which NRF's API-Gateway service is exposed
+  # If httpsEnabled is false, this Port would be HTTP/2.0 Port (unsecured)
+  # If httpsEnabled is true, this Port would be HTTPS/2.0 Port (secured SSL)
+  #@Engineering-start
+  publicHttpSignalingPort: 80
+  publicHttpsSignallingPort: 443
+
+  # Specify type of service - Possible values are :- NodePort, NodePort, LoadBalancer and ExternalName
+  type: LoadBalancer
+
+  # Enable or disable IP Address allocation from Metallb Pool
+  metalLbIpAllocationEnabled: true
+
+  # Address Pool Annotation for Metallb
+  metalLbIpAllocationAnnotation: "metallb.universe.tf/address-pool: signaling"
+
+  # If Static load balancer IP needs to be set, then set staticIpAddressEnabled flag to true and provide value for staticIpAddress
+  # Else random IP will be assigned by the metalLB from its IP Pool
+  staticIpAddressEnabled: false
+  staticIpAddress: 10.75.212.60
+  #@Engineering-end
+
+  # If Static node port needs to be set, then set staticNodePortEnabled flag to true and provide value for staticNodePort
+  # Else random node port will be assigned by K8
+  staticNodePortEnabled: true
+  staticHttpNodePort: 30075
+  staticHttpsNodePort: 30043
+  # ********  Sub-Section End: Ingress Gateway Global Parameters   ********
+  #**************************************************************************
+
+  # ********  Sub-Section Start: NRF CLIENT PARAMS Global Parameters   ********
+  #**************************************************************************
+  # The value of nfName is specified as ocnf which stands for Oracle NF.
+  # nfName is used as a prefix in service names of nrf client's service and other services it connects to for eg appinfo, config server etc.
+  nfName: 'ocnssf'
+  #@Engineering-start
+  # Global control to enable/disable deployment of NF Discovery service, enable it if on demand discovery of NF is required.
+  nrfClientNfDiscoveryEnable: true
+  # Global control to enable/disable deployment of NF Management service.
+  nrfClientNfManagementEnable: true
+  # Global parameter to mention if alternate-route service is available(deployed) or not.
+  alternateRouteServiceEnable: false
+  # Jaeger tracing host
+  envJaegerAgentHost: ''
+  # Jaeger tracing port
+  envJaegerAgentPort: 6831
+  # Provide value for NodePort
+  nrfClientNodePort: 0
+  # Discovery Service Port (This should be same as .Values.nrfclient.nrf-client.nrf-client-nfdiscovery.envManagementServicePort)
+  discoveryServicePort: 5910
+  # Global Control to disable config server
+  configServerEnable: true
+  # Config-Server Service. Shall be used as {{ ReleaseName }}-configServerFullNameOverride
+  configServerFullNameOverride: ocpm-config
+
+  # Global Control to disable appinfo service
+  appinfoServiceEnable: true
+  # Global Control to disable performance info service
+  performanceServiceEnable: true
+  #@Engineering-end
+
+  # Deployment Specific configuration
+  deploymentNrfClientService:
+    # Service to be monitored by app-info service
+    envNfNamespace: *ns
+    envNfType: 'nssf'
+    # For calculating load of service  also prometheus is mandatory
+    envConsumeSvcName: ''
+    # Egress gateway Host. Shall be used as {{ ReleaseName }}-envEgressGatewayFullnameOverride
+    envEgressGatewayFullnameOverride: egress-gateway
+    # Egress gateway Port
+    envEgressGatewayPort: "8080"
+    # Callback URI to receive Notifications from NRF
+    nfApiRoot: http://{{ .Release.Name }}-ingress:80
+    #@Engineering-start
+    nodeSelectorEnabled: false
+    nodeSelectorKey: zone
+    nodeSelectorValue: app
+    #@Engineering-end
+
+    # ********  Sub-Section Start: DB credentials Nrf-Client Global Parameters ************
+    #**************************************************************************
+
+  # Mysql Host
+  envMysqlHost: *dbHost
+  # Mysql Port
+  envMysqlPort: *dbPort
+  # Mysql Secret Name
+  dbCredSecretName: *privDbSecret
+    # configure when your backup table should have separate schema
+  # backupDbName: commonconfig
+
+  # ********  Sub-Section End: DB credentials Nrf-Client Global Parameters ************
+  #**************************************************************************
+
+  # ********  Sub-Section End: NRF CLIENT  Global Parameters   ********
+  #**************************************************************************
+  #@Engineering-start
+  # Flag to enable/ disable the feature
+  commonCfgClient:
+    enabled: &cfgClientEnabled false
+    pollingInterval: 5000
+  commonCfgHookImage:
+    name: common_config_hook
+    tag: 22.1.9
+    pullPolicy: Always
+
+  # ********  Sub-Section Start: Custom Extension Global Parameters ********
+  #**************************************************************************
+
+  customExtension:
+    allResources:
+      labels: {}
+      annotations: {}
+
+    lbServices:
+      labels: {}
+      annotations: {}
+
+    lbDeployments:
+      labels: {}
+      annotations: {}
+
+    nonlbServices:
+      labels: {}
+      annotations: {}
+      #traffic.sidecar.istio.io/excludeInboundPorts: "9090"
+
+    nonlbDeployments:
+      labels: {}
+      annotations: {}
+      #traffic.sidecar.istio.io/excludeInboundPorts: "9090"
+
+  # ********  Sub-Section End: Custom Extensions Global Parameters ********
+  #**************************************************************************
+
+
+  # ********  Sub-Section Start: Prefix/Suffix Global Parameters ************
+  #**************************************************************************
+
+  k8sResource:
+    container:
+      prefix:
+      suffix:
+  #@Engineering-end
+  # ********  Sub-Section End: Prefix/Suffix Global Parameters *************
+  #**************************************************************************
+
+
+  # ********  Sub-Section Start: NsSelection  Global Parameters   ********
+  #**************************************************************************
+  # Engineering configuration
+  nsselection:
+    portConfiguration:
+      # Port exposed by the service
+      servicePort : 8080
+      #container port
+      containerPort: 8080
+      #common service port
+      commonServicePort: 9090
+
+  # ********  Sub-Section End: NsSelection  Global Parameters   ********
+  #**************************************************************************
+
+  # ********  Sub-Section Start: NsConfig  Global Parameters   ********
+  #**************************************************************************
+  # Engineering configuration
+  nsconfig:
+    portConfiguration:
+      # Port exposed by the service
+      servicePort : 8080
+      #container port
+      containerPort: 8080
+      #common service port
+      commonServicePort: 9090
+
+  # ********  Sub-Section End: NsConfig  Global Parameters   ********
+  #**************************************************************************
+
+  # ********  Sub-Section Start: NsAvailability  Global Parameters   ********
+  #**************************************************************************
+  # Engineering configuration
+  nsavailability:
+    portConfiguration:
+      # Port exposed by the service
+      servicePort : 8080
+      #container port
+      containerPort: 8080
+      #common service port
+      commonServicePort: 9090
+
+  # ********  Sub-Section End: NsAvailability  Global Parameters   ********
+  #**************************************************************************
+
+  # ********  Sub-Section Start: NsSubscription  Global Parameters   ********
+  #**************************************************************************
+  # Engineering configuration
+  nssubscription:
+    portConfiguration:
+      # Port exposed by the service
+      servicePort : 8080
+      #container port
+      containerPort: 8080
+      #common service port
+      commonServicePort: 9090
+
+  # ********  Sub-Section End: NsSubscription  Global Parameters   ********
+  #**************************************************************************
+
+  # ********  Sub-Section Start: NsAuditor  Global Parameters   ********
+  #**************************************************************************
+  # Engineering configuration
+  nsauditor:
+    portConfiguration:
+      # Port exposed by the service
+      servicePort : 8080
+      #container port
+      containerPort: 8080
+      #common service port
+      commonServicePort: 9090
+
+  # ********  Sub-Section End: NsAuditor  Global Parameters   ********
+  #**************************************************************************
+
+#########################################################
+#            Section End  : global attributes           #
+#########################################################
+
+
+#
+# NSSF microservices
+#
+
+###########################################################################
+#            Section Start: NSSF NSSelection Micro service attributes   #
+###########################################################################
+nsselection:
+  image:
+    # image name
+    name: ocnssf-nsselection
+    # tag name of image
+    tag: 22.1.1
+    # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+    pullPolicy: Always
+
+  loglevel: "INFO"
+
+  #@Engineering-start
+  # Allowed Values: DISABLED, ENABLED, USE_GLOBAL_VALUE
+  extraContainers: USE_GLOBAL_VALUE
+
+  service:
+    # Specify type of service - Possible values are :- NodePort, NodePort, LoadBalancer and ExternalName
+    type: NodePort
+    # Labels and Annotations that are specific to service nsselection are added here.
+    customExtension:
+      labels: {}
+      annotations: {}
+
+  # Labels and Annotations that are specific to deployment nsselection are added here.
+  deployment:
+    customExtension:
+      labels: {}
+      annotations: {}
+  #@Engineering-end
+
+  # Resource details
+  resources:
+    limits:
+      cpu: 2
+      memory: 1Gi
+    requests:
+      cpu: 0.5
+      memory: 512Mi
+    target:
+      averageCpuUtil: 80
+
+  # Min replicas to scale to maintain an average CPU utilization
+  minReplicas: 1
+  # Max replicas to scale to maintain an average CPU utilization
+  maxReplicas: 1
+
+  # Engineering Configuration
+  # NRF details
+  nrf:
+    primaryUrl: http://ocnrf-ambassador.ocnrf-infra:80
+    secondaryUrl: http://ocnrf-ambassador.ocnrf-infra:80
+
+  # Engineering configurable parameters
+  # Max number of retries towards NRF in case nefDiscovery feature is enabled
+  httpMaxRetries: 0
+  # Default value of PLMN in case incoming NS-Selection initial registration request does not contain TAI parameter
+  homeMcc: "100"
+  homeMnc: "101"
+  # Flag to enable time based slice selection
+  reqnftime: true
+  outboundProxy: disabled
+  # NSSF features flags
+  features:
+    nrfdiscovery: false
+    #If candidateResolution is false, then relevance = false. If relevance true , then candidateResolution must be true
+    relevance: false
+    candidateResolution: true
+  nrfDiscoveryProperties:
+    disclimit: 5 #not be less than 1, more than 10
+  candidateResolutionProperties:
+    maxcandidates: 3
+
+  #@Engineering-start
+
+  # setting hikari pool size
+  hikariPoolSize: 10
+  # Undertow io threads configured for 2 VCPUs formulae VCPU * 16
+  ioThreads: 32
+  # Undertow worker threads configured for 2 VCPUs formulae VCPU * 32
+  workerThreads: 64
+
+  # future threads params
+  corePoolSize: 32
+  maxPoolSize: 64
+  queueCapacity: 1000
+
+  readinessProbe:
+    # tells the kubelet that it should wait 25 second before performing the first probe
+    initialDelaySeconds: 25
+    # specifies that the kubelet should perform a liveness probe every xx seconds
+    periodSeconds: 10
+    # Number of seconds after which the probe times out
+    timeoutSeconds: 3
+    # Minimum consecutive successes for the probe to be considered successful after having failed
+    successThreshold: 1
+    # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+    failureThreshold: 3
+  livenessProbe:
+    # tells the kubelet that it should wait xx second before performing the first probe
+    initialDelaySeconds: 25
+    # specifies that the kubelet should perform a liveness probe every xx seconds
+    periodSeconds: 10
+    # Number of seconds after which the probe times out
+    timeoutSeconds: 5
+    # Minimum consecutive successes for the probe to be considered successful after having failed
+    successThreshold: 1
+    # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+    failureThreshold: 5
+  #@Engineering-end
+
+  ###########################################################################
+  #            Section End: NSSF NSSelection Micro service attributes   #
+  ###########################################################################
+
+###########################################################################
+#            Section Start: NSSF NSConfig Micro service attributes  #
+###########################################################################
+nsconfig:
+  image:
+    # image name
+    name: ocnssf-nsconfig
+    # tag name of image
+    tag: 22.1.1
+    # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+    pullPolicy: Always
+
+  loglevel: "INFO"
+
+  #@Engineering-start
+  # Allowed Values: DISABLED, ENABLED, USE_GLOBAL_VALUE
+  extraContainers: USE_GLOBAL_VALUE
+
+  service:
+    # Specify type of service - Possible values are :- NodePort, NodePort, LoadBalancer and ExternalName
+    type: NodePort
+    port: 8080
+    # Labels and Annotations that are specific to service nsconfig are added here.
+    customExtension:
+      labels: {}
+      annotations: {}
+
+  # Labels and Annotations that are specific to deployment nsconfig are added here.
+  deployment:
+    customExtension:
+      labels: {}
+      annotations: {}
+  #@Engineering-end
+
+  # Resource details
+  resources:
+    limits:
+      cpu: 2
+      memory: 1Gi
+    requests:
+      cpu: 0.5
+      memory: 512Mi
+    target:
+      averageCpuUtil: 80
+
+  # Min replicas to scale to maintain an average CPU utilization
+  minReplicas: 1
+  # Max replicas to scale to maintain an average CPU utilization
+  maxReplicas: 1
+
+  nrf:
+    subscription: false # Flag to enable Subscriptions towards NRF for AmfSet
+  # URL at which NSSF receives notifications from Nrf. Set when NRF subscription is turned ON.
+  notificationHandlerUrl: http://{{ .Release.Name }}-ingress-gateway:30075
+
+  #@Engineering-start
+  readinessProbe:
+    # tells the kubelet that it should wait 25 second before performing the first probe
+    initialDelaySeconds: 25
+    # specifies that the kubelet should perform a liveness probe every xx seconds
+    periodSeconds: 10
+    # Number of seconds after which the probe times out
+    timeoutSeconds: 3
+    # Minimum consecutive successes for the probe to be considered successful after having failed
+    successThreshold: 1
+    # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+    failureThreshold: 3
+  livenessProbe:
+    # tells the kubelet that it should wait xx second before performing the first probe
+    initialDelaySeconds: 25
+    # specifies that the kubelet should perform a liveness probe every xx seconds
+    periodSeconds: 10
+    # Number of seconds after which the probe times out
+    timeoutSeconds: 5
+    # Minimum consecutive successes for the probe to be considered successful after having failed
+    successThreshold: 1
+    # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+    failureThreshold: 5
+  #@Engineering-end
+
+###########################################################################
+#            Section End : NSSF NSConfig Micro service attributes  #
+###########################################################################
+
+
+###########################################################################
+#            Section Start: NSSF NSAvailability Micro service attributes  #
+###########################################################################
+
+nsavailability:
+  image:
+    # image name
+    name: ocnssf-nsavailability
+    # tag name of image
+    tag: 22.1.1
+    # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+    pullPolicy: Always
+
+  loglevel: "INFO"
+
+  #@Engineering-start
+  # Allowed Values: DISABLED, ENABLED, USE_GLOBAL_VALUE
+  extraContainers: USE_GLOBAL_VALUE
+
+  service:
+    # Specify type of service - Possible values are :- NodePort, NodePort, LoadBalancer and ExternalName
+    type: NodePort
+    port: 8080
+    # Labels and Annotations that are specific to service nsavailability are added here.
+    customExtension:
+      labels: {}
+      annotations: {}
+
+  # Labels and Annotations that are specific to deployment nsavailability are added here.
+  deployment:
+    customExtension:
+      labels: {}
+      annotations: {}
+  #@Engineering-end
+
+  # Resource details
+  resources:
+    limits:
+      cpu: 2
+      memory: 1Gi
+    requests:
+      cpu: 0.5
+      memory: 512Mi
+    target:
+      averageCpuUtil: 80
+
+  # Min replicas to scale to maintain an average CPU utilization
+  minReplicas: 1
+  # Max replicas to scale to maintain an average CPU utilization
+  maxReplicas: 1
+
+  maxExpiryDuration: 240 # range from 100 to 1000
+  minExpiryDuration: 0 # range from 0 to 100
+
+  #@Engineering-start
+  # Enable/disable response gzip compression
+  contentEncodingEnabled: true
+  # Minimum response size required for compression to happen
+  compressionMinimumResponseSize: 1024
+  # Maximum limit for request size
+  maxRequestSize: 1MB
+
+  # setting hikari pool size
+  hikariPoolSize: 10
+  # Undertow io threads configured for 2 VCPUs formulae VCPU * 16
+  ioThreads: 32
+  # Undertow worker threads configured for 2 VCPUs formulae VCPU * 32
+  workerThreads: 64
+
+  # Engineering Configuration:
+  readinessProbe:
+    # tells the kubelet that it should wait 25 second before performing the first probe
+    initialDelaySeconds: 25
+    # specifies that the kubelet should perform a liveness probe every xx seconds
+    periodSeconds: 10
+    # Number of seconds after which the probe times out
+    timeoutSeconds: 3
+    # Minimum consecutive successes for the probe to be considered successful after having failed
+    successThreshold: 1
+    # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+    failureThreshold: 3
+  livenessProbe:
+    # tells the kubelet that it should wait xx second before performing the first probe
+    initialDelaySeconds: 25
+    # specifies that the kubelet should perform a liveness probe every xx seconds
+    periodSeconds: 10
+    # Number of seconds after which the probe times out
+    timeoutSeconds: 5
+    # Minimum consecutive successes for the probe to be considered successful after having failed
+    successThreshold: 1
+    # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+    failureThreshold: 5
+  #@Engineering-end
+
+###########################################################################
+#            Section End : NSSF NSAvailability Micro service attributes  #
+###########################################################################
+
+###########################################################################
+#            Section Start: NSSF NSSubscription Micro service attributes  #
+###########################################################################
+nssubscription:
+  image:
+    # image name
+    name: ocnssf-nssubscription
+    # tag name of image
+    tag: 22.1.1
+    # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+    pullPolicy: Always
+
+  loglevel: "INFO"
+
+  #@Engineering-start
+  # Allowed Values: DISABLED, ENABLED, USE_GLOBAL_VALUE
+  extraContainers: USE_GLOBAL_VALUE
+
+  service:
+    # Specify type of service - Possible values are :- NodePort, NodePort, LoadBalancer and ExternalName
+    type: NodePort
+    # Labels and Annotations that are specific to service nssubscription are added here.
+    customExtension:
+      labels: {}
+      annotations: {}
+
+  # Labels and Annotations that are specific to deployment nssubscription are added here.
+  deployment:
+    customExtension:
+      labels: {}
+      annotations: {}
+  #@Engineering-end
+
+  # Resource details
+  resources:
+    limits:
+      cpu: 2
+      memory: 1Gi
+    requests:
+      cpu: 0.5
+      memory: 512Mi
+    target:
+      averageCpuUtil: 80
+
+  # Min replicas to scale to maintain an average CPU utilization
+  minReplicas: 1
+  # Max replicas to scale to maintain an average CPU utilization
+  maxReplicas: 1
+
+  #@Engineering-start
+  # oauthTokenRequestEnabled when set true lets Subscription Notifications to be sent with OauthToken
+  # As all notifications are send by Egress gateway. oauthClientEnabled in Egress should also be set true to make this work.
+  oauthTokenRequestEnabled: false
+  httpMaxRetries: 2
+
+  # Engineering Configuration:
+  readinessProbe:
+    # tells the kubelet that it should wait 25 second before performing the first probe
+    initialDelaySeconds: 25
+    # specifies that the kubelet should perform a liveness probe every xx seconds
+    periodSeconds: 10
+    # Number of seconds after which the probe times out
+    timeoutSeconds: 3
+    # Minimum consecutive successes for the probe to be considered successful after having failed
+    successThreshold: 1
+    # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+    failureThreshold: 3
+  livenessProbe:
+    # tells the kubelet that it should wait xx second before performing the first probe
+    initialDelaySeconds: 25
+    # specifies that the kubelet should perform a liveness probe every xx seconds
+    periodSeconds: 10
+    # Number of seconds after which the probe times out
+    timeoutSeconds: 5
+    # Minimum consecutive successes for the probe to be considered successful after having failed
+    successThreshold: 1
+    # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+    failureThreshold: 5
+  #@Engineering-end
+
+###########################################################################
+#            Section End : NSSF NSSubscription Micro service attributes  #
+###########################################################################
+
+###########################################################################
+#            Section Start: NSSF NSAuditor Micro service attributes  #
+###########################################################################
+nsauditor:
+  image:
+    # image name
+    name: ocnssf-nsauditor
+    # tag name of image
+    tag: 22.1.1
+    # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+    pullPolicy: Always
+
+  #@Engineering-start
+  # Allowed Values: DISABLED, ENABLED, USE_GLOBAL_VALUE
+  extraContainers: USE_GLOBAL_VALUE
+
+  service:
+    # Specify type of service - Possible values are :- NodePort, NodePort, LoadBalancer and ExternalName
+    type: NodePort
+    port: 8080
+    # Labels and Annotations that are specific to service nsauditor are added here.
+    customExtension:
+      labels: {}
+      annotations: {}
+
+  # Labels and Annotations that are specific to deployment nsauditor are added here.
+  deployment:
+    customExtension:
+      labels: {}
+      annotations: {}
+  #@Engineering-end
+
+  # Resource details
+  resources:
+    limits:
+      cpu: 2
+      memory: 1Gi
+    requests:
+      cpu: 0.5
+      memory: 512Mi
+    target:
+      averageCpuUtil: 80
+
+  # Min replicas to scale to maintain an average CPU utilization
+  minReplicas: 1
+  # Max replicas to scale to maintain an average CPU utilization
+  maxReplicas: 1
+
+  #@Engineering-start
+  readinessProbe:
+    # tells the kubelet that it should wait 25 second before performing the first probe
+    initialDelaySeconds: 25
+    # specifies that the kubelet should perform a liveness probe every xx seconds
+    periodSeconds: 10
+    # Number of seconds after which the probe times out
+    timeoutSeconds: 3
+    # Minimum consecutive successes for the probe to be considered successful after having failed
+    successThreshold: 1
+    # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+    failureThreshold: 3
+  livenessProbe:
+    # tells the kubelet that it should wait xx second before performing the first probe
+    initialDelaySeconds: 25
+    # specifies that the kubelet should perform a liveness probe every xx seconds
+    periodSeconds: 10
+    # Number of seconds after which the probe times out
+    timeoutSeconds: 5
+    # Minimum consecutive successes for the probe to be considered successful after having failed
+    successThreshold: 1
+    # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+    failureThreshold: 5
+  #@Engineering-end
+
+###########################################################################
+#            Section End : NSSF NSAuditor Micro service attributes  #
+###########################################################################
+
+###########################################################################
+#NSSF common micro services (image and image tag are commented out in respective sections of following images)
+#NrfClient : Used for interaction with NRF
+#  nrf-client:22.1.5
+#  oc-app-info:22.1.2
+#  oc-perf-info:22.1.2
+#  oc-config-server:22.1.2
+#Gateways : Used for ingress/egress gateway functionalities,HTTPS support ,OAuth Support and rate limiting
+# Ingress-Gateway: ocingress_gateway:22.1.9
+# Egress-Gateway: ocegress_gateway:22.1.9
+# initContainersImage: configurationinit:22.1.9
+# updateContainersImage: configurationupdate:22.1.9
+# dbHookImage: common_config_hook:22.1.9
+
+###########################################################################
+
+###########################################################################
+#            Section Start: NrfClient Micro service attributes  #
+###########################################################################
+nrfclient:
+  # Microservice level control if specific microservice need to be disabled
+  nrf-client:
+    # This config map is for providing inputs to NRF-Client
+    configmapApplicationConfig:
+      &configRef
+      # Config-map to provide inputs to Nrf-Client
+      # primaryNrfApiRoot - Primary NRF Hostname and Port
+      # SecondaryNrfApiRoot - Secondary NRF Hostname and Port
+      # retryAfterTime - Default downtime(in Duration) of an NRF detected to be unavailable.
+      # nrfClientType - The NfType of the NF registering
+      # nrfClientSubscribeTypes - the NFType for which the NF wants to subscribe to the NRF.
+      # appProfiles - The NfProfile of the NF to be registered with NRF.
+      # enableF3 - Support for 29.510 Release 15.3
+      # enableF5 - Support for 29.510 Release 15.5
+      # renewalTimeBeforeExpiry - Time Period(seconds) before the Subscription Validity time expires.
+      # validityTime - The default validity time(days) for subscriptions.
+      # enableSubscriptionAutoRenewal - Enable Renewal of Subscriptions automatically.
+      # acceptAdditionalAttributes - Enable additionalAttributes as part of 29.510 Release 15.5
+      # retryForCongestion - The duration(seconds) after which nrf-client should retry to a NRF server found to be congested.
+      profile: |-
+        [appcfg]
+        primaryNrfApiRoot=10.75.225.191:31515
+        secondaryNrfApiRoot=10.75.225.191:31515
+        nrfScheme=http
+        retryAfterTime=PT120S
+        nrfClientType=NSSF
+        nrfClientSubscribeTypes=NSSF
+        appProfiles=[{"nfInstanceId": "9faf1bbc-6e4a-4454-a507-aef01a101a01","nfType":"NSSF","nfStatus":"REGISTERED","plmnList":[{"mcc":"310","mnc":"14"}],"fqdn":"nssf1.lab.oracle.com","interPlmnFqdn":"nssf1.lab.oracle.com","ipv4Addresses":["127.0.0.1","10.0.0.1"],"ipv6Addresses":["::1","::2"],"priority":5,"load":"20","capacity":"1000","locality":"us-east","amfInfo":{"amfRegionId":"01","amfSetId":"101","guamiList":[{"plmnId":{"mcc":"100","mnc":"101"},"amfId":"ABF001"}]},"nfServices":[{"serviceName":"nssf-nsselection","nfServiceStatus":"REGISTERED","serviceInstanceId":"123","versions":[{"apiVersionInUri":"v1","apiFullVersion":"1.15.3.0","expiry":"2019-12-31T23:59:59.000+0000"}],"scheme":"http","allowedNfTypes":["AMF","NSSF"],"fqdn":"ocnssf-nsgateway.ocnssf.svc.us.lab.oracle.com","interPlmnFqdn":"ocnssf-nsgateway.ocnssf.svc.us.lab.oracle.com","ipEndPoints":[{"ipv4Address":"127.0.0.1","transport":"TCP","port":80}]},{"serviceName":"nssf-nsavailability","nfServiceStatus":"REGISTERED","serviceInstanceId":"124","versions":[{"apiVersionInUri":"v1","apiFullVersion":"1.15.3.0","expiry":"2019-12-31T23:59:59.000+0000"}],"scheme":"http","allowedNfTypes":["AMF","NSSF"],"fqdn":"ocnssf-nsgateway.ocnssf.svc.us.lab.oracle.com","interPlmnFqdn":"ocnssf-nsgateway.ocnssf.svc.us.lab.oracle.com","ipEndPoints":[{"ipv4Address":"127.0.0.1","transport":"TCP","port":80}]}]}]
+        enableF3=true
+        enableF5=true
+        renewalTimeBeforeExpiry=3600
+        validityTime=30
+        enableSubscriptionAutoRenewal=true
+        acceptAdditionalAttributes=false
+        retryForCongestion=5
+
+    # Deployment specific configuration for Nrf-Client Discovery Microservice
+    nrf-client-nfdiscovery:
+      configmapApplicationConfig: *configRef
+      # NRF Client Microservice image name
+      #image: nrf-client
+      # NRF Client Microservice image tag
+      #imageTag: '22.1.5'
+      # Resource Details
+      cpuRequest: 2
+      cpuLimit: 2
+      memoryRequest: 1Gi
+      memoryLimit: 1Gi
+      # Min replicas to scale to maintain an average CPU utilization
+      minReplicas: 1
+      # Max replicas to scale to maintain an average CPU utilization
+      maxReplicas: 5
+      averageCpuUtil: 80
+      commonCfgServer:
+        configServerSvcName: nsconfig
+        port: 8080
+      commonCfgClient:
+        enabled: *cfgClientEnabled
+
+      # Management Service Port
+      envManagementServicePort: 5910
+      type: NodePort
+      # Set to true if the discovery results should be cached.
+      cacheDiscoveryResults: false
+
+      # Mandatory: needs to be set with correct url format http://127.0.0.1:<istio management port>/quitquitquit" if Service Mesh would be present where NSSF will be deployed
+      istioSidecarQuitUrl: "http://127.0.0.1:15000/quitquitquit"
+      # Mandatory: needs to be set with correct url format http://127.0.0.1:<istio management port>/ready" if Service Mesh would be present where NSSF will be deployed
+      istioSidecarReadyUrl: "http://127.0.0.1:15000/ready"
+      # Mandatory: This flag needs to be set "true" if Service Mesh would be present where NSSF will be deployed
+      serviceMeshCheck: *serviceMeshCheck
+
+      # ********  Sub-Section Start: DB credentials Nrf-Client Discovery Parameters ************
+      #**************************************************************************
+      dbConfig:
+        dbHost: *dbHost
+        dbPort: *dbPort
+        secretName: *privDbSecret
+        dbName: *provDB
+        # Name of the Key configured for "DB Username" in Secret with following name: "<dbConfig.secretName>"
+        dbUNameLiteral: mysql-username
+        # Name of the Key configured for "DB Password" in Secret with following name: "<dbConfig.secretName>"
+        dbPwdLiteral: mysql-password
+        # Default is NDBCLUSTER
+        dbEngine: *dbEngine
+
+    # ********  Sub-Section End: DB credentials Nrf-Client Discovery Parameters ************
+    #**************************************************************************
+
+    # Deployment specific configuration for Nrf-Client Management Microservice
+    nrf-client-nfmanagement:
+      configmapApplicationConfig: *configRef
+      # NRF Client Microservice image name
+      #image: nrf-client
+      # NRF Client Microservice image tag
+      #imageTag: '22.1.5'
+      # Resource Details
+      replicas: 1
+      cpuRequest: 1
+      cpuLimit: 1
+      memoryRequest: 1Gi
+      memoryLimit: 1Gi
+      commonCfgServer:
+        configServerSvcName: nsconfig
+        port: 8080
+      commonCfgClient:
+        enabled: *cfgClientEnabled
+
+      # Management Service Port
+      envManagementServicePort: 5910
+      type: NodePort
+
+      # Mandatory: needs to be set with correct url format http://127.0.0.1:<istio management port>/quitquitquit" if Service Mesh would be present where NSSF will be deployed
+      istioSidecarQuitUrl: "http://127.0.0.1:15000/quitquitquit"
+      # Mandatory: needs to be set with correct url format http://127.0.0.1:<istio management port>/ready" if Service Mesh would be present where NSSF will be deployed
+      istioSidecarReadyUrl: "http://127.0.0.1:15000/ready"
+      # Mandatory: This flag needs to be set "true" if Service Mesh would be present where NSSF will be deployed
+      serviceMeshCheck: *serviceMeshCheck
+
+      # ********  Sub-Section Start: DB credentials Nrf-Client Management Parameters ************
+      #**************************************************************************
+      dbConfig:
+        dbHost: *dbHost
+        dbPort: *dbPort
+        secretName: *privDbSecret
+        dbName: *provDB
+        # Name of the Key configured for "DB Username" in Secret with following name: "<dbConfig.secretName>"
+        dbUNameLiteral: mysql-username
+        # Name of the Key configured for "DB Password" in Secret with following name: "<dbConfig.secretName>"
+        dbPwdLiteral: mysql-password
+        # Default is NDBCLUSTER
+        dbEngine: *dbEngine
+
+    # ********  Sub-Section End: DB credentials Nrf-Client Management Parameters ************
+    #**************************************************************************
+
+  # Details of Config-server microservice
+  config-server:
+    #@Engineering-parameter
+    enabled: true
+    # config-server image name. Please note registry is taken from global section above
+    #image: oc-config-server
+    # config-server image tag
+    #imageTag: 22.1.2
+    # Mysql Config Server Database Name
+    envMysqlDatabase: *provDB
+    #Db hook Configuration
+    dbConfig:
+      dbEngine: *dbEngine
+    # Resource details
+    cpuRequest: 0.5
+    cpuLimit: 8
+    memoryLimit: 2Gi
+    memoryRequest: 1Gi
+
+  # Details of appinfo microservices
+  appinfo:
+    enabled: true
+    # appinfo image name. Please note registry is taken from global section above
+    #image: oc-app-info
+    # appinfo image tag
+    #imageTag: 22.1.2
+    # Set Log Level to DEBUG. If false, Log Level shall be INFO
+    debug: false
+
+    # Mandatory: needs to be set with correct url format http://127.0.0.1:<istio management port>/quitquitquit" if Service Mesh would be present where NSSF will be deployed
+    istioSidecarQuitUrl: "http://127.0.0.1:15000/quitquitquit"
+    # Mandatory: needs to be set with correct url format http://127.0.0.1:<istio management port>/ready" if Service Mesh would be present where NSSF will be deployed
+    istioSidecarReadyUrl: "http://127.0.0.1:15000/ready"
+    # Mandatory: This flag needs to be set "true" if Service Mesh would be present where NSSF will be deployed
+    serviceMeshCheck: *serviceMeshCheck
+
+  # Details of perf-info microservices
+  perf-info:
+    # Service namespace for perf-info
+    service_namespace: *ns
+    # perf_info image name
+    #image: oc-perf-info
+    # perf_info image tag
+    #imageTag: 22.1.2
+
+    # Number of pod replicas
+    replicas: 1
+
+    # Mandatory: needs to be set with correct url format http://127.0.0.1:<istio management port>/quitquitquit" if Service Mesh would be present where NSSF will be deployed
+    istioSidecarQuitUrl: "http://127.0.0.1:15000/quitquitquit"
+    # Mandatory: needs to be set with correct url format http://127.0.0.1:<istio management port>/ready" if Service Mesh would be present where NSSF will be deployed
+    istioSidecarReadyUrl: "http://127.0.0.1:15000/ready"
+    # Mandatory: This flag needs to be set "true" if Service Mesh would be present where NSSF will be deployed
+    serviceMeshCheck: *serviceMeshCheck
+
+    #@Engineering-parameter
+    configmapPerformance:
+      prometheus: http://prometheus-server.prometheus:5802
+
+###########################################################################
+#            Section End : NrfClient Micro service attributes  #
+###########################################################################
+
+#########################################################
+#            Section Start: ingressgateway attributes   #
+#########################################################
+ingress-gateway:
+  nodeselector:
+    nodekey: ""
+    nodevalue: ""
+
+  # This flag is for enabling/disabling HTTP/2.0  (insecure) in Ingress Gateway.
+  # If the value is set to false, NRF will not accept any HTTP/2.0 (unsecured) Traffic
+  # If the value is set to true, NRF will accept HTTPS/2.0 (unsecured) Traffic
+  enableIncomingHttp: true
+
+  # This flag is for enabling/disabling HTTPS/2.0  (secured TLS) in Ingress Gateway.
+  # If the value is set to false, NRF will not accept any HTTPS/2.0 (secured) Traffic
+  # If the value is set to true, NRF will accept HTTPS/2.0 (secured) Traffic
+  enableIncomingHttps: false
+
+  # Engineering configuration
+  # This flag is for enabling/disabling HTTPS/2.0  (secured TLS) in Ingress Gateway towards Microservices.
+  enableOutgoingHttps: false
+
+  # Mandatory: This flag needs to be set "true" if Service Mesh would be present where NSSF will be deployed
+  serviceMeshCheck: *serviceMeshCheck
+
+  # Mandatory: needs to be set with correct url format http://127.0.0.1:<istio management port>/quitquitquit" if Service Mesh would be present where NSSF will be deployed
+  istioSidecarQuitUrl: "http://127.0.0.1:15000/quitquitquit"
+  # Mandatory: needs to be set with correct url format http://127.0.0.1:<istio management port>/ready" if Service Mesh would be present where NSSF will be deployed
+  istioSidecarReadyUrl: "http://127.0.0.1:15000/ready"
+
+  # Ingress Gateway Service Container Image Details
+  #  image:
+  #    # image name
+  #    name: ocingress_gateway
+  #    # tag name of image
+  #    tag: 22.1.9
+  #    # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+  #    pullPolicy: IfNotPresent
+  #
+  #  initContainersImage:
+  #    # init Containers image name
+  #    name: configurationinit
+  #    # tag name of init Container image
+  #    tag: 22.1.9
+  #    # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+  #    pullPolicy: IfNotPresent
+  #
+  #  updateContainersImage:
+  #    # update Containers image name
+  #    name: configurationupdate
+  #    # tag name of update Container image
+  #    tag: 22.1.9
+  #    # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+  #    pullPolicy: IfNotPresent
+  #
+  #    dbHookImage:
+  #      name: common_config_hook
+  #      tag: 22.1.9
+  #      pullPolicy: Always
+
+  service:
+    ssl:
+      tlsVersion: TLSv1.2
+
+      privateKey:
+        k8SecretName: accesstoken-secret
+        k8NameSpace: *ns
+        rsa:
+          fileName: rsa_private_key_pkcs1.pem
+        ecdsa:
+          fileName: ec_private_key_pkcs8.pem
+
+      certificate:
+        k8SecretName: accesstoken-secret
+        k8NameSpace: *ns
+        rsa:
+          fileName: rsa_apigatewayTestCA.cer
+        ecdsa:
+          fileName: apigatewayTestCA.cer
+
+      caBundle:
+        k8SecretName: accesstoken-secret
+        k8NameSpace: *ns
+        fileName: caroot.cer
+
+      keyStorePassword:
+        k8SecretName: accesstoken-secret
+        k8NameSpace: *ns
+        fileName: key.txt
+
+      trustStorePassword:
+        k8SecretName: accesstoken-secret
+        k8NameSpace: *ns
+        fileName: trust.txt
+
+      initialAlgorithm: RSA256
+
+    # Labels and Annotations that are specific to service ingressgateway are added here.
+    customExtension:
+      labels: {}
+      annotations: {}
+
+  # Labels and Annotations that are specific to deployment ingressgateway are added here.
+  deployment:
+    customExtension:
+      labels: {}
+      annotations: {}
+
+  ports:
+    # ContainerPort represents a network port in a single container
+    containerPort: 8081
+    containersslPort: 8443
+    actuatorPort: 9090
+
+  log:
+    level:
+      root: WARN
+      egress: INFO
+      oauth: INFO
+
+  # Resource Configuration
+  resources:
+    limits:
+      cpu: 2
+      initServiceCpu: 1
+      updateServiceCpu: 1
+      memory: 2Gi
+      updateServiceMemory: 1Gi
+      initServiceMemory: 1Gi
+    requests:
+      cpu: 1
+      initServiceCpu: 1
+      updateServiceCpu: 1
+      memory: 1Gi
+      updateServiceMemory: 1Gi
+      initServiceMemory: 1Gi
+    target:
+      averageCpuUtil: 80
+
+  # Min replicas to scale to maintain an average CPU utilization
+  minReplicas: 1
+  # Max replicas to scale to maintain an average CPU utilization
+  maxReplicas: 1
+
+  # enable jagger tracing
+  jaegerTracingEnabled: false
+
+  openTracing :
+    jaeger:
+      udpSender:
+        # udpsender host
+        host: "jaeger-agent.cne-infra"
+        # udpsender port
+        port: 6831
+      probabilisticSampler: 0.5
+
+  # label to override name of api-gateway micro-service name
+  fullnameOverride: ''
+
+  #commonServiceHttpPort: 8081
+
+  # Allowed CipherSuites for TLS1.2
+  cipherSuites:
+    - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+    - TLS_DHE_RSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+    - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+
+  #OAUTH CONFIGURATION
+  oauthValidatorEnabled: false
+  nfType: NSSF
+  nfInstanceId: 6faf1bbc-6e4a-4454-a507-a14ef8e1bc11
+  producerScope: nnssf-nsselection,nnssf-nsavailability
+  allowedClockSkewSeconds: 0
+  nrfPublicKeyKubeSecret: nrfpublickeysecret
+  nrfPublicKeyKubeNamespace: *ns
+  validationType: strict
+  producerPlmnMNC: 123
+  producerPlmnMCC: 346
+
+
+  #TLS certificate reload for https
+  ingressGwCertReloadEnabled: true
+
+  # Engineering Configuration:  Micro-Service routes
+  routesConfig:
+    - id: nsselection_mapping
+      uri: http://{{ .Release.Name }}-nsselection:{{ .Values.global.nsselection.portConfiguration.servicePort }}
+      path: /nnssf-nsselection/**
+      order: 1
+      methodRateLimiting: # specify the list of methods u have to rate limit
+        - method: GET
+          burstCapacity: 2
+          refillRate: 1
+          duration: 60
+    - id: availability_mapping
+      uri: http://{{ .Release.Name }}-nsavailability:{{ .Values.global.nsavailability.portConfiguration.servicePort }}
+      path: /nnssf-nssaiavailability/**
+      order: 2
+    - id: nsconfig_mapping
+      uri: http://{{ .Release.Name }}-nsconfig:{{ .Values.global.nsconfig.portConfiguration.servicePort }}
+      path: /nnssf-configuration/**
+      order: 3
+    - id: common_config_mapping
+      uri: http://{{ .Release.Name }}-nsconfig:{{ .Values.global.nsconfig.portConfiguration.servicePort }}
+      path: /nssf/nf-common-component/**
+      order: 4
+
+  #CnCoam bug fix
+  cnccIamEnabled: false
+  #IAM configuration
+  identityAccessMgt:
+    uri: http://demo.iam:30024
+    path: /cncc/auth
+    realm: cncc
+    clientId: api-gateway
+
+  #Jetty Client settings
+  maxRequestsQueuedPerDestination: 1024
+  maxConnectionsPerDestination: 16
+  maxConnectionsPerIp: 16
+  connectionTimeout: 10000 #(ms)
+  requestTimeout: 6000 #(ms)
+
+  #Rate limiting configuration
+  rateLimiting:
+    enabled: false
+  routeRateLimiting:
+    enabled: true
+  globalIngressRateLimiting:
+    enabled: true
+    duration: 60 # in seconds
+    burstCapacity: 4
+    refillRate: 2
+
+  commonCfgServer:
+    configServerSvcName: nsconfig
+    port: 8080
+  commonCfgClient:
+    enabled: *cfgClientEnabled
+
+  # Dns Refresh Delay in milli-seconds
+  # useful to minimize traffic loss during upgrade by refreshing k8s IP tables for diverting traffic to upgraded pods
+  dnsRefreshDelay: 5000
+
+  # ********  Sub-Section Start: DB credentials Ingress Gateway Parameters ************
+  #**************************************************************************
+  dbConfig:
+    dbHost: *dbHost
+    dbPort: *dbPort
+    secretName: ocnssf-db-provison-creds
+    dbName: *provDB
+    # Name of the Key configured for "DB Username" in Secret with following name: "<dbConfig.secretName>"
+    dbUNameLiteral: mysql-username
+    # Name of the Key configured for "DB Password" in Secret with following name: "<dbConfig.secretName>"
+    dbPwdLiteral: mysql-password
+    # Default is NDBCLUSTER
+    dbEngine: *dbEngine
+
+  # ********  Sub-Section End: DB credentials Ingress Gateway Parameters ************
+  #**************************************************************************
+
+#########################################################
+#            Section End : ingressgateway attributes   #
+#########################################################
+
+#########################################################
+#            Section Start: egressgateway attributes   #
+#########################################################
+egress-gateway:
+  nodeselector:
+    nodekey: ""
+    nodevalue: ""
+
+  # This flag is for enabling/disabling HTTPS/2.0  (secured TLS) in Egress Gateway.
+  enableOutgoingHttps: false
+
+  # Mandatory: This flag needs to be set "true" if Service Mesh would be present where NSSF will be deployed
+  serviceMeshCheck: *serviceMeshCheck
+
+  # Mandatory: needs to be set with correct url format http://127.0.0.1:<istio management port>/quitquitquit" if Service Mesh would be present where NSSF will be deployed
+  istioSidecarQuitUrl: "http://127.0.0.1:15000/quitquitquit"
+  # Mandatory: needs to be set with correct url format http://127.0.0.1:<istio management port>/ready" if Service Mesh would be present where NSSF will be deployed
+  istioSidecarReadyUrl: "http://127.0.0.1:15000/ready"
+
+  # Egress Gateway Service Container Image Details
+  #  deploymentEgressGateway:
+  #    # Egress Gateway image name
+  #    image: ocegress_gateway
+  #    # tag name of image
+  #    imageTag: 22.1.9
+  #    # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+  #    pullPolicy: IfNotPresent
+  #
+  #  # Egress Gateway Init Container Image Details
+  #  initContainersImage:
+  #    # init Containers image name
+  #    name: configurationinit
+  #    # tag name of image
+  #    tag: 22.1.9
+  #    # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+  #    pullPolicy: IfNotPresent
+  #
+  #  # Egress Gateway Update Container Image Details
+  #  updateContainersImage:
+  #    # update Containers image name
+  #    name: configurationupdate
+  #    # tag name of image
+  #    tag: 22.1.9
+  #    # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+  #    pullPolicy: IfNotPresent
+  #
+  #  dbHookImage:
+  #    name: common_config_hook
+  #    tag: 22.1.9
+  #    pullPolicy: Always
+
+  # enable Jaeger tracing
+  jaegerTracingEnabled: false
+  openTracing :
+    jaeger:
+      udpSender:
+        # Update this configuration when jaeger tracing is enabled.
+        # udpsender host
+        host: "occne-tracer-jaeger-agent.occne-infra"
+        # udpsender port
+        port: 6831
+      # Jaeger message sampler. Value range: 0 to 1
+      # e.g. Value 0: No Trace will be sent to Jaeger collector
+      # e.g. Value 0.3: 30% of message will be sampled and will be sent to Jaeger collector
+      # e.g. Value 1: 100% of message (i.e. all the messages) will be sampled and will be sent to Jaeger collector
+      probabilisticSampler: 0.5
+
+
+  #Enable this if loadbalancing is to be done by egress instead of K8s
+  K8ServiceCheck: false
+  serviceEgressGateway:
+    port: 8080
+    sslPort: 8442
+    actuatorPort: 9090
+
+  # SCP Configuration For Egress Gateway
+  # All the SCP related configuration will be used only
+  # if scpIntegrationEnabled is set to true.
+  #
+  # SCP's HTTP Host/IP and Port Combination.
+  # This will be while sending HTTP/2.0 (unsecured) traffic
+  scp:
+    # Default scheme applicable when 3gpp-sbi-target-apiroot header is missing
+    scpDefaultScheme: https
+    # Using SCP as an Proxy in Egress Gateway
+    # If it is configured as false, SCP will not be used as an proxy.
+    #   Messages will be directly sent to the Producers/HTTP Servers.
+    # If it is configured as true, SCP will be used as an Proxy for
+    #    delivering messages to the Producers/HTTP Servers.
+    scpIntegrationEnabled: false
+    # Set this flag to true if re-routing to multiple SCP instances is to be enabled.
+    scpRerouteEnabled: false
+    instances:
+      http:
+        - host: localhost
+          port: 101
+          apiPrefix: "/"
+        - host: localhost
+          port: 102
+          apiPrefix: "/"
+        - host: 10.75.224.7
+          port: 32070
+          apiPrefix: "/"
+      https:
+        - host: localhost
+          port: 4431
+          apiPrefix: "/" # Change this value to corresponding prefix "/" is not expected to be provided along.
+        - host: localhost
+          port: 4432
+          apiPrefix: "/"
+        - host: 10.75.224.109
+          port: 30570
+          apiPrefix: "/"
+
+  #Enabling this will make the service type default to NodePort
+  headlessServiceEnabled: false
+
+  log:
+    level:
+      root: WARN
+      egress: INFO
+      oauth: INFO
+
+  service:
+    # Specify type of service - Possible values are :- NodePort, NodePort, LoadBalancer and ExternalName
+    type: NodePort
+    ssl:
+      tlsVersion: TLSv1.2
+
+      privateKey:
+        k8SecretName: accesstoken-secret
+        k8NameSpace: *ns
+        rsa:
+          fileName: rsa_private_key_pkcs1.pem
+        ecdsa:
+          fileName: ec_private_key_pkcs8.pem
+
+      certificate:
+        k8SecretName: accesstoken-secret
+        k8NameSpace: *ns
+        rsa:
+          fileName: rsa_apigatewayTestCA.cer
+        ecdsa:
+          fileName: apigatewayTestCA.cer
+
+      caBundle:
+        k8SecretName: accesstoken-secret
+        k8NameSpace: *ns
+        fileName: caroot.cer
+
+      keyStorePassword:
+        k8SecretName: accesstoken-secret
+        k8NameSpace: *ns
+        fileName: key.txt
+
+      trustStorePassword:
+        k8SecretName: accesstoken-secret
+        k8NameSpace: *ns
+        fileName: trust.txt
+
+      initialAlgorithm: RSA256
+    # Labels and Annotations that are specific to service egressgateway are added here.
+    customExtension:
+      labels: {}
+      annotations: {}
+
+  # Labels and Annotations that are specific to deployment egressgateway are added here.
+  deployment:
+    customExtension:
+      labels: {}
+      annotations: {}
+
+  #globalretry can be enabled only when scpRerouteEnabled flag is set to true.
+  globalretry:
+    enabled: false
+    retries: 2
+
+  routesConfig:
+    - id: scp_via_proxy
+      uri: http://request.uri
+      path: /nef/**
+      order: 1
+      metadata:
+        httpsTargetOnly: false
+        httpRuriOnly: false
+        sbiRoutingEnabled: false
+      filterName1:
+        name: SBIRoutingFilter
+        peerSetIdentifier: set0
+        alternateOnReroute: false
+      filterName2:
+        name: SBIReroute
+        retries: 2
+        methods: GET, POST, PUT, DELETE, PATCH
+        statuses: BAD_REQUEST, INTERNAL_SERVER_ERROR, BAD_GATEWAY, NOT_FOUND
+      #Below field is used for blacklisting(removing) a request header at route level.
+      removeRequestHeader:
+        - name: myheader1
+        - name: myheader3
+      #Below field is used for blacklisting(removing) a response header at route level.
+      removeResponseHeader:
+        - name: myresponseheader1
+        - name: myresponseheader3
+    - id: scp_direct1
+      uri: https://dummy.dontchange1
+      path: /npcf/**
+      order: 2
+      metadata:
+        httpsTargetOnly: false
+        httpRuriOnly: false
+        sbiRoutingEnabled: false
+      filterName1:
+        name: SBIRoutingFilter
+        peerSetIdentifier: set0
+      filterName2:
+        name: SBIReroute
+        retries: 1
+        methods: GET, POST, PUT, DELETE, PATCH
+        statuses: BAD_REQUEST, INTERNAL_SERVER_ERROR, BAD_GATEWAY, NOT_FOUND
+    - id: scp_direct2
+      uri: https://dummy.dontchange2
+      path: /dummy
+      order: 3
+      metadata:
+        httpsTargetOnly: false
+        httpRuriOnly: false
+        sbiRoutingEnabled: false
+      filterName1:
+        name: SBIRoutingFilter
+        peerSetIdentifier: set0
+      filterName2:
+        name: SBIReroute
+        retries: 1
+        methods: GET, POST, PUT, DELETE, PATCH
+        statuses: BAD_REQUEST, INTERNAL_SERVER_ERROR, BAD_GATEWAY, NOT_FOUND
+    - id: egress_iwf
+      uri: egress://test.com
+      path: /niwf/**
+      order: 4
+      metadata:
+        httpRuriOnly: false
+
+  # Resource details
+  resources:
+    limits:
+      cpu: 2
+      initServiceCpu: 1
+      updateServiceCpu: 1
+      memory: 2Gi
+      updateServiceMemory: 1Gi
+      initServiceMemory: 1Gi
+    requests:
+      cpu: 1
+      initServiceCpu: 1
+      updateServiceCpu: 1
+      memory: 1Gi
+      updateServiceMemory: 1Gi
+      initServiceMemory: 1Gi
+    target:
+      averageCpuUtil: 80
+
+  # Min replicas to scale to maintain an average CPU utilization
+  minReplicas: 1
+  # Max replicas to scale to maintain an average CPU utilization
+  maxReplicas: 1
+
+  #Cipher Suites to be enabled on client side
+  cipherSuites:
+    - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+    - TLS_DHE_RSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+    - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+
+  nrfAuthority: ocnrf.oracle.com:80
+  nfType: NSSF
+  nfInstanceId: fe7d992b-0541-4c7d-ab84-c6d70b1b01b1
+  oauthClientEnabled: false
+  consumerPlmnMNC: 101
+  consumerPlmnMCC: 100
+  #Jetty bean name
+  #when http enabled -> ''
+  #when https enabled -> jettysClient
+  httpClientBean: jettysClient
+
+  # Overrides  the given string instead of chart name
+  fullnameOverride: ''
+
+  #jetty client configuration
+  maxRequestsQueuedPerDestination: 1024
+  maxConnectionsPerDestination: 4
+  maxConnectionsPerIp: 4
+  connectionTimeout: 10000 #(ms)
+  requestTimeout: 6000 #(ms)
+
+  egressGwCertReloadEnabled: true
+
+  # Flag to enable rate limiting for "notification" type of messages.
+  notificationRateLimit:
+    enabled: false
+    duration: 60
+    bucketCapacity: 4
+    refillRate: 2
+
+  commonCfgServer:
+    configServerSvcName: nsconfig
+    port: 8080
+  commonCfgClient:
+    enabled: *cfgClientEnabled
+
+  # ********  Sub-Section Start: DB credentials Egress Gateway Parameters ************
+  #**************************************************************************
+  dbConfig:
+    dbHost: *dbHost
+    dbPort: *dbPort
+    secretName: *privDbSecret
+    dbName: *provDB
+    # Name of the Key configured for "DB Username" in Secret with following name: "<dbConfig.secretName>"
+    dbUNameLiteral: mysql-username
+    # Name of the Key configured for "DB Password" in Secret with following name: "<dbConfig.secretName>"
+    dbPwdLiteral: mysql-password
+    # Default is NDBCLUSTER
+    dbEngine: *dbEngine
+
+  # ********  Sub-Section End: DB credentials Egress Gateway Parameters ************
+  #**************************************************************************
+
+#########################################################
+#            Section End : egressgateway attributes   #
+#########################################################

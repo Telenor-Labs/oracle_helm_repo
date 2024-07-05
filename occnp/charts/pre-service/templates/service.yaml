@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    {{- include "labels.services" . }}
+    io.kompose.service: {{ template "ocpm-pre-deployment-name" . }}
+    category: pcf
+    {{- if not $.Values.global.serviceMeshEnabled }}
+    primary-port-name: http-signaling
+    {{- end }}
+  name: {{ template "service-name-pre" . }}
+spec:
+  ports:
+    - name: http-signaling
+      port: {{ .Values.global.servicePorts.preServiceHttp }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.preServiceHttp }}
+  selector:
+    io.kompose.service: {{ template "ocpm-pre-deployment-name" . }}
+  sessionAffinity: None
+  type: {{ .Values.service.type }}
+
+---
+
+{{- if $.Values.global.testPreServiceEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: {{ template "ocpm-pre-test-deployment-name" . }}
+    category: pcf
+  name: {{ template "service-name-pre-test" . }}
+spec:
+  ports:
+    - name: http
+      port: {{ .Values.global.servicePorts.preTestHttp }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.preTestHttp }}
+  selector:
+    io.kompose.service: {{ template "ocpm-pre-test-deployment-name" . }}
+  sessionAffinity: None
+  type: {{ .Values.service.type }}
+{{- end }}
+

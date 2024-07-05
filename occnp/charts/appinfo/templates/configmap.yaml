@@ -1,0 +1,40 @@
+{{- if $.Values.global.appinfoServiceEnable }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "appinfo-deployment-name" . }}
+  labels:
+    {{- include "labels.allResources" . }}
+  annotations:
+    {{- include "annotations.allResources" . }}
+data:
+  appinfo.yaml: |
+    # The namespace in which all the services run
+    watch_namespace: {{ .Values.app.namespace | default .Release.Namespace }}
+    watch_mysql: {{ .Values.watchMySQL }}
+    db_status_uri: {{ .Values.dbStatusUri }}
+    realtime_db_status_uri: {{ .Values.realtimeDbStatusUri }}
+    scrape_interval: {{ .Values.scrapeInterval }}
+
+    # core services of each category
+    {{- $svcdict := .Values.core_services | default dict -}}
+    {{- $keylist := keys $svcdict }}
+    {{- if first $keylist }}
+    core_services:
+      {{- range $key, $lstsvc := .Values.core_services }}
+      {{ $key }}:
+        {{- range $index, $service := $lstsvc }}
+        - {{  tpl $service $ }}
+        {{- else }}
+          []
+        {{- end }}
+      {{- end }}
+    {{- else }}
+    core_services: {}
+    {{- end }}
+    # Infrastructure services
+    # The following infrastructure services are explicitly specified
+    infra_services:
+{{ .Values.infraServices | toYaml | indent 8 }}
+
+{{- end }}

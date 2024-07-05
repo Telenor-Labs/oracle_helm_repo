@@ -1,0 +1,17 @@
+{{- if .Values.global.bulwarkServiceEnable }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ template "bulwark-service.fullname" .}}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+  annotations:
+    {{- include "annotations.allResources" . }}
+spec:
+  minAvailable: {{ .Values.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "chart.fullname" .}}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

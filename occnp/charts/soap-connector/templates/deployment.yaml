@@ -1,0 +1,173 @@
+{{- if $.Values.global.soapConnectorEnable }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    {{- include "annotations.deployments" . }}
+  labels:
+    {{- include "labels.deployments" . }}
+    io.kompose.service: {{ template "ocpm-soapconnector-deployment-name" . }}
+  name: {{ template "ocpm-soapconnector-deployment-name" . }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      io.kompose.service: {{ template "ocpm-soapconnector-deployment-name" . }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 50%
+  template:
+    metadata:
+      labels:
+        {{- include "labels.deployments" . | indent 4 }}
+        io.kompose.service: {{ template "ocpm-soapconnector-deployment-name" . }}
+      annotations:
+        {{- include "annotations.deployments" . | indent 4 }}
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: {{ .Values.global.containerPorts.monitoringHttp | quote }}
+        prometheus.io/scrape: 'true'
+    spec:
+      containers:
+      - env:
+        - name: KUBERNETES_NAMESPACE
+          value: {{ .Release.Namespace | quote }}
+        - name: DEPLOY_SERVICE_NAMESPACE
+          value: {{ .Release.Name | quote }}
+        - name: DEPLOY_SERVICE_NAME
+          value: {{ template "service-name-soap-connector" . }}
+        - name: CONFIG_SERVER_URL
+          value: http://{{ template "service-name-config-server" . }}:{{ .Values.global.servicePorts.configServerHttp }}
+        - name: CONNECT_RETRY_MAX
+          value: {{ .Values.global.configFetch.maxRetries | quote }}
+        - name: CONNECT_RETRY_INTERVAL
+          value: {{ .Values.global.configFetch.retryInterval | quote }}
+        - name: CFG_SERVER_READINESS_URL
+          value: http://{{ template "service-name-config-server" . }}:{{ .Values.global.servicePorts.configServerHttp }}/topics
+        - name: CONFIG_SERVER_POLLINGINTERVAL
+          value: "10"
+        - name: SOAPSERVICE_CONFIG_TOPIC
+          value: "soapservice.telusConfig"
+        - name: policyds.baseResourceUri
+          value: http://{{ template "service-name-policy-ds" . }}:{{ .Values.global.servicePorts.policydsHttp }}
+        - name: policyds.connectTimeout
+          value: "100000"
+        - name: policyds.requestTimeout
+          value: "10000"
+        - name: LOGGING_LEVEL_APP
+          value: {{ .Values.envLoggingLevelApp | quote }}          
+        - name: APPLICATION_NAME
+          value: {{ .Values.appName | quote }}
+        - name: MICROSERVICE_NAME
+          value: {{ template "soap-connector.fullname" .}}
+        - name: ENGINEERING_VERSION
+          value: {{ .Chart.Version | quote }}
+        - name: MARKETING_VERSION
+          value: {{ .Chart.AppVersion | quote }}          
+        - name: MONITORING_PORT
+          value: {{ .Values.global.containerPorts.monitoringHttp | quote }}
+        - name: SIGNALING_PORT
+          value: {{ .Values.global.containerPorts.soapConnectorHttp | quote }}
+        - name: SIGNALING_PORT_HTTPS
+          value: {{ .Values.global.containerPorts.soapConnectorHttps | quote }}
+        - name: JAVA_DEBUGGER_PORT
+          value: {{ .Values.global.containerPorts.javaDebugger | quote }}
+        - name: JAEGER_AGENT_HOST
+          value: {{ .Values.global.envJaegerAgentHost | quote }}
+        - name: JAEGER_AGENT_PORT
+          value: {{ .Values.global.envJaegerAgentPort | quote }}
+        - name: JAEGER_SERVICE_NAME
+          value: {{ template "ocpm-soapconnector-deployment-name" . }}
+        - name: JAEGER_SAMPLER_PARAM
+          value: {{ .Values.envJaegerSamplerParam | quote }}
+        - name: JAEGER_SAMPLER_TYPE
+          value: {{ .Values.envJaegerSamplerType | quote }}
+        - name: LOG4J2_BURST_RATE
+          value: {{ .Values.logging.burst.rate | quote }}
+        - name: LOG4J2_BURST_MAX
+          value: {{ .Values.logging.burst.max | quote }}
+        - name: LOG4J2_LOCATION_INFO
+          value: {{ .Values.logging.locationInfo | quote }}
+        - name: LOG4J2_CONSOLE_FORMAT
+          value: {{ .Values.logging.consoleFormat | quote }}
+        - name: MAX_HTTP2_CLIENT_CONNECTIONS_PER_DESTINATION
+          value: {{ .Values.maxHttp2ClientConnPerDestination | quote }}
+        - name: SERVICE_MESH_CHECK
+          value: {{ .Values.global.serviceMeshEnabled | quote }}
+        - name: ISTIO_SIDECAR_READY_URL
+          value: {{ .Values.global.istioSidecarReadyUrl }}
+        - name: HTTP_SERVER_CONNECTION_IDLE_TIMEOUT
+          value: {{ .Values.httpServerConnectionIdleTimeout | quote }}
+        {{- if .Values.imageTag }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image }}:{{ .Values.imageTag }}"
+        {{- else }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image }}:{{ .Values.global.imageTag }}"
+        {{- end }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        name: {{ template "container.fullname" . }}
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: {{ .Values.global.containerPorts.monitoringHttp }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.livenessProbe.successThreshold }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: {{ .Values.global.containerPorts.monitoringHttp }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.readinessProbe.successThreshold }}
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+        ports:
+          - containerPort: {{ .Values.global.containerPorts.soapConnectorHttp }}
+            protocol: TCP
+          - containerPort: {{ .Values.global.containerPorts.soapConnectorHttps }}
+            protocol: TCP
+          - name: {{ .Values.global.cncMetricsName  }}
+            containerPort: {{ .Values.global.containerPorts.monitoringHttp }}
+            protocol: TCP
+
+        resources:
+          limits:
+            {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ .Values.resources.limits.ephemeralStorage | quote }}
+            {{- end }}
+            cpu: {{ .Values.resources.limits.cpu | quote}}
+            memory: {{ .Values.resources.limits.memory | quote}}
+          requests:
+            {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ template "soapconnector-ephemeral-storage-request" .}}
+            {{- end }}
+            cpu: {{ .Values.resources.requests.cpu | quote}}
+            memory: {{ .Values.resources.requests.memory | quote}}
+    {{- include "extraContainers" . | nindent 6}}
+    {{- if $.Values.nodeSelectorEnabled }}
+      nodeSelector:
+        {{ $.Values.nodeSelectorKey }}: {{ $.Values.nodeSelectorValue }}
+    {{- end }}
+    {{- if $.Values.global.serviceAccountName }}
+      serviceAccountName: {{ .Values.global.serviceAccountName }}
+    {{- end }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100 
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: "app.kubernetes.io/name"
+                  operator: In
+                  values:
+                  - {{ template "chart.fullname" .}} 
+              topologyKey: "kubernetes.io/hostname"
+
+      restartPolicy: Always
+      schedulerName: default-scheduler
+  {{- end }}

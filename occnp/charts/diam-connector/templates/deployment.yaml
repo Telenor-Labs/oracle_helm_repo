@@ -1,0 +1,225 @@
+{{- if .Values.global.diamConnectorEnable }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    {{- include "annotations.deployments" . }}
+  labels:
+    {{- include "labels.deployments" . }}
+    io.kompose.service: {{ template "diam-connector-deployment-name" . }}
+  name: {{ template "diam-connector-deployment-name" . }}
+spec:
+  replicas: {{ .Values.minReplicas }}
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      io.kompose.service: {{ template "diam-connector-deployment-name" . }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        {{- include "labels.deployments" . | indent 4 }}
+        io.kompose.service: {{ template "diam-connector-deployment-name" . }}
+      annotations:
+        {{- include "annotations.deployments" . | indent 4 }}
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: {{ .Values.global.containerPorts.monitoringHttp | quote }}
+        prometheus.io/scrape: 'true'
+    spec:
+      containers:
+      - env:
+        - name: KUBERNETES_NAMESPACE
+          value: {{ .Release.Namespace | quote }}
+        - name: DEPLOY_SERVICE_NAMESPACE
+          value: {{ .Release.Name | quote }}
+        - name: DEPLOY_SERVICE_NAME
+          value: {{ template "service-name-diam-connector" . }}
+        - name: CONNECTOR_Mode
+          value: {{ .Values.envConnectorMode | quote }}
+        - name: DIAMETER_YAML
+          value: {{ .Values.envDiameterYaml | quote }}
+        - name: HTTP2_ENABLED
+          value: {{ .Values.envHttp2Enabled | quote }}
+        - name: MARKETING_VERSION
+          value: {{ .Chart.AppVersion | quote }}
+        - name: APPLICATION_NAME
+          value: {{ .Values.appName | quote }}
+        - name: ENGINEERING_VERSION
+          value: {{ .Chart.Version | quote }}
+        - name: LOGGING_LEVEL_APP
+          value: {{ .Values.envLoggingLevelApp | quote }}
+        - name: PRIORITY_SPECIFIC_ACTION
+          value: {{ .Values.prioritySpecificAction | quote }}
+        - name: PCF_AUTHSERVICE_BASE_URL
+          value: http://{{ template "service-name-pcf-sm" . }}:{{ .Values.global.servicePorts.pcfSmServiceHttp }}/npcf-policyauthorization/v1/
+        - name: PCF_AUTHSERVICE_NOTIF_URL
+          value: http://{{ template "service-name-diameter-connector" . }}:{{ .Values.global.servicePorts.diamConnectorHttp }}/smservicenotify/
+        - name: PDS_NOTIF_URL
+          value: http://{{ template "service-name-policy-ds" . }}:{{ .Values.global.servicePorts.policydsHttp }}/pds/v2/user-data
+        {{- if eq .Values.envConnectorMode "bsf" }}
+        - name: BSF_URL
+          value: http://{{ template "service-name-bsf-management" . }}:{{ .Values.global.servicePorts.bsfManagementServiceHttp }}/nbsf-management/v1/
+        - name: BSF_CONNECT_TIMEOUT
+          value: {{ .Values.bsfm.connectTimeout | quote }}
+        - name: BSF_REQUEST_TIMEOUT
+          value: {{ .Values.bsfm.requestTimeout | quote }}
+        - name: BSF_HTTP2
+          value: {{ .Values.bsfm.http2 | quote }}
+        {{- end }}
+        - name: DIAMETER_PORT
+          value: {{ .Values.global.containerPorts.diamConnectorDiameter | quote }}
+        - name: SIGNALING_PORT
+          value: {{ .Values.global.containerPorts.diamConnectorHttp | quote }}
+        - name: MONITORING_PORT
+          value: {{ .Values.global.containerPorts.monitoringHttp | quote }}
+        - name: DIAMETER_Realm
+          value: {{ .Values.envDiameterRealm | quote }}
+        - name: DIAMETER_Identity
+          value: {{ .Values.envDiameterIdentity | quote }}
+        - name: DIAMETER_IOThreadCount
+          value: {{ .Values.envDiameterIOThreadCount | quote }}
+        - name: DIAMETER_IOQueueSize
+          value: {{ .Values.envDiameterIOQueueSize | quote }}
+        - name: DIAMETER_MsgBufferThreadCount
+          value: {{ .Values.envDiameterMsgBufferThreadCount | quote }}
+        - name: DIAMETER_MsgBufferQueueSize
+          value: {{ .Values.envDiameterMsgBufferQueueSize | quote }}
+        - name: DIAMETER_Validation_StrictParsing
+          value: {{ .Values.envDiameterValidationStrictParsing | quote }}
+        - name: DIAMETER_ServiceDiscoverInterval
+          value: {{ .Values.envDiameterServiceDiscoverInterval | quote }}
+        - name: DIAMETER_ConnectionReuse
+          value: {{ .Values.envDiameterConnectionReuse | quote }}
+        - name: METRICS_BUCKETSIZE
+          value: {{ .Values.metrics.egressLatencyBuckets.size | quote }}
+        - name: CFG_SERVER_HOST
+          value: {{ template "service-name-config-server" . }}
+        - name: CFG_SERVER_PORT
+          value: {{ .Values.global.servicePorts.configServerHttp | quote }}
+        - name: CONNECT_RETRY_MAX
+          value: {{ .Values.global.configFetch.maxRetries | quote }}
+        - name: CONNECT_RETRY_INTERVAL
+          value: {{ .Values.global.configFetch.retryInterval | quote }}
+        - name: METRICS_MAX_BUCKETS
+          value: {{ .Values.metrics.egressLatencyBuckets.max | quote }}
+        - name: MAX_HTTP2_CLIENT_CONNECTIONS_PER_DESTINATION
+          value: {{ .Values.envMaxHttp2ClientConnPerDestination | quote }}
+        - name: HTTPCLIENT_CONNECTION_IDLETIMEOUT
+          value: {{ .Values.envHttpClientConnectionIdleTimeout | quote }}
+        - name: PCF_REQUEST_TIMEOUT
+          value: {{ .Values.envPcfRequestTimeout | quote }}
+        - name: N5_NOTIFY_TIMEOUT
+          value: {{ .Values.envN5NotifyTimeout | quote }}
+        - name: LOG4J2_BURST_RATE
+          value: {{ .Values.logging.burst.rate | quote }}
+        - name: LOG4J2_BURST_MAX
+          value: {{ .Values.logging.burst.max | quote }}
+        - name: LOG4J2_LOCATION_INFO
+          value: {{ .Values.logging.locationInfo | quote }}
+        - name: LOG4J2_CONSOLE_FORMAT
+          value: {{ .Values.logging.consoleFormat | quote }}
+        - name: SERVICE_MESH_CHECK
+          value: {{ .Values.global.serviceMeshEnabled | quote }}
+        - name: ISTIO_SIDECAR_QUIT_URL
+          value: {{ .Values.global.istioSidecarQuitUrl }}
+        - name: CFG_SERVER_READINESS_URL
+          value: "http://{{ template "service-name-config-server" . }}:{{ .Values.global.servicePorts.configServerHttp }}/topics"
+        - name: ISTIO_SIDECAR_READY_URL
+          value: {{ .Values.global.istioSidecarReadyUrl }}
+        - name: SERVER_HTTP2_MAX_CONCURRENT_STREAMS
+          value: {{ .Values.envServerHttp2MaxConcurrentStreams | quote }}
+        - name: SERVER_HTTP_CONNECTION_IDLE_TIMEOUT
+          value: {{ .Values.envServerHttpConnectionIdleTimeout | quote }}
+        {{- range $logger := .Values.dependenciesLogging }}
+        - name: {{ $logger.name | quote }}
+          value: {{ $logger.value | quote }}
+        {{- end }}
+        {{- if .Values.imageTag }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image }}:{{ .Values.imageTag }}"
+        {{- else }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image }}:{{ .Values.global.imageTag }}"
+        {{- end }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        name: {{ template "container.fullname" . }}
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: {{ .Values.global.containerPorts.monitoringHttp }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.livenessProbe.successThreshold }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: {{ .Values.global.containerPorts.monitoringHttp }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.readinessProbe.successThreshold }}
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+        ports:
+          - containerPort: {{ .Values.global.containerPorts.diamConnectorDiameter }}
+            protocol: TCP
+          - containerPort: {{ .Values.global.containerPorts.diamConnectorHttp }}
+            protocol: TCP
+          - name: {{ .Values.global.cncMetricsName  }}
+            containerPort: {{ .Values.global.containerPorts.monitoringHttp }}
+            protocol: TCP
+        volumeMounts:
+          - name: config-volume
+            mountPath: /etc/ocpm/config/
+        resources:
+          limits:
+            {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ .Values.resources.limits.ephemeralStorage | quote }}
+            {{- end }}
+            cpu: {{ .Values.resources.limits.cpu | quote}}
+            memory: {{ .Values.resources.limits.memory | quote}}
+          requests:
+            {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ template "diam-connector-ephemeral-storage-request" .}} 
+            {{- end }}
+            cpu: {{ .Values.resources.requests.cpu | quote}}
+            memory: {{ .Values.resources.requests.memory | quote}}
+    {{- include "extraContainers" . | nindent 6}}
+      volumes:
+        - name: config-volume
+          configMap:
+            name: {{ template "diam-connector-configmap-name" . }}
+            items:
+              - key: diameter-config-peers
+                path: diameter.yaml
+
+    {{- if $.Values.nodeSelectorEnabled }}
+      nodeSelector:
+        {{ $.Values.nodeSelectorKey }}: {{ $.Values.nodeSelectorValue }}
+    {{- end }}
+    {{- if $.Values.global.serviceAccountName }}
+      serviceAccountName: {{ .Values.global.serviceAccountName }}
+    {{- else }}
+      serviceAccountName: {{ template "ocnf.serviceaccount" . }}
+    {{- end }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: "app.kubernetes.io/name"
+                  operator: In
+                  values:
+                  - {{ template "chart.fullname" .}}
+              topologyKey: "kubernetes.io/hostname"
+
+      restartPolicy: Always
+      schedulerName: default-scheduler
+{{- end }}

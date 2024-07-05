@@ -1,0 +1,18 @@
+{{- if and .Values.global.nrfClientNfManagementEnable .Values.commonCfgClient.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    {{- include "labels.allResources" . }}
+  name: {{ .Release.Name }}-mgmtclient-cm
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": pre-install,pre-upgrade,pre-rollback,pre-delete,post-upgrade,post-rollback
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+data:
+  defaultNrfClientConfig.yaml: |-
+    {{ include "defaultNrfClientMgmtConfig.labels" . | quote }}
+  defaultNrfClientSchema.json: |-
+{{ .Files.Get "defaultNrfClientSchema.json" | indent 4}}
+{{- end }}

@@ -1,0 +1,35 @@
+{{- if .Values.global.ueServiceEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{- include "annotations.services" . }}
+  labels:
+    {{- include "labels.services" . }}
+    io.kompose.service: {{ template "pcf-ueservice-deployment-name" . }}
+    category: pcf
+    {{- if not $.Values.global.serviceMeshEnabled }}
+    primary-port-name: http2-text
+    {{- end }}
+  name: {{ template "service-name-pcf-ue" . }}
+spec:
+  ports:
+    - name: http2-text
+      port: {{ .Values.global.servicePorts.pcfUeServiceHttp }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.pcfUeServiceHttp }}
+    - name: https
+      port: {{ .Values.global.servicePorts.pcfUeServiceHttps }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.pcfUeServiceHttps }}
+    {{- if .Values.global.exposeObservabilityAtService }}
+    - name: {{ .Values.global.cncMetricsName  }}
+      port: {{ .Values.global.containerPorts.monitoringHttp }}
+      protocol: TCP
+    {{- end }}
+
+  selector:
+    io.kompose.service: {{ template "pcf-ueservice-deployment-name" . }}
+  sessionAffinity: None
+  type: {{ .Values.service.type }}
+{{- end }}

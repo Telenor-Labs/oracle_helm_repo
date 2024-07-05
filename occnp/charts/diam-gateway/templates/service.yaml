@@ -1,0 +1,35 @@
+{{- if .Values.global.diamGatewayEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{ include "diam-gateway-annotations.lbService" . }}
+  labels:
+    {{ include "diam-gateway-labels.lbService" . }}
+    io.kompose.service: {{ template "diam-gateway-deployment-name" . }}
+    category: occnp
+  name: {{ template "service-name-oc-diam-gateway" . }}
+spec:
+  {{- if or (eq .Values.service.type "NodePort") (eq .Values.service.type "LoadBalancer") }}
+  externalTrafficPolicy: Cluster
+  {{- end }}
+  ports:
+    - name: tcp-diameter
+      port: {{ .Values.global.servicePorts.diamGatewayDiameter }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.diamGatewayDiameter }}
+    - name: http-signaling
+      port: {{ .Values.global.servicePorts.diamGatewayHttp }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.diamGatewayHttp }}
+    {{- if .Values.global.exposeObservabilityAtService }}
+    - name: {{ .Values.global.cncMetricsName  }}
+      port: {{ .Values.global.containerPorts.monitoringHttp }}
+      protocol: TCP
+    {{- end }}
+
+  selector:
+    io.kompose.service: {{ template "diam-gateway-deployment-name" . }}
+  sessionAffinity: None
+  type: {{ .Values.service.type }}
+{{- end }}

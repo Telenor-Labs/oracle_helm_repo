@@ -1,0 +1,104 @@
+global:
+  ldapGatewayEnable: true
+  imagePullPolicy: IfNotPresent
+  # Docker registry name
+  dockerRegistry: docker-registry.openstack.in.oracle.com:5000
+  serviceMeshEnabled: 'false'
+  istioSidecarReadyUrl: http://127.0.0.1:15020/healthz/ready
+  envJaegerAgentHost: ''
+  userIdFourgFormat: true
+  shutdownGracePeriod:
+    app: 30s
+  servicePorts:
+      ldapGatewayHttp: 8084
+      ldapGatewayHttps: 8443
+      configServerHttp: 5807
+  containerPorts:
+      monitoringHttp: 9000
+      ldapGatewayHttp: 8084
+      ldapGatewayHttps: 8443
+      javaDebugger: 5801
+  k8sResource:
+    container:
+      prefix:
+      suffix:
+  customExtension:
+    allResources:
+      labels: {}
+      annotations: {}
+    lbServices:
+      labels: {}
+      annotations: {}
+    lbDeployments:
+      labels: {}
+      annotations: {}
+    nonlbServices:
+      labels: {}
+      annotations: {}
+    nonlbDeployments:
+      labels: {}
+      annotations: {}
+  logStorage: 0 #default calculated value 70
+  crictlStorage: 0 #default calculated value 1
+  cncMetricsName: cnc-metrics
+  exposeObservabilityAtService: false
+
+image: occnp/oc-ldap-gateway
+imageTag: 22.1.0
+replicas: 1
+nodeSelectorEnabled: false
+nodeSelectorKey: zone
+nodeSelectorValue: app
+useLbLabelsAndAnnotations: false
+envJaegerSamplerParam: '1'
+envJaegerSamplerType: ratelimiting
+
+resources:
+  limits:
+    ephemeralStorage: 4Gi
+    cpu: 4
+    memory: 4Gi
+  requests:
+    cpu: 2
+    memory: 2Gi
+
+minReplicas: 2
+maxReplicas: 8
+averageCpuUtil: 60
+
+readinessProbe:
+  initialDelaySeconds: 20
+  timeoutSeconds: 3
+  periodSeconds: 10
+  successThreshold: 1
+  failureThreshold: 3
+
+livenessProbe:
+  initialDelaySeconds: 60
+  timeoutSeconds: 3
+  periodSeconds: 15
+  successThreshold: 1
+  failureThreshold: 3
+
+service:
+  type: LoadBalancer
+  port: 0
+  customExtension:
+    labels: {}
+    annotations: {}
+
+deployment:
+  customExtension:
+    labels: {}
+    annotations: {}
+fullnameOverride: ocpm-ldap-gateway
+serviceAccountName: ''
+appName: ocpm
+logging:
+  burst:
+    rate: 750
+    max: 3000
+  consoleFormat: jsonConsole
+  locationInfo: false
+
+extraContainers: USE_GLOBAL_VALUE

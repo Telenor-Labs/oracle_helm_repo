@@ -1,0 +1,41 @@
+{{- if .Values.global.diamGatewayEnable }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "diam-gateway-configmap-name" . }}
+data:
+  diameter-config-peers: |
+    version: '0.3'
+    kind: 'diameter-config'
+    metadata:
+      label: 'diameter-config-peers'
+    setting:
+      reconnectDelay: 3
+      connectionTimeOut: 3
+      responseTimeout: 5
+      watchdogInterval: 6
+      transport: 'TCP'
+    # if PCF type: [af, dra]
+    # if PCRF type: [dra, prcf, udr/sh, ocs/sy]
+    nodes:
+      {{- if eq .Values.envGatewayMode "converged"}}
+      {{- if or (eq .Values.envGatewayDeploymentType "CONVERGED") (eq .Values.envGatewayDeploymentType "PCRF") }}
+      - name: '{{ template "service-name-pcrf-core" . }}'
+        type: 'pcrf'
+        responseOnly: true
+        reconnectLimit: 0
+        host: {{ template "service-name-pcrf-core-headless" . }}
+        port: 3868
+        realm: ''
+        identity: ''
+      {{- end }}
+      {{else}}
+      - name: 'P-CSCF'
+        type: 'af'
+        responseOnly: false
+        host: ''
+        port: 3868
+        realm: ''
+        identity: ''
+      {{- end }}
+{{- end }}

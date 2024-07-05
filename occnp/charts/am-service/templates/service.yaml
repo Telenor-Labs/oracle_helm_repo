@@ -1,0 +1,36 @@
+{{- if .Values.global.amServiceEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{- include "annotations.services" . }}
+  labels:
+    {{- include "labels.services" . }}
+    io.kompose.service: {{ template "pcf-amservice-deployment-name" . }}
+    category: pcf
+    {{- if not $.Values.global.serviceMeshEnabled }}
+    primary-port-name: http2-text
+    {{- end }}
+  name: {{ template "service-name-pcf-am" . }}
+spec:
+  ports:
+    - name: http2-text
+      port: {{ .Values.global.servicePorts.pcfAmServiceHttp }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.pcfAmServiceHttp }}
+    - name: https
+      port: {{ .Values.global.servicePorts.pcfAmServiceHttps }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.pcfAmServiceHttps }}
+    {{- if .Values.global.exposeObservabilityAtService }}
+    - name: {{ .Values.global.cncMetricsName  }}
+      port: {{ .Values.global.containerPorts.monitoringHttp }}
+      protocol: TCP
+    {{- end }}
+
+  selector:
+    io.kompose.service: {{ template "pcf-amservice-deployment-name" . }}
+  sessionAffinity: None
+  type: {{ .Values.service.type }}
+{{- end }}
+

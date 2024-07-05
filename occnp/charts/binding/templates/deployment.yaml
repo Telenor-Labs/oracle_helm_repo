@@ -1,0 +1,246 @@
+{{- if $.Values.global.bindingSvcEnabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    {{- include "annotations.deployments" . }}
+  labels:
+    {{- include "labels.deployments" . }}
+    io.kompose.service: {{ template "binding-deployment-name" . }}
+  name: {{ template "binding-deployment-name" . }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      io.kompose.service: {{ template "binding-deployment-name" . }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 50%
+  template:
+    metadata:
+      annotations:
+        {{- include "annotations.deployments" . | indent 4 }}
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: {{ .Values.global.containerPorts.monitoringHttp | quote }}
+        prometheus.io/scrape: 'true'
+      labels:
+        {{- include "labels.deployments" . | indent 4 }}
+        io.kompose.service: {{ template "binding-deployment-name" . }}
+    spec:
+      containers:
+      - env:
+        - name: KUBERNETES_NAMESPACE
+          value: {{ .Release.Namespace | quote }}
+        - name: DEPLOY_SERVICE_NAMESPACE
+          value: {{ .Release.Name | quote }}
+        - name: DEPLOY_SERVICE_NAME
+          value: {{ template "service-name-binding" . }}
+        - name: LOGGING_LEVEL_ROOT
+          value: {{ .Values.envLoggingLevelRoot | quote }}
+        - name: BINDING_NAME_AND_VER
+          value: "binding/v1"
+        - name: CFG_SERVER_READINESS_URL
+          value: http://{{ template "service-name-config-server" . }}:{{ .Values.global.servicePorts.configServerHttp }}/topics
+        - name: EGRESS_GATEWAY_HOST
+          value: {{ template "service-name-egress-gateway" . }}
+        - name: EGRESS_GATEWAY_PORT
+          value: {{ .Values.global.servicePorts.egressGatewayHttp | quote }}
+        - name: OATH_ACCESS_TOKEN_NF_TYPE
+          value: {{ .Values.envOathAccessTokenNfType | quote }}
+        - name: BSF_ENABLED
+          value: {{ .Values.bsfEnabled | quote }}
+        - name: NRF_DISCOVERY_LOCALITY
+          value: {{ .Values.nrfDiscoveryLocality | quote }}
+        - name: NRF_DISCOVERY_LOADTHRESHOLD
+          value: {{ .Values.nrfDiscoveryThreshold | quote }}
+        - name: ALTSRV_REQ_TIMEOUT
+          value: {{ .Values.altServiceReqTimeout | quote }}
+        - name: ALTSRV_LOOKUP_INTERVAL
+          value: {{ .Values.altServiceLookupInterval | quote }}
+        - name: ALTSRV_CACHING_ENABLED
+          value: {{ .Values.altServiceCachingEnabled | quote }}
+        - name: ALTERNATE_ROUTE_SERVICE_HOST
+          value: {{ template "service-name-alternate-route" . }}
+        - name: ALTERNATE_ROUTE_SERVICE_PORT
+          value: {{ .Values.global.servicePorts.alternateRouteServiceHttp | quote }}
+        - name: ALTSRV_HTTP2_ENABLED
+          value: {{ .Values.altServiceHTTP2Enabled | quote }}
+        - name: ENGINEERING_VERSION
+          value: {{ .Chart.Version | quote }}
+        - name: MARKETING_VERSION
+          value: {{ .Chart.AppVersion | quote }}
+        - name: APPLICATION_NAME
+          value: {{ .Values.appName | quote }}
+        - name: MICROSERVICE_NAME
+          value: {{ template "binding.fullname" .}}
+        - name: LOG4J2_BURST_RATE
+          value: {{ .Values.logging.burst.rate | quote }}
+        - name: LOG4J2_BURST_MAX
+          value: {{ .Values.logging.burst.max | quote }}
+        - name: LOG4J2_LOCATION_INFO
+          value: {{ .Values.logging.locationInfo | quote }}
+        - name: LOG4J2_CONSOLE_FORMAT
+          value: {{ .Values.logging.consoleFormat | quote }}
+        - name: METRICS_MAX_BUCKETS
+          value: {{ .Values.metrics.egressLatencyBuckets.max | quote }}
+        - name: METRICS_BUCKETSIZE
+          value: {{ .Values.metrics.egressLatencyBuckets.size | quote }}
+        - name: CFG_SERVER_HOST
+          value: {{ template "service-name-config-server" . }}
+        - name: CFG_SERVER_PORT
+          value: {{ .Values.global.servicePorts.configServerHttp | quote }}
+        - name: CONNECT_RETRY_MAX
+          value: {{ .Values.global.configFetch.maxRetries | quote }}
+        - name: CONNECT_RETRY_INTERVAL
+          value: {{ .Values.global.configFetch.retryInterval | quote }}
+        - name: PCRF_SERVICE_HOST
+          value: {{ template "service-name-pcrf-core" . }}
+        - name: PCRF_SERVICE_PORT
+          value: {{ .Values.global.servicePorts.pcrfCoreHttp | quote }}
+        - name: SM_SERVICE_HOST
+          value: {{ template "service-name-pcf-sm" . }}
+        - name: SM_SERVICE_PORT
+          value: {{ .Values.global.servicePorts.pcfSmServiceHttp | quote }}
+        - name: BINDING_DEFAULT_IPv6_PREFIX_LENGTH
+          value: {{ .Values.defaultIpv6PrefixLength | quote }}
+        - name: PDS_SERVICE_URL
+          value: "http://{{ template "service-name-policy-ds" . }}:{{ .Values.global.servicePorts.policydsHttp }}/pds/v1/user-data/workflow/SUBS_DELETE/subscriberId/"          
+        - name: MONITORING_PORT
+          value: {{ .Values.global.containerPorts.monitoringHttp | quote }}
+        - name: SIGNALING_PORT
+          value: {{ .Values.global.containerPorts.bindingHttp | quote }}
+        - name: APP_SHUTDOWN_GRACE_PERIOD
+          value: {{ .Values.global.shutdownGracePeriod.app | quote }}
+        - name: SIGNALING_PORT_HTTPS
+          value: {{ .Values.global.containerPorts.bindingHttps | quote }}
+        - name: BSF_MANAGEMENT_URL
+          value: {{ .Values.defaultBsfApiRoot }}/nbsf-management/v1/pcfBindings
+        - name: JAVA_DEBUGGER_PORT
+          value: {{ .Values.global.containerPorts.javaDebugger | quote }}
+        - name: SERVICE_MESH_CHECK
+          value: {{ .Values.global.serviceMeshEnabled | quote }}
+        - name: ISTIO_SIDECAR_QUIT_URL
+          value: {{ .Values.global.istioSidecarQuitUrl }}
+        - name: ISTIO_SIDECAR_READY_URL
+          value: {{ .Values.global.istioSidecarReadyUrl }}
+        - name: CMAGENT_REST_CONNECT_TIMEOUT
+          value: {{ .Values.cmagent.connectTimeout | quote }}
+        - name: CMAGENT_REST_READ_TIMEOUT
+          value: {{ .Values.cmagent.readTimeout | quote }}
+        - name: CMAGENT_REST_MAX_RETRIES
+          value: {{ .Values.cmagent.maxRetries | quote }}
+        - name: CMAGENT_REST_RETRY_INTERVAL
+          value: {{ .Values.cmagent.retryInterval | quote }}
+        - name: CMAGENT_REST_POLL_INTERVAL
+          value: {{ .Values.cmagent.pollingInterval | quote }}
+        - name: CM_SERVICE_HOST
+          value: {{ template "service-name-config-mgmt" . }}
+        - name: CM_SERVICE_PORT
+          value: {{ .Values.global.servicePorts.cmServiceHttp | quote }}
+        - name: RESTCONFIG_NFPROFILE_URI
+          value: {{ .Values.cmagent.nfProfileUri | quote }}
+        - name: DB_URL
+          value: "{{ template "db-uri-scheme" . }}://{{ template "db-host-and-port" . }}/{{ .Values.envMysqlDatabase }}?useUnicode=true&characterEncoding=utf-8&useSSL=false&socketTimeout={{ .Values.global.mySql.connection.socketTimeout }}{{ template "db-url-load-balance-config" . }}"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.dbCredSecretName }}
+              key: mysql-password
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.dbCredSecretName }}
+              key: mysql-username
+        - name: JAEGER_AGENT_HOST
+          value: {{ .Values.global.envJaegerAgentHost | quote }}
+        - name: JAEGER_AGENT_PORT
+          value: {{ .Values.global.envJaegerAgentPort | quote }}
+        - name: JAEGER_SERVICE_NAME
+          value: {{ template "binding-deployment-name" . }}
+        - name: JAEGER_SAMPLER_PARAM
+          value: {{ .Values.envJaegerSamplerParam | quote }}
+        - name: JAEGER_SAMPLER_TYPE
+          value: {{ .Values.envJaegerSamplerType | quote }}
+        - name: MAX_HTTP2_CLIENT_CONNECTIONS_PER_DESTINATION
+          value: {{ .Values.maxHttp2ClientConnPerDestination | quote }}
+        - name: HTTP_SERVER_CONNECTION_IDLE_TIMEOUT
+          value: {{ .Values.httpServerConnectionIdleTimeout | quote }}
+        - name: HTTPCLIENT_CONNECTION_IDLETIMEOUT
+          value: {{ .Values.httpClientConnectionIdleTimeout | quote }}
+        {{- if .Values.imageTag }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image }}:{{ .Values.imageTag }}"
+        {{- else }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image }}:{{ .Values.global.imageTag }}"
+        {{- end }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        name: {{ template "container.fullname" . }}
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: {{ .Values.global.containerPorts.monitoringHttp }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.livenessProbe.successThreshold }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: {{ .Values.global.containerPorts.monitoringHttp }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.readinessProbe.successThreshold }}
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+        ports:
+          - containerPort: {{ .Values.global.containerPorts.bindingHttp }}
+            protocol: TCP
+          - containerPort: {{ .Values.global.containerPorts.bindingHttps }}
+            protocol: TCP
+          - name: {{ .Values.global.cncMetricsName  }}
+            containerPort: {{ .Values.global.containerPorts.monitoringHttp }}
+            protocol: TCP
+
+        resources:
+
+          limits:
+            {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ .Values.resources.limits.ephemeralStorage | quote }}
+            {{- end }}
+            cpu: {{ .Values.resources.limits.cpu | quote}}
+            memory: {{ .Values.resources.limits.memory | quote}}
+          requests:
+            {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ template "binding-service-ephemeral-storage-request" .}}
+            {{- end }}
+            cpu: {{ .Values.resources.requests.cpu | quote}}
+            memory: {{ .Values.resources.requests.memory | quote}}
+
+
+    {{- include "extraContainers" . | nindent 6}}
+    {{- if $.Values.nodeSelectorEnabled }}
+      nodeSelector:
+        {{ $.Values.nodeSelectorKey }}: {{ $.Values.nodeSelectorValue }}
+    {{- end }}
+    {{- if $.Values.global.serviceAccountName }}
+      serviceAccountName: {{ .Values.global.serviceAccountName }}
+    {{- end }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100 
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: "app.kubernetes.io/name"
+                  operator: In
+                  values:
+                  - {{ template "chart.fullname" .}} 
+              topologyKey: "kubernetes.io/hostname"
+
+      restartPolicy: Always
+      schedulerName: default-scheduler
+  {{- end }}

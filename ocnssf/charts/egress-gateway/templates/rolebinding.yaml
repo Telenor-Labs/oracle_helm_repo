@@ -1,0 +1,21 @@
+{{- if (not .Values.global.serviceAccountName) }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: egress-front-end
+    app:  {{ template "chart.fullname" . }}
+  annotations:
+    {{- include "annotations.allResources" . }}
+  name:  {{ template "egressgateway.rolebinding" .}}-v1
+  namespace: {{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name:  {{ template "egressgateway.serviceaccount" .}}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name:  {{ template "egressgateway.role" .}}
+{{- end }}

@@ -1,0 +1,124 @@
+global:
+  imagePullPolicy: IfNotPresent
+  # Docker registry name
+  dockerRegistry: docker-registry.openstack.in.oracle.com:5000
+  serviceMeshEnabled: 'false'
+  istioSidecarReadyUrl: http://127.0.0.1:15020/healthz/ready
+  logStorage: 0 #default calculated value 70
+  crictlStorage: 0 #default calculated value 1
+  envJaegerAgentHost: ''
+  envJaegerAgentPort: 6831
+  enableIPV6: 'true'
+  testPreServiceEnable: 'true'
+  servicePorts:
+      preServiceHttp: 5806
+      preTestHttp: 5806
+      configServerHttp: 5807
+  containerPorts:
+      monitoringHttp: 5805
+      preServiceHttp: 5806
+      preTestHttp: 5806
+  k8sResource:
+    container:
+      prefix:
+      suffix:
+  customExtension:
+    allResources:
+      labels: {}
+      annotations: {}
+
+    lbServices:
+      labels: {}
+      annotations: {}
+    lbDeployments:
+      labels: {}
+      annotations: {}
+
+    nonlbServices:
+      labels: {}
+      annotations: {}
+    nonlbDeployments:
+      labels: {}
+      annotations: {}
+
+image: occnp/oc-pre
+imageTag: 22.1.0
+envNodeEnv: production
+envPreEnv: test
+envPreMasterPort: '5805'
+envPreWorkerPort: '5806'
+envPreMaxWorkerCount: '4'
+envJaegerAgentPort: 6832
+nodeSelectorEnabled: false
+nodeSelectorKey: zone
+nodeSelectorValue: app
+useLbLabelsAndAnnotations: false
+envJaegerSamplerParam: '1'
+envJaegerSamplerType: ratelimiting
+
+wreck:
+  retry:
+    max: 3
+    delay: 1000
+  requestTimeout: 1000
+  sockets:
+    http: 1000
+    https: 100
+timers:
+  policy: 10000
+  policyTable: 30000
+  heartbeat: 5000
+
+testPreResources:
+  limits:
+    ephemeralStorage: 2Gi
+    cpu: "1"
+    memory: 2Gi
+  requests:
+    cpu: "1"
+    memory: 1Gi
+
+resources:
+  limits:
+    ephemeralStorage: 2Gi
+    cpu: "1"
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+readinessProbe:
+  initialDelaySeconds: 10
+  timeoutSeconds: 3
+  periodSeconds: 10
+  successThreshold: 1
+  failureThreshold: 3
+
+livenessProbe:
+  initialDelaySeconds: 20
+  timeoutSeconds: 3
+  periodSeconds: 15
+  successThreshold: 1
+  failureThreshold: 3
+
+service:
+  type: ClusterIP
+  port: 0
+
+  customExtension:
+    labels: {}
+    annotations: {}
+
+deployment:
+  customExtension:
+    labels: {}
+    annotations: {}
+
+minReplicas: 1
+maxReplicas: 8
+averageCpuUtil: 80
+
+
+fullnameOverride: pcf-pre-service
+
+extraContainers: USE_GLOBAL_VALUE

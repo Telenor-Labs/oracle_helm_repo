@@ -1,0 +1,654 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "ocnssf-nsavailability-service-hook-name-pre-install" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "ocnssf-nsavailability-service-hook-name-pre-install" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: {{ template "ocnssf-nsavailability-service-hook-name-pre-install" . }}
+          image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullpolicy }}"
+          env:
+            - name: MYSQL_HOST
+              value: "{{ .Values.global.envMysqlHost }}"
+            - name: MYSQL_PORT
+              value: "{{ .Values.global.envMysqlPort }}"
+            - name: MYSQL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.privilegedDbCredSecretName }}"
+                  key: mysql-username
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.privilegedDbCredSecretName }}"
+                  key: mysql-password
+            - name: MYSQL_RELEASE_DATABASE
+              value: "{{ .Values.global.releaseDbName }}"
+            - name: MYSQL_DATABASE
+              value: "{{ .Values.global.stateDbName }}"
+            - name: BACKUP_DATABASE_NAME
+            {{- if .Values.global.backupDbName }}
+              value: "{{ .Values.global.backupDbName }}"
+            {{- else }}
+              value: "{{ .Values.global.releaseDbName }}"
+            {{- end }}
+            - name: DB_ENGINE
+            {{- if .Values.global.dbEngine }}
+              value: {{ .Values.global.dbEngine }}
+            {{- else }}
+              value: NDBCLUSTER
+            {{- end }}
+            - name: CONFIGURATION_FILE
+              value: "/opt/oracle/conf/defaultconfig.yaml"
+            - name: SCHEMA_FILE
+              value: "/opt/oracle/conf/defaultschema.json"
+            - name: HOOK_VERSION
+              value: {{ .Chart.Version | quote }}
+            - name: MICROSERVICE_NAME
+              value: {{ .Values.commonServiceName }}
+            - name: HOOK_TYPE
+              value: pre-install
+            - name: HOOK_CONFIG_KEY
+              value: {{ .Chart.Name | quote }}
+            - name: NF_INSTANCE_ID
+              value: {{ .Values.global.nfInstanceId | quote }}
+            - name: SERVICE_MESH_CHECK
+              value: {{ .Values.global.serviceMeshCheck | quote }}
+            - name: ISTIO_SIDECAR_QUIT_URL
+              value: {{ .Values.global.istioSidecarQuitUrl }}
+            - name: ISTIO_SIDECAR_READY_URL
+              value: {{ .Values.global.istioSidecarReadyUrl }}
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "ocnssf-nsavailability-service-hook-name-post-install" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "ocnssf-nsavailability-service-hook-name-post-install" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: {{ template "ocnssf-nsavailability-service-hook-name-post-install" . }}
+          image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullpolicy }}"
+          env:
+            - name: MYSQL_HOST
+              value: "{{ .Values.global.envMysqlHost }}"
+            - name: MYSQL_PORT
+              value: "{{ .Values.global.envMysqlPort }}"
+            - name: MYSQL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.privilegedDbCredSecretName }}"
+                  key: mysql-username
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.privilegedDbCredSecretName }}"
+                  key: mysql-password
+            - name: MYSQL_RELEASE_DATABASE
+              value: "{{ .Values.global.releaseDbName }}"
+            - name: MYSQL_DATABASE
+              value: "{{ .Values.global.stateDbName }}"
+            - name: BACKUP_DATABASE_NAME
+            {{- if .Values.global.backupDbName }}
+              value: "{{ .Values.global.backupDbName }}"
+            {{- else }}
+              value: "{{ .Values.global.releaseDbName }}"
+            {{- end }}
+            - name: DB_ENGINE
+            {{- if .Values.global.dbEngine }}
+              value: {{ .Values.global.dbEngine }}
+            {{- else }}
+              value: NDBCLUSTER
+            {{- end }}
+            - name: CONFIGURATION_FILE
+              value: "/opt/oracle/conf/defaultconfig.yaml"
+            - name: SCHEMA_FILE
+              value: "/opt/oracle/conf/defaultschema.json"
+            - name: HOOK_VERSION
+              value: {{ .Chart.Version | quote }}
+            - name: MICROSERVICE_NAME
+              value: {{ .Values.commonServiceName }}
+            - name: HOOK_TYPE
+              value: post-install
+            - name: HOOK_CONFIG_KEY
+              value: {{ .Chart.Name | quote }}
+            - name: NF_INSTANCE_ID
+              value: {{ .Values.global.nfInstanceId | quote }}
+            - name: SERVICE_MESH_CHECK
+              value: {{ .Values.global.serviceMeshCheck | quote }}
+            - name: ISTIO_SIDECAR_QUIT_URL
+              value: {{ .Values.global.istioSidecarQuitUrl }}
+            - name: ISTIO_SIDECAR_READY_URL
+              value: {{ .Values.global.istioSidecarReadyUrl }}
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "ocnssf-nsavailability-service-hook-name-pre-upgrade" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "ocnssf-nsavailability-service-hook-name-pre-upgrade" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: {{ template "ocnssf-nsavailability-service-hook-name-pre-upgrade" . }}
+          image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullpolicy }}"
+          env:
+            - name: MYSQL_HOST
+              value: "{{ .Values.global.envMysqlHost }}"
+            - name: MYSQL_PORT
+              value: "{{ .Values.global.envMysqlPort }}"
+            - name: MYSQL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.privilegedDbCredSecretName }}"
+                  key: mysql-username
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.privilegedDbCredSecretName }}"
+                  key: mysql-password
+            - name: MYSQL_RELEASE_DATABASE
+              value: "{{ .Values.global.releaseDbName }}"
+            - name: MYSQL_DATABASE
+              value: "{{ .Values.global.stateDbName }}"
+            - name: BACKUP_DATABASE_NAME
+            {{- if .Values.global.backupDbName }}
+              value: "{{ .Values.global.backupDbName }}"
+            {{- else }}
+              value: "{{ .Values.global.releaseDbName }}"
+            {{- end }}
+            - name: DB_ENGINE
+            {{- if .Values.global.dbEngine }}
+              value: {{ .Values.global.dbEngine }}
+            {{- else }}
+              value: NDBCLUSTER
+            {{- end }}
+            - name: CONFIGURATION_FILE
+              value: "/opt/oracle/conf/defaultconfig.yaml"
+            - name: SCHEMA_FILE
+              value: "/opt/oracle/conf/defaultschema.json"
+            - name: HOOK_VERSION
+              value: {{ .Chart.Version | quote }}
+            - name: MICROSERVICE_NAME
+              value: {{ .Values.commonServiceName }}
+            - name: HOOK_TYPE
+              value: pre-upgrade
+            - name: HOOK_CONFIG_KEY
+              value: {{ .Chart.Name | quote }}
+            - name: NF_INSTANCE_ID
+              value: {{ .Values.global.nfInstanceId | quote }}
+            - name: SERVICE_MESH_CHECK
+              value: {{ .Values.global.serviceMeshCheck | quote }}
+            - name: ISTIO_SIDECAR_QUIT_URL
+              value: {{ .Values.global.istioSidecarQuitUrl }}
+            - name: ISTIO_SIDECAR_READY_URL
+              value: {{ .Values.global.istioSidecarReadyUrl }}
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "ocnssf-nsavailability-service-hook-name-post-upgrade" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": post-upgrade
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "ocnssf-nsavailability-service-hook-name-post-upgrade" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: {{ template "ocnssf-nsavailability-service-hook-name-post-upgrade" . }}
+          image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullpolicy }}"
+          env:
+            - name: MYSQL_HOST
+              value: "{{ .Values.global.envMysqlHost }}"
+            - name: MYSQL_PORT
+              value: "{{ .Values.global.envMysqlPort }}"
+            - name: MYSQL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.privilegedDbCredSecretName }}"
+                  key: mysql-username
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.privilegedDbCredSecretName }}"
+                  key: mysql-password
+            - name: MYSQL_RELEASE_DATABASE
+              value: "{{ .Values.global.releaseDbName }}"
+            - name: MYSQL_DATABASE
+              value: "{{ .Values.global.stateDbName }}"
+            - name: BACKUP_DATABASE_NAME
+            {{- if .Values.global.backupDbName }}
+              value: "{{ .Values.global.backupDbName }}"
+            {{- else }}
+              value: "{{ .Values.global.releaseDbName }}"
+            {{- end }}
+            - name: DB_ENGINE
+            {{- if .Values.global.dbEngine }}
+              value: {{ .Values.global.dbEngine }}
+            {{- else }}
+              value: NDBCLUSTER
+            {{- end }}
+            - name: CONFIGURATION_FILE
+              value: "/opt/oracle/conf/defaultconfig.yaml"
+            - name: SCHEMA_FILE
+              value: "/opt/oracle/conf/defaultschema.json"
+            - name: HOOK_VERSION
+              value: {{ .Chart.Version | quote }}
+            - name: MICROSERVICE_NAME
+              value: {{ .Values.commonServiceName }}
+            - name: HOOK_TYPE
+              value: post-upgrade
+            - name: HOOK_CONFIG_KEY
+              value: {{ .Chart.Name | quote }}
+            - name: NF_INSTANCE_ID
+              value: {{ .Values.global.nfInstanceId | quote }}
+            - name: SERVICE_MESH_CHECK
+              value: {{ .Values.global.serviceMeshCheck | quote }}
+            - name: ISTIO_SIDECAR_QUIT_URL
+              value: {{ .Values.global.istioSidecarQuitUrl }}
+            - name: ISTIO_SIDECAR_READY_URL
+              value: {{ .Values.global.istioSidecarReadyUrl }}
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "ocnssf-nsavailability-service-hook-name-pre-rollback" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": pre-rollback
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "ocnssf-nsavailability-service-hook-name-pre-rollback" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: {{ template "ocnssf-nsavailability-service-hook-name-pre-rollback" . }}
+          image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullpolicy }}"
+          env:
+            - name: MYSQL_HOST
+              value: "{{ .Values.global.envMysqlHost }}"
+            - name: MYSQL_PORT
+              value: "{{ .Values.global.envMysqlPort }}"
+            - name: MYSQL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.privilegedDbCredSecretName }}"
+                  key: mysql-username
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.privilegedDbCredSecretName }}"
+                  key: mysql-password
+            - name: MYSQL_RELEASE_DATABASE
+              value: "{{ .Values.global.releaseDbName }}"
+            - name: MYSQL_DATABASE
+              value: "{{ .Values.global.stateDbName }}"
+            - name: BACKUP_DATABASE_NAME
+            {{- if .Values.global.backupDbName }}
+              value: "{{ .Values.global.backupDbName }}"
+            {{- else }}
+              value: "{{ .Values.global.releaseDbName }}"
+            {{- end }}
+            - name: DB_ENGINE
+            {{- if .Values.global.dbEngine }}
+              value: {{ .Values.global.dbEngine }}
+            {{- else }}
+              value: NDBCLUSTER
+            {{- end }}
+            - name: CONFIGURATION_FILE
+              value: "/opt/oracle/conf/defaultconfig.yaml"
+            - name: SCHEMA_FILE
+              value: "/opt/oracle/conf/defaultschema.json"
+            - name: HOOK_VERSION
+              value: {{ .Chart.Version | quote }}
+            - name: MICROSERVICE_NAME
+              value: {{ .Values.commonServiceName }}
+            - name: HOOK_TYPE
+              value: pre-rollback
+            - name: HOOK_CONFIG_KEY
+              value: {{ .Chart.Name | quote }}
+            - name: NF_INSTANCE_ID
+              value: {{ .Values.global.nfInstanceId | quote }}
+            - name: SERVICE_MESH_CHECK
+              value: {{ .Values.global.serviceMeshCheck | quote }}
+            - name: ISTIO_SIDECAR_QUIT_URL
+              value: {{ .Values.global.istioSidecarQuitUrl }}
+            - name: ISTIO_SIDECAR_READY_URL
+              value: {{ .Values.global.istioSidecarReadyUrl }}
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "ocnssf-nsavailability-service-hook-name-post-rollback" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": post-rollback
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "ocnssf-nsavailability-service-hook-name-post-rollback" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: {{ template "ocnssf-nsavailability-service-hook-name-post-rollback" . }}
+          image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullpolicy }}"
+          env:
+            - name: MYSQL_HOST
+              value: "{{ .Values.global.envMysqlHost }}"
+            - name: MYSQL_PORT
+              value: "{{ .Values.global.envMysqlPort }}"
+            - name: MYSQL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.privilegedDbCredSecretName }}"
+                  key: mysql-username
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.privilegedDbCredSecretName }}"
+                  key: mysql-password
+            - name: MYSQL_RELEASE_DATABASE
+              value: "{{ .Values.global.releaseDbName }}"
+            - name: MYSQL_DATABASE
+              value: "{{ .Values.global.stateDbName }}"
+            - name: BACKUP_DATABASE_NAME
+            {{- if .Values.global.backupDbName }}
+              value: "{{ .Values.global.backupDbName }}"
+            {{- else }}
+              value: "{{ .Values.global.releaseDbName }}"
+            {{- end }}
+            - name: DB_ENGINE
+            {{- if .Values.global.dbEngine }}
+              value: {{ .Values.global.dbEngine }}
+            {{- else }}
+              value: NDBCLUSTER
+            {{- end }}
+            - name: CONFIGURATION_FILE
+              value: "/opt/oracle/conf/defaultconfig.yaml"
+            - name: SCHEMA_FILE
+              value: "/opt/oracle/conf/defaultschema.json"
+            - name: HOOK_VERSION
+              value: {{ .Chart.Version | quote }}
+            - name: MICROSERVICE_NAME
+              value: {{ .Values.commonServiceName }}
+            - name: HOOK_TYPE
+              value: post-rollback
+            - name: HOOK_CONFIG_KEY
+              value: {{ .Chart.Name | quote }}
+            - name: NF_INSTANCE_ID
+              value: {{ .Values.global.nfInstanceId | quote }}
+            - name: SERVICE_MESH_CHECK
+              value: {{ .Values.global.serviceMeshCheck | quote }}
+            - name: ISTIO_SIDECAR_QUIT_URL
+              value: {{ .Values.global.istioSidecarQuitUrl }}
+            - name: ISTIO_SIDECAR_READY_URL
+              value: {{ .Values.global.istioSidecarReadyUrl }}
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "ocnssf-nsavailability-service-hook-name-pre-delete" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "ocnssf-nsavailability-service-hook-name-pre-delete" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: {{ template "ocnssf-nsavailability-service-hook-name-pre-delete" . }}
+          image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullpolicy }}"
+          env:
+            - name: MYSQL_HOST
+              value: "{{ .Values.global.envMysqlHost }}"
+            - name: MYSQL_PORT
+              value: "{{ .Values.global.envMysqlPort }}"
+            - name: MYSQL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.privilegedDbCredSecretName }}"
+                  key: mysql-username
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.privilegedDbCredSecretName }}"
+                  key: mysql-password
+            - name: MYSQL_RELEASE_DATABASE
+              value: "{{ .Values.global.releaseDbName }}"
+            - name: MYSQL_DATABASE
+              value: "{{ .Values.global.stateDbName }}"
+            - name: BACKUP_DATABASE_NAME
+            {{- if .Values.global.backupDbName }}
+              value: "{{ .Values.global.backupDbName }}"
+            {{- else }}
+              value: "{{ .Values.global.releaseDbName }}"
+            {{- end }}
+            - name: DB_ENGINE
+            {{- if .Values.global.dbEngine }}
+              value: {{ .Values.global.dbEngine }}
+            {{- else }}
+              value: NDBCLUSTER
+            {{- end }}
+            - name: CONFIGURATION_FILE
+              value: "/opt/oracle/conf/defaultconfig.yaml"
+            - name: SCHEMA_FILE
+              value: "/opt/oracle/conf/defaultschema.json"
+            - name: HOOK_VERSION
+              value: {{ .Chart.Version | quote }}
+            - name: MICROSERVICE_NAME
+              value: {{ .Values.commonServiceName }}
+            - name: HOOK_TYPE
+              value: pre-delete
+            - name: HOOK_CONFIG_KEY
+              value: {{ .Chart.Name | quote }}
+            - name: NF_INSTANCE_ID
+              value: {{ .Values.global.nfInstanceId | quote }}
+            - name: SERVICE_MESH_CHECK
+              value: {{ .Values.global.serviceMeshCheck | quote }}
+            - name: ISTIO_SIDECAR_QUIT_URL
+              value: {{ .Values.global.istioSidecarQuitUrl }}
+            - name: ISTIO_SIDECAR_READY_URL
+              value: {{ .Values.global.istioSidecarReadyUrl }}
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "ocnssf-nsavailability-service-hook-name-post-delete" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "ocnssf-nsavailability-service-hook-name-post-delete" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: {{ template "ocnssf-nsavailability-service-hook-name-post-delete" . }}
+          image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullpolicy }}"
+          env:
+            - name: MYSQL_HOST
+              value: "{{ .Values.global.envMysqlHost }}"
+            - name: MYSQL_PORT
+              value: "{{ .Values.global.envMysqlPort }}"
+            - name: MYSQL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.privilegedDbCredSecretName }}"
+                  key: mysql-username
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.privilegedDbCredSecretName }}"
+                  key: mysql-password
+            - name: MYSQL_RELEASE_DATABASE
+              value: "{{ .Values.global.releaseDbName }}"
+            - name: MYSQL_DATABASE
+              value: "{{ .Values.global.stateDbName }}"
+            - name: BACKUP_DATABASE_NAME
+            {{- if .Values.global.backupDbName }}
+              value: "{{ .Values.global.backupDbName }}"
+            {{- else }}
+              value: "{{ .Values.global.releaseDbName }}"
+            {{- end }}
+            - name: DB_ENGINE
+            {{- if .Values.global.dbEngine }}
+              value: {{ .Values.global.dbEngine }}
+            {{- else }}
+              value: NDBCLUSTER
+            {{- end }}
+            - name: CONFIGURATION_FILE
+              value: "/opt/oracle/conf/defaultconfig.yaml"
+            - name: SCHEMA_FILE
+              value: "/opt/oracle/conf/defaultschema.json"
+            - name: HOOK_VERSION
+              value: {{ .Chart.Version | quote }}
+            - name: MICROSERVICE_NAME
+              value: {{ .Values.commonServiceName }}
+            - name: HOOK_TYPE
+              value: post-delete
+            - name: HOOK_CONFIG_KEY
+              value: {{ .Chart.Name | quote }}
+            - name: NF_INSTANCE_ID
+              value: {{ .Values.global.nfInstanceId | quote }}
+            - name: SERVICE_MESH_CHECK
+              value: {{ .Values.global.serviceMeshCheck | quote }}
+            - name: ISTIO_SIDECAR_QUIT_URL
+              value: {{ .Values.global.istioSidecarQuitUrl }}
+            - name: ISTIO_SIDECAR_READY_URL
+              value: {{ .Values.global.istioSidecarReadyUrl }}
+
+---

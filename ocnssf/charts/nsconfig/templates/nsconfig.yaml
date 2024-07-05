@@ -1,0 +1,187 @@
+# Copyright 2019 (C), Oracle and/or its affiliates. All rights reserved.
+
+apiVersion: v1
+kind: Service
+metadata: 
+  name: {{ template "nsconfig.fullname" . }}
+  labels:
+    {{- include "labels.nonlbServices" . }}
+  annotations:
+    {{- include "annotations.nonlbServices" . }}
+spec:
+  ports:
+  - port: {{ .Values.global.nsconfig.portConfiguration.servicePort }}
+    targetPort: {{ .Values.global.nsconfig.portConfiguration.containerPort }}
+    name: http2
+  selector:
+    app.kubernetes.io/name: {{ template "chart.fullname" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  type: {{ .Values.service.type }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "nsconfig.fullname" . }}
+  labels:
+    {{- include "labels.nonlbDeployments" . }}
+  annotations:
+    {{- include "annotations.nonlbDeployments" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "chart.fullname" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      annotations:
+        {{- include "annotations.nonlbDeployments" . | indent 4 }}
+        prometheus.io/port: "{{ .Values.global.nsconfig.portConfiguration.commonServicePort }}"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/scrape: "true"
+        oracle.com/cnc: "true"
+      labels:
+        {{- include "labels.nonlbDeployments" . | indent 4 }}
+    spec:
+      containers:
+      {{- include "extraContainers" . | nindent 6}}
+      - name: {{ template "container.fullname" . }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullpolicy }}
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: {{ .Values.global.nsconfig.portConfiguration.commonServicePort }}
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.readinessProbe.successThreshold }}
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.global.nsconfig.portConfiguration.commonServicePort }}
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.livenessProbe.successThreshold }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+        ports:
+        - containerPort: {{ .Values.global.nsconfig.portConfiguration.containerPort }}
+          name: http2-sig
+        - containerPort: {{ .Values.global.nsconfig.portConfiguration.commonServicePort }}
+          name: cnc-metrics
+        env:
+        - name: SERVER_PORT
+          value: "{{ .Values.global.nsconfig.portConfiguration.servicePort }}"
+        - name: CONTAINER_PORT
+          value: "{{ .Values.global.nsconfig.portConfiguration.containerPort }}"
+        - name: COMMON_SERVICE_PORT
+          value: "{{ .Values.global.nsconfig.portConfiguration.commonServicePort }}"
+        - name: SITE_ID
+          value: "{{ .Values.siteId }}"
+        - name: NSSUBSCRIPTION_SVC_HOST
+          value: "{{ .Release.Name }}-nssubscription"
+        - name: NSSUBSCRIPTION_SVC_PORT
+          value: "{{ .Values.global.nssubscription.portConfiguration.servicePort }}"
+        - name: MYSQL_PRIMARY_HOST
+          value: "{{ .Values.global.mysql.primary.host }}"
+        - name: MYSQL_SECONDARY_HOST
+          value: "{{ .Values.global.mysql.secondary.host }}"
+        - name: MYSQL_PORT
+          value: "{{ .Values.global.mysql.port }}"
+        - name: DATABASE_SECRETKEY_NAME
+          value: "{{ .Values.global.appDbCredSecretName }}"
+        - name: DATABASE_SECRETKEY_NAMESPACE
+          value: "{{ .Values.global.nameSpace }}"
+        - name: INDIRECT_COMMUNICATION_SUPPORT_ENABLE
+          value: "{{ .Values.global.indirectCommunicationSupportEnable }}"
+        - name: NSSF_API_ROOT
+          value: "{{ .Values.global.nssfApiRoot }}"
+        - name: NF_SET
+          value: "{{ .Values.global.nfSet }}"
+        - name: SUPPORTED_PLMN_LIST
+          value: "{{ .Values.global.supportedPlmnList }}"
+        - name: PROVISON_DATABASE_NAME
+          value: "{{ .Values.global.provisionDbName }}"
+        - name: STATE_DATABASE_NAME
+          value: "{{ .Values.global.stateDbName }}"
+        - name: spring.datasource.statedb.jdbc-url
+          value: jdbc:mysql://{{ .Values.global.mysql.primary.host }}:{{ .Values.global.mysql.port }},{{ .Values.global.mysql.secondary.host }}:{{ .Values.global.mysql.port }}/{{ .Values.global.stateDbName }}?failOverReadOnly=false&createDatabaseIfNotExist=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true
+        - name: spring.datasource.statedb.username
+          valueFrom:
+           secretKeyRef:
+            name: "{{ .Values.global.appDbCredSecretName }}"
+            key: mysql-username
+        - name: spring.datasource.statedb.password
+          valueFrom:
+           secretKeyRef:
+            name: "{{ .Values.global.appDbCredSecretName }}"
+            key: mysql-password
+        - name: spring.datasource.provisondb.jdbc-url
+          value: jdbc:mysql://{{ .Values.global.mysql.primary.host }}:{{ .Values.global.mysql.port }},{{ .Values.global.mysql.secondary.host }}:{{ .Values.global.mysql.port }}/{{ .Values.global.provisionDbName }}?failOverReadOnly=false&createDatabaseIfNotExist=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true
+        - name: spring.datasource.provisondb.username
+          valueFrom:
+           secretKeyRef:
+            name: "{{ .Values.global.appDbCredSecretName }}"
+            key: mysql-username
+        - name: spring.datasource.provisondb.password
+          valueFrom:
+           secretKeyRef:
+            name: "{{ .Values.global.appDbCredSecretName }}"
+            key: mysql-password
+        - name: LOGGING_LEVEL
+          value: "{{ .Values.loglevel }}"
+        - name: MAX_RETRIES_FOR_NOTIFICATION_TRIGGER
+          value: "{{ .Values.httpMaxRetries }}"
+        - name: NSSF_GATEWAY_URL
+          value: "{{ .Values.notificationHandlerUrl }}"
+        - name: NF_ID
+          value: "{{ .Values.global.nfInstanceId }}"
+        - name: NRF_CLIENT_NFDISCOVERY_URL
+          value: "http://{{ .Release.Name }}-ocnssf-nrf-client-nfdiscovery:5910"
+        - name: NRF_CLIENT_NFMANAGEMENT_URL
+          value: "http://{{ .Release.Name }}-ocnssf-nrf-client-nfmanagement:5910"
+        - name: NSSF_SUBSCRIPTION_EVENT_TRIGGER_URL
+          value: "http://{{ .Release.Name }}-nssubscription:{{ .Values.service.port }}/nnssf-nssubscription/v1/nssai-availability/notifications"
+        - name: NRF_SUBSCRIPTION
+          value: "{{ .Values.nrf.subscription }}"
+        - name: DELAYED_NOTIFICATION_ENABLED
+          value: "{{ .Values.delayedNotificationEnabled }}"
+        - name: NOTIFICATION_DELAY
+          value: "{{ .Values.notificationDelay }}"
+        - name: GR_ENABLED
+          value: "{{ .Values.global.grEnabled }}"
+        - name: DB_MONITOR_SERVICE_URL
+          value: "{{ .Values.global.dbMonitorServiceUrl }}"
+        - name: EGRESS_GATEWAY_URL
+          value: "http://{{ .Release.Name }}-egress-gateway:8080"
+        - name: APP_NAME
+          value: {{ template "ocnssf.name" . }}
+        - name: ENG_VERSION
+          value: {{ .Chart.Version | quote }}
+        - name: APP_VERSION
+          value: {{ .Chart.AppVersion | quote }}
+        - name: MICROSERVICE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: K8S_NODE
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: COMMON_CFG_CLIENT_ENABLED
+          value: {{ .Values.global.commonCfgClient.enabled | quote }}
+        - name: COMMON_CFG_SERVER_HOST
+          value: "{{ .Release.Name }}-nsconfig"
+        - name: COMMON_CFG_SERVER_PORT
+          value: {{ .Values.global.nsconfig.portConfiguration.servicePort | quote }}
+        - name: COMMON_CFG_SERVER_POLLING_INTERVAL
+          value: {{ .Values.global.commonCfgClient.pollingInterval | quote }}
+        - name: MICROSERVICE_NAME_FOR_COMMON_CONFIG
+          value: {{ .Values.commonServiceName }}
+        - name: SERVICE_MESH_CHECK
+          value: {{ .Values.global.serviceMeshCheck | quote }}

@@ -1,0 +1,25 @@
+{{- if $.Values.global.pcrfCoreEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{- include "annotations.services" . }}
+  labels:
+    {{- include "labels.services" . }}
+    io.kompose.service: {{ template "pcrf-core-headless-label-name" . }}
+    category: pcrf
+  name: {{ template "service-name-pcrf-core-headless" . }}
+spec:
+  ports:
+    - name: http
+      port: {{ .Values.global.servicePorts.pcrfCoreHttp }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.pcrfCoreHttp }}
+    - name: tcp-diameter 
+      port: {{ .Values.global.servicePorts.pcrfCoreDiameter }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.pcrfCoreDiameter }}
+  selector:
+    io.kompose.service: {{ template "pcrf-core-deployment-name" . }}
+  clusterIP: None
+{{- end }}

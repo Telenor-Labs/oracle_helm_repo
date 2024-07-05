@@ -1,0 +1,15 @@
+dependencies:
+  - name: appinfo
+    version: 22.1.2
+    repository: alias:ocnrf-helm-repo
+  - name: perf-info
+    version: 22.1.2
+    repository: alias:ocnrf-helm-repo
+  - name: config-server
+    version: 22.1.2
+    repository: alias:ocnrf-helm-repo
+    condition: global.configServerEnable
+  - name: nrf-client
+    version: 22.1.5
+    repository: alias:ocnrf-helm-repo
+

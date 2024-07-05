@@ -1,0 +1,37 @@
+{{- if $.Values.global.soapConnectorEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{- include "annotations.services" . }}
+  labels:
+    {{- include "labels.services" . }}
+    io.kompose.service: {{ template "ocpm-soapconnector-service-label-name" . }}
+    category: common
+    {{- if not $.Values.global.serviceMeshEnabled }}
+    primary-port-name: http2-text
+    {{- end }}
+  name: {{ template "service-name-soap-connector" . }}
+spec:
+  {{- if or (eq .Values.service.type "NodePort") (eq .Values.service.type "LoadBalancer") }}
+  externalTrafficPolicy: Cluster
+  {{- end }}
+  ports:
+    - name: http2-text
+      port: {{ .Values.global.servicePorts.soapConnectorHttp }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.soapConnectorHttp }}
+    - name: https
+      port: {{ .Values.global.servicePorts.soapConnectorHttps }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.soapConnectorHttps }}
+    {{- if .Values.global.exposeObservabilityAtService }}
+    - name: {{ .Values.global.cncMetricsName  }}
+      port: {{ .Values.global.containerPorts.monitoringHttp }}
+      protocol: TCP
+    {{- end }}
+  selector:
+    io.kompose.service: {{ template "ocpm-soapconnector-deployment-name" . }}
+  sessionAffinity: None
+  type: {{ .Values.service.type }}
+  {{- end }}

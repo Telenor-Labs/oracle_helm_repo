@@ -1,0 +1,28 @@
+{{- if .Values.global.diamConnectorEnable }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "diam-connector-configmap-name" . }}
+data:
+  diameter-config-peers: |
+    version: '0.3'
+    kind: 'diameter-config'
+    metadata:
+      label: 'diameter-config-peers'
+    setting:
+      reconnectDelay: 3
+      responseTimeout: 4
+      connectionTimeOut: 3
+      watchdogInterval: 6
+      transport: 'TCP'
+    # type: [gateway, frontend]
+    nodes:
+      - name: '{{ template "service-name-oc-diam-gateway" . }}'
+        type: 'gateway'
+        responseOnly: true
+        reconnectLimit: 0
+        host: '{{ template "service-name-oc-diam-gateway-headless" . }}'
+        port: 3868
+        realm: ''
+        identity: ''
+{{- end }}

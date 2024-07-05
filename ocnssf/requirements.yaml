@@ -1,0 +1,28 @@
+# Copyright 2020 (C), Oracle and/or its affiliates. All rights reserved.
+
+dependencies:
+  - name: ingress-gateway
+    version: 22.1.9
+    repository: alias:ocnrf-helm-repo
+  - name: egress-gateway
+    version: 22.1.9
+    repository: alias:ocnrf-helm-repo
+  - name: nrfclient
+    version: 22.1.5
+    repository: alias:ocnrf-helm-repo
+  - name: nsselection
+    version: 22.1.0
+    repository: alias:ocnssf-helm-repo
+  - name: nsconfig
+    version: 22.1.0
+    repository: alias:ocnssf-helm-repo
+  - name: nsavailability
+    version: 22.1.0
+    repository: alias:ocnssf-helm-repo
+  - name: nssubscription
+    version: 22.1.0
+    repository: alias:ocnssf-helm-repo
+  - name: nsauditor
+    version: 22.1.0
+    repository: alias:ocnssf-helm-repo
+

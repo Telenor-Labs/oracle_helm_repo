@@ -1,0 +1,135 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "sample config json",
+	"description": "json validator",
+	"type": "object",
+	"properties": {
+		"logging": {
+			"type": "object",
+			"description": "The attribute represents the log level Configuration for NrfClient Management Service",
+			"properties": {
+				"appLogLevel": {
+					"enum": [
+						"INFO",
+						"DEBUG",
+						"WARN",
+						"ERROR",
+						"FATAL",
+						"OFF",
+						"TRACE",
+						"ALL"
+					],
+					"type": "string",
+					"description": "Values of LogLevel"
+				},
+				"packageLogLevel": {
+					"type": "array",
+					"minItems": 1,
+					"maxItems": 1,
+					"uniqueItems": true,
+					"items": {
+						"anyOf": [
+							{
+								"type": "object",
+								"properties": {
+									"packageName": {
+										"enum": [
+											"root"
+										],
+										"type": "string",
+										"description": "The package Name."
+									},
+									"logLevelForPackage": {
+										"enum": [
+											"INFO",
+											"DEBUG",
+											"WARN",
+											"ERROR",
+											"FATAL",
+											"OFF",
+											"TRACE",
+											"ALL"
+										],
+										"type": "string",
+										"description": "Values of LogLevel"
+									}
+								},
+								"required": [
+									"packageName",
+									"logLevelForPackage"
+								],
+								"description": "The attribute is the list of Package names."
+							}
+						]
+					},
+					"description": "The attribute represents the package level logging for NrfClient Management Service"
+				}
+			},
+			"required": [
+				"appLogLevel",
+				"packageLogLevel"
+			]
+		},
+		"nfProfileList": {
+			"type": "array",
+			"description": "The attribute represents the list of nfProfiles for NrfClient Management Service.",
+			"items": [
+				{
+				    "description": "The attribute represents the individual nfProfile for NrfClient Management Service.",
+					"type": "object"
+				}
+			]
+		},
+		"generalOptions":{
+			"type": "object",
+			"description":"The attribute represents the General options of NrfClient Management Service.",
+			"properties": {
+					"nfProfileUpdateMode":{
+						"enum":[
+							"CompleteUpdate",
+							"PartialUpdate"
+							],
+						"type":"string",
+						"description":"The attribute represents the mode for NFUpdate of NRFClient Management Service."
+				},
+				"triggerNfRegistration":{
+					"type":"boolean",
+					"description":"This attribute controls the autonomous registration of the NF."
+				}
+			},
+			"required": [
+			   "nfProfileUpdateMode"
+			]
+		},"nrfRouteList": {
+				"type": "array",
+				"uniqueItems": true,
+				"items": {
+					"anyOf": [
+						{
+							"type": "object",
+							"properties": {
+								"scheme": {
+									"type": "string",
+									"description": "The scheme of NrfRoute."
+								},
+								"nrfApi": {
+									"type": "string",
+									"description": "The Api for NrfRoute."
+								},
+								"priority": {
+									"type": "integer",
+									"description": "The priority for NrfRoute."
+								},
+								"weight": {
+									"type": "integer",
+									"description": "The weight for NrfRoute."
+								}
+							},
+							"description": "The attribute is the NRF Route."
+						}
+					]
+				},
+			"description": "The attribute represents the list of NRF Routes."
+		}
+	}
+}

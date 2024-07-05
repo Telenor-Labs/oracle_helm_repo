@@ -1,0 +1,421 @@
+# Please add below in global section of custom values.yaml of NF deployment.
+global:
+  # The value of nfName is specified as ocnf which is stands of Oracle NF.
+  # nfName is used as a prefix in serivce names of nrf client's service and other services it connects to for eg appinfo, config server etc.
+  nfName: ocnf
+  # Global control to enable/disable deployment of NF Discovery service, enable it if on demand discovery of NF is required.
+  nrfClientNfDiscoveryEnable: true
+  # Global control to enable/disable deployment of NF Management service.
+  nrfClientNfManagementEnable: true
+  # Global Parameter to enable/disable DEBUG Container tool
+  extraContainers: "DISABLED"
+  # Global parameter to mention if alternate-route service is available(deployed) or not.
+  alternateRouteServiceEnable: false
+  altServiceHTTP2Enabled: true
+  altServiceReqTimeout: 3000
+  altServiceLookupInterval: 3000
+  # Jaeger tracing host
+  envJaegerAgentHost: ''
+  # Jaeger tracing port
+  envJaegerAgentPort: 6831
+  # Provide value for NodePort
+  nrfClientNodePort: 0
+  # Docker registry from which config-server images, nrf-client images will be pulled
+  dockerRegistry: ocnrf-registry.us.oracle.com:5000
+  # Readiness-Detector image details with tag
+  #Vendor name
+  vendor: "Oracle"
+  # application name
+  applicationName: "nrf-client" 
+  # prefix for Metrics
+  metricPrefix: &metricPrefix ""
+  # suffix for Metrics
+  metricSuffix: &metricSuffix ""
+  # Common service port
+  nrfClientCommonServicePort: '9090'
+  # Prometheus configuration
+  prometheusScrapingConfig:
+    enabled: true
+    path: "/actuator/prometheus" 
+  
+  configServerEnable: true
+  # Config-Server Service. Shall be used as {{ ReleaseName }}-configServerFullNameOverride
+  configServerFullNameOverride: ocpm-config
+  # Mysql Host
+  envMysqlHost: &mySqlHostRef 10.75.225.4
+  # Mysql Port
+  envMysqlPort: &mySqlPortRef '3306'
+  # Mysql Secret Name
+  dbCredSecretName: &dbCredSecretNameRef 'nrfclient-mysql'
+  # Mysql Config Server Databse Name 
+  # Global Control to disable appinfo service
+  appinfoServiceEnable: true
+  # Global Control to disable performance info service
+  performanceServiceEnable: true
+  # Deployment Specific configuration
+  deploymentNrfClientService:
+    # Services to be monitored by performance service
+    # If no services are to be monitored, envNfNamespace,envNfType,envConsumeSvcName can be left blank
+    envNfNamespace: 'nrf'
+    envNfType: 'nrf'
+    envConsumeSvcName: 'appinfo'
+    # Egress gateway Host. Shall be used as {{ ReleaseName }}-envEgressGatewayFullnameOverride
+    envEgressGatewayFullnameOverride: egressgateway
+    # Egress gateway Port
+    envEgressGatewayPort: "8080"
+    # Callback URI to receive Notifications from NRF
+    nfApiRoot: http://ocnrf-ingressgateway.ocnrf:80
+    nodeSelectorEnabled: false
+    nodeSelectorKey: zone
+    nodeSelectorValue: app
+  # K8s Secret containing Database/user/password for DB Hooks for creating tables
+  privilegedDbCredSecretName: &privDbCredSecretNameRef 'occnp-privileged-db-pass'
+  # Mysql Release Database Name 
+  releaseDbName: &dbNameRef 'ocpm_config_server'
+
+  # Service Account Name
+  serviceAccountName: ""
+  
+  # Application name that is added in logs as labels
+  app_name: "nrfclient"
+  
+
+# Details of perf-info microservices
+perf-info:
+   image: oc-perf-info
+   imageTag: 22.1.2
+   # Service namespace for perf-info
+   service_namespace: ocnrf
+   # Replicas for perf Info - This is exact value without scaling
+   replicaCount: 1
+   # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+   imagepullPolicy: IfNotPresent
+   service:
+     type: ClusterIP
+     port: 5905
+   resources: {}
+     # We usually recommend not to specify default resources and to leave this as a conscious
+     # choice for the user. This also increases chances charts run on environments with little
+     # resources, such as Minikube. If you do want to specify resources, uncomment the following
+     # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+     # limits:
+     #  cpu: 100m
+     #  memory: 128Mi
+     # requests:
+     #  cpu: 100m
+     #  memory: 128Mi
+   nodeSelector: {}
+   tolerations: []
+   affinity: {}
+   commonCfgClient:
+     enabled: false
+   commonCfgServer:
+   # Do not comment this line in case you want to deploy both config-server and APIGW in same namespace simultaneously
+   # Otherwise comment this line and use 'host'
+     configServerSvcName: 'common-config-server'
+     host: 'common-config-server'
+     port: '80'
+     pollingInterval: 5000
+   dbConfig:
+     dbHost: *mySqlHostRef
+     dbPort: *mySqlPortRef
+     secretName: *dbCredSecretNameRef
+     dbName: *dbNameRef
+     # Name of the Key configured for "DB Username" in Secret with following name: "<dbConfig.secretName>"
+     dbUNameLiteral: mysql-username
+     # Name of the Key configured for "DB Password" in Secret with following name: "<dbConfig.secretName>"
+     dbPwdLiteral: mysql-password
+   ingress:
+      enabled: false
+   configmapPerformance:
+     prometheus: http://prometheus-server.prometheus:5802
+
+# Microservice level control if specific microservice need to be disabled
+nrf-client:
+   # This config map is for providing inputs to NRF-Client
+   configmapApplicationConfig:
+      &configRef
+      # Config-map to provide inputs to Nrf-Client
+      # primaryNrfApiRoot - Primary NRF Hostname and Port
+      # SecondaryNrfApiRoot - Secondary NRF Hostname and Port
+      # nrfRouteList - Can be used to specify routes with priority instead of primary and secondary NRF API root
+      # useNrfRouteList - Can be used to specify whether nrfRouteList should be used instead of primary and secondary NRF API root
+      # nrfScheme - Scheme of primary and secondary NRF http or https
+      # retryAfterTime - Default downtime(in Duration) of an NRF detected to be unavailable. 
+      # nrfClientType - The NfType of the NF registering
+      # nrfClientSubscribeTypes - the NFType for which the NF wants to subscribe to the NRF. 
+      # appProfiles - The NfProfile of the NF to be registered with NRF.
+      # enableF3 - Support for 29.510 Release 15.3  
+      # enableF5 - Support for 29.510 Release 15.5    
+      # registrationRetryInterval - Retry Interval after a failed autonomous registration request
+      # subscriptionRetryInterval - Retry Interval after a failed autonomous subscription request
+      # discoveryRetryInterval - Retry Interval after a failed autonomous discovery request  
+      # discoveryRefreshInterval - The default interval after which autonomous discovery requests will be resent
+      # discoveryDurationBeforeExpiry - This value specifies the rate at which the NF shall resend discovery requests to NRF. The value shall be configured in terms of percentage(1-100). if the discovery ValidityPeriod is 60s, then the discovery requests shall be sent at discoveryDurationBeforeExpiry * 60/100
+      # renewalTimeBeforeExpiry - Time Period(seconds) before the Subscription Validity time expires.
+      # validityTime - The default validity time(days) for subscriptions. 
+      # enableSubscriptionAutoRenewal - Enable Renewal of Subscriptions automatically. 
+      # nfHeartbeatRate - This value specifies the rate at which the NF shall heartbeat with the NRF. The value shall be configured in terms of percentage(1-100). if the heartbeatTimer is 60s, then the NF shall heartbeat at nfHeartBeatRate * 60/100
+      # acceptAdditionalAttributes - Enable additionalAttributes as part of 29.510 Release 15.5   
+      # retryForCongestion - The duration(seconds) after which nrf-client should retry to a NRF server found to be congested.
+      # supportedDataSetId - The data-set value to be used in queryParams for NFs autonomous/on-demand discovery. e.g. data-set=POLICY
+      # enableVirtualNrfResolution- enable virtual NRF session retry by Alternate routing service
+      # virtualNrfFqdn - virtual NRF FQDN used to query static list of route
+      # virtualNrfScheme - http or https
+      # useAlternateScpOnAlternateRouting - enable use SCP on alternate routing service
+      # subscriberNotificationRetry - number of health status notification retries to a subscriber 
+      # requestTimeoutGracePeriod - grace period(seconds) for timeout period until no response is received from NRF
+      # nrfRetryConfig - configurations required for the NRF Retry mechanism
+      #serviceRequestType - type of service operation for which configuration is applicable
+      #primaryNRFRetryCount - number of retries for primary instance
+      #nonPrimaryNRFRetryCount - number of retries for non-primary instance
+      #alternateNRFRetriesCount - number of retry attempts
+      #errorReasonsForFailure - httpStatusCode or error conditions for which retry shall be attempted
+      #requestTimeout - timeout period(seconds) where no response is received from NRF
+      #gatewayErrorCodes - httpStatusCode sent by gateway for which retry shall be attempted
+      # healthCheckConfig - configurations required for the Health check of NRFs 
+      #healthCheckCount - consecutive success/failure operation count (default -1 means disabled)
+      #healthCheckInterval - interval duration in seconds to perform health check
+      #requestTimeout - timeout period(seconds) where no response is received from NRF
+      #errorReasonsForFailure - httpStatusCode or error conditions for which the NRF is considered as unhealthy
+      #gatewayErrorCodes - httpStatusCode sent by gateway for the NRF shall be considered unhealthy
+      #enableDiscoveryRefresh - Feature flag to enable Automatic Discovery Refresh
+      profile: |-        
+         [appcfg]
+         primaryNrfApiRoot=nrfDeployName-nrf-1-nrf-simulator.nrfDeployNamespace-nrf-1.svc:5808
+         secondaryNrfApiRoot=
+         nrfRouteList=[{"nrfApi":"nrfDeployName-nrf-1:8080","scheme":"http","weight":100,"priority":1}]
+         useNrfRouteList=false
+         nrfScheme=http
+         retryAfterTime=PT120S
+         nrfClientType=NRF
+         nrfClientSubscribeTypes=PCF
+         appProfiles=[{}]
+         enableF3=true
+         enableF5=true
+         registrationRetryInterval=5000
+         subscriptionRetryInterval=5000
+         enableDiscoveryRefresh=false
+         discoveryRetryInterval=5000
+         discoveryRefreshInterval=10
+         discoveryDurationBeforeExpiry=90
+         renewalTimeBeforeExpiry=3600
+         validityTime=30
+         enableSubscriptionAutoRenewal=true
+         nfHeartbeatRate=80
+         acceptAdditionalAttributes=false
+         retryForCongestion=5
+         supportedDataSetId=
+         enableVirtualNrfResolution=false
+         virtualNrfFqdn=nrf.oracle.com
+         virtualNrfScheme=http
+         useAlternateScpOnAlternateRouting=
+         subscriberNotificationRetry=2
+         requestTimeoutGracePeriod=2
+         enableDiscoveryRefresh=false
+         nrfRetryConfig=[{"serviceRequestType":"ALL_REQUESTS","primaryNRFRetryCount":1,"nonPrimaryNRFRetryCount":1,"alternateNRFRetryCount":-1,"errorReasonsForFailure":["503","504","500","SocketTimeoutException","JsonProcessingException","UnknownHostException","NoRouteToHostException","IOException"],"gatewayErrorCodes":["503"],"requestTimeout":10},{"serviceRequestType":"AUTONOMOUS_NFREGISTER","primaryNRFRetryCount":1,"nonPrimaryNRFRetryCount":1,"alternateNRFRetryCount":-1,"errorReasonsForFailure":["503","504","500","SocketTimeoutException","JsonProcessingException","UnknownHostException","NoRouteToHostException","IOException"],"gatewayErrorCodes":["503"],"requestTimeout":10}]
+         healthCheckConfig={"healthCheckCount":-1,"healthCheckInterval":5,"requestTimeout":10,"errorReasonsForFailure":["503","504","500","SocketTimeoutException","IOException"],"gatewayErrorCodes":[]}
+
+   # Deployment specific configuration for Nrf-Client Discovery Microservice
+   nrf-client-nfdiscovery:
+      global:
+          #ephemeralStorage value in MB. Value 0 means ephemeral-storage will not be set during deployment.
+          logStorage: 0 #default calculated value 70
+          crictlStorage: 0 #default calculated value 1
+          ephemeralStorageLimit: 0 #default calculated value 1024
+      configmapApplicationConfig: *configRef
+      # NRF Client Microservice image name
+      image: nrf-client
+      # NRF Client Microservice image tag
+      imageTag: '22.1.5'
+      envJaegerSamplerParam: '1'
+      envJaegerSamplerType: ratelimiting
+      envJaegerServiceName: nrf-client-nfdiscovery
+      # Resource Details
+      cpuRequest: 2
+      cpuLimit: 2
+      memoryRequest: 1Gi
+      memoryLimit: 1Gi
+      # Min replicas to scale to maintain an average CPU utilization 
+      minReplicas: 2
+      # Max replicas to scale to maintain an average CPU utilization 
+      maxReplicas: 5
+      averageCpuUtil: 80
+      type: ClusterIP
+      # Set to true if the discovery results should be cached.
+      cacheDiscoveryResults: true
+      # Discovery Service Port
+      envDiscoveryServicePort: 5910
+      # Management Service Port
+      envManagementServicePort: 5910
+      #Restart Policy for hooks
+      hookRestartPolicy: Never
+      # prefix for Metrics
+      metricPrefix: *metricPrefix
+      # suffix for Metrics
+      metricSuffix: *metricSuffix
+      #The sidecar (istio url) when deployed in serviceMesh
+      # Default value: http://127.0.0.1:15000/quitquitquit
+      istioSidecarQuitUrl: ""
+      # Default value: http://127.0.0.1:15000/ready 
+      istioSidecarReadyUrl: ""
+      # Flag to enable service Mesh
+      serviceMeshCheck: false
+      # Flag to switch between "HELM" based or "REST" based nfProfile configuration
+      nfProfileConfigMode: "REST"
+      # Flag to enable/ disable the feature
+      commonCfgClient:
+         enabled: true
+      commonCfgServer:
+        # Do not comment this line in case you want to deploy both config-server and APIGW in same namespace simultaneously
+        # Otherwise comment this line and use 'host'
+        configServerSvcName: 'common-config-server'
+        host: 'common-config-server'
+        port: '80'
+        pollingInterval: 5000
+        nfProfileUri: 'nf/nf-common-component/v1/nrf-client-nfmanagement/nfProfileList'
+      dbConfig:
+        dbHost: *mySqlHostRef
+        dbPort: *mySqlPortRef
+        secretName: *privDbCredSecretNameRef
+        dbName: *dbNameRef      
+        # Name of the Key configured for "DB Username" in Secret with following name: "<dbConfig.secretName>"
+        dbUNameLiteral: mysql-username
+        # Name of the Key configured for "DB Password" in Secret with following name: "<dbConfig.secretName>"
+        dbPwdLiteral: mysql-password
+
+   # Deployment specific configuration for Nrf-Client Management Microservice
+   nrf-client-nfmanagement:
+      global:
+         #ephemeralStorage value in MB. Value 0 means ephemeral-storage will not be set during deployment.
+         logStorage: 0 #default calculated value 70
+         crictlStorage: 0 #default calculated value 1
+         ephemeralStorageLimit: 0 #default calculated value 1024
+      configmapApplicationConfig: *configRef
+      # NRF Client Microservice image name
+      image: nrf-client
+      # NRF Client Microservice image tag
+      imageTag: '22.1.5'
+      envJaegerSamplerParam: '1'
+      envJaegerSamplerType: ratelimiting
+      envJaegerServiceName: nrf-client-nfmanagement
+      # Resource Details
+      replicas: 1
+      cpuRequest: 1
+      cpuLimit: 1
+      memoryRequest: 1Gi
+      memoryLimit: 1Gi
+      type: ClusterIP
+      #Restart Policy for hooks
+      hookRestartPolicy: Never
+      # prefix for Metrics
+      metricPrefix: *metricPrefix
+      # suffix for Metrics
+      metricSuffix: *metricSuffix
+      #The sidecar (istio url) when deployed in serviceMesh
+      # Default value: http://127.0.0.1:15000/quitquitquit
+      istioSidecarQuitUrl: ""
+      # Default value: http://127.0.0.1:15000/ready 
+      istioSidecarReadyUrl: ""
+      # Flag to enable service Mesh
+      serviceMeshCheck: false
+      # Flag to switch between "HELM" based or "REST" based nfProfile configuration
+      nfProfileConfigMode: "REST"
+      # Flag to switch between "HELM" based or "REST" based nrfRoute configuration
+      nrfRouteConfigMode: "HELM"
+      # Flag to enable/ disable the feature
+      commonCfgClient:
+         enabled: true
+      commonCfgServer:
+        # Do not comment this line in case you want to deploy both config-server and APIGW in same namespace simultaneously
+        # Otherwise comment this line and use 'host'
+        configServerSvcName: 'common-config-server'
+        host: 'common-config-server'
+        port: '80'
+        pollingInterval: 5000
+      dbConfig:
+        dbHost: *mySqlHostRef
+        dbPort: *mySqlPortRef
+        secretName: *privDbCredSecretNameRef
+        dbName: *dbNameRef
+        # Name of the Key configured for "DB Username" in Secret with following name: "<dbConfig.secretName>"
+        dbUNameLiteral: mysql-username
+        # Name of the Key configured for "DB Password" in Secret with following name: "<dbConfig.secretName>"
+        dbPwdLiteral: mysql-password
+        
+# Details of Config-server microservice
+config-server:
+   enabled: true
+   image: oc-config-server
+   imageTag: 22.1.2
+   fullNameOverride: "config-server"
+   envJaegerServiceName: pcf-config
+   # This is the NfInstanceId of NF that will get deployed. This shall be used in the profile being registered.
+   nfInstanceId: 'site1'
+   # Mysql Config Server Databse Name 
+   envMysqlDatabase: ocpm_config_server
+   # Replicas for Config server - This is exact value without scaling
+   replicas: 1
+   nodeSelectorEnabled: false
+   nodeSelectorKey: zone
+   nodeSelectorValue: app
+   # Resource details
+   resources:
+    limits:
+      cpu: 1
+      memory: 1Gi
+    requests:
+      cpu: 0.5
+      memory: 1Gi
+   servicePcfConfig:
+       type: NodePort
+
+# Details of appinfo microservices
+appinfo:
+   enabled: true
+   image: oc-app-info
+   imageTag: 22.1.2
+   pullPolicy: IfNotPresent
+    # Replicas for Appinfo - This is exact value without scaling
+   replicas: 1
+   # Set Log Level to DEBUG. If false, Log Level shall be INFO
+   debug: true
+   serviceAccountName: ''
+   
+   commonCfgClient:
+     enabled: false
+   commonCfgServer:
+   # Do not comment this line in case you want to deploy both config-server and APIGW in same namespace simultaneously
+   # Otherwise comment this line and use 'host'
+     configServerSvcName: 'common-config-server'
+     host: 'common-config-server'
+     port: '80'
+     pollingInterval: 5000
+   dbConfig:
+     dbHost: *mySqlHostRef
+     dbPort: *mySqlPortRef
+     secretName: *dbCredSecretNameRef
+     dbName: *dbNameRef
+     # Name of the Key configured for "DB Username" in Secret with following name: "<dbConfig.secretName>"
+     dbUNameLiteral: mysql-username
+     # Name of the Key configured for "DB Password" in Secret with following name: "<dbConfig.secretName>"
+     dbPwdLiteral: mysql-password
+   # Service to be monitored by appinfo
+   core_services: []
+   # nFType in core_services must consist of nfType used in nrfclient profile.
+   #Examples-1 NRF with all services listed
+   #core_services:
+   #  nrf:
+   #  - "ocnrf-nfRegistration"
+   #  - "ocnrf-nfSubscription"
+   #Example-2 NRF without listing any services
+   #core_services:
+   #  nrf: []
+   
+   # Infrastructure services
+   # If using occne 1.4 or if you don't want to monitor infra services such as db-monitor service then the below mentioned 
+   # attribute 'infraServices' should be uncommented and empty array should be passed as already mentioned.
+   # If infraServices is not set, by default appinfo shall monitor status of db-monitor-svc and db-replication-svc.
+   #infraServices: []
+   
+

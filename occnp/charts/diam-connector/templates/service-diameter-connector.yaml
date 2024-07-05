@@ -1,0 +1,29 @@
+{{- if $.Values.global.diamConnectorEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{- include "annotations.services" . }}
+  labels:
+    {{- include "labels.services" . }}
+    io.kompose.service: {{ template "diam-connector-deployment-name" . }}
+    category: ocpm
+    {{- if not $.Values.global.serviceMeshEnabled }}
+    primary-port-name: http
+    {{- end }}
+  name: {{ template "service-name-diameter-connector" . }}
+spec:
+  ports:
+    - name: http
+      port: {{ .Values.global.servicePorts.diamConnectorHttp }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.diamConnectorHttp }}
+    - name: tcp-diameter
+      port: {{ .Values.global.servicePorts.diamConnectorDiameter }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.diamConnectorDiameter }}
+  selector:
+    io.kompose.service: {{ template "diam-connector-deployment-name" . }}
+  sessionAffinity: None
+  type: {{ .Values.service.type }}
+{{- end }}

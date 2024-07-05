@@ -1,0 +1,157 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "sample config json",
+	"description": "json validator",
+	"type": "object",
+	"properties": {
+		"logging": {
+			"type": "object",
+			"description": "An explanation about the purpose of this instance.",
+			"properties": {
+				"appLogLevel": {
+					"enum": [
+						"CRITICAL",
+						"FATAL",
+						"ERROR",
+						"WARN",
+						"WARNING",
+						"INFO",
+						"DEBUG",
+						"TRACE"
+					],
+					"type": "string",
+					"description": "An explanation about the purpose of this instance."
+				},
+				"packageLogLevel": {
+					"type": "array",
+					"minItems": 0,
+					"maxItems": 10,
+					"uniqueItems": true,
+					"items": {
+						"anyOf": [
+							{
+								"type": "object",
+								"properties": {
+									"packageName": {
+										"enum": [
+											"service_monitor",
+											"flask.app",
+											"flask",
+											"dbtest",
+											"perf_info",
+											"perfapp",
+											"data2sum",
+											"log_level_agent",
+											"overload_manager",
+											"root"
+										],
+										"type": "string",
+										"description": "An explanation about the purpose of this instance."
+									},
+									"logLevelForPackage": {
+										"enum": [
+											"CRITICAL",
+											"FATAL",
+											"ERROR",
+											"WARN",
+											"WARNING",
+											"INFO",
+											"DEBUG",
+											"TRACE"
+										],
+										"type": "string",
+										"description": "An explanation about the purpose of this instance."
+									}
+								},
+								"required": [
+									"packageName",
+									"logLevelForPackage"
+								],
+								"description": "An explanation about the purpose of this instance."
+							}
+						]
+					},
+					"description": "An explanation about the purpose of this instance."
+				}
+			},
+			"required": [
+				"appLogLevel"
+			]
+		},
+		"overloadLevelThreshold": {
+			"type": ["array","null"],
+			"description": "overload service loadlevel threshold list",
+			"default": [],
+			"uniqueItems": true,
+			"items": {
+				"anyOf": [
+					{
+						"type": "object",
+						"description": "overload service loadlevel threshod list",
+						"required": [
+							"svcName",
+							"metricsThresholdList"
+						],
+						"properties": {
+							"svcName": {
+								"type": "string"
+							},
+							"metricsThresholdList": {
+								"type": ["array","null"],
+								"uniqueItems": true,
+								"items": {
+									"anyOf": [
+										{
+											"type": "object",
+										    "description": "overload metrics loadlevel threshod list",
+											"required": [
+												"metricsName",
+												"levelThresholdList"
+											],
+											"properties": {
+												"metricsName": {
+													"type": "string"
+												},
+												"levelThresholdList":{
+													"type": ["array","null"],
+													"uniqueItems": true,
+													"items": {
+														"anyOf": [
+															{
+																"type": "object",
+																"description": "overload level loadlevel threshod list",
+																"required": [
+																	"level",
+																	"onsetValue",
+																	"abatementValue"
+																],
+																"properties": {
+																	"level": {
+																		"type": "string"
+																	},
+																	"onsetValue": {
+																		"type": "integer",
+																		"minimum": 0
+
+																	},
+																	"abatementValue":  {
+																		"type": "integer",
+																		"minimum": 0
+																	}
+																}
+															}
+														]
+													}
+												}
+											}
+										}										
+									]
+								}
+							}
+						}
+					}
+				]
+			}
+		}
+	}
+}

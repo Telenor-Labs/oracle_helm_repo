@@ -1,0 +1,83 @@
+{{- if .Values.global.commonCfgClient.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "nsconfig.fullname" . }}-cfg-hook
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "nsconfig.fullname" . }}-hooks
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: {{ template "nsconfig.fullname" . }}-hooks-container
+          image: "{{ .Values.global.dockerRegistry }}/{{ .Values.global.commonCfgHookImage.name }}:{{ .Values.global.commonCfgHookImage.tag }}"
+          imagePullPolicy: "{{ .Values.global.commonCfgHookImage.pullPolicy }}"
+          volumeMounts:
+            - name: default-configuration-files
+              mountPath: /opt/oracle/conf
+          env:
+            - name: DB_HOST
+              value: "{{ .Values.global.envMysqlHost }}"
+            - name: DB_PORT
+              value: "{{ .Values.global.envMysqlPort }}"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.privilegedDbCredSecretName }}"
+                  key: mysql-username
+            - name: DB_PASSWD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.privilegedDbCredSecretName }}"
+                  key: mysql-password
+            - name: DATABASE_NAME
+              value: "{{ .Values.global.provisionDbName }}"
+            - name: BACKUP_DATABASE_NAME
+            {{- if .Values.global.backupDbName }}
+              value: "{{ .Values.global.backupDbName }}"
+            {{- else }}
+              value: "{{ .Values.global.provisionDbName }}"
+            {{- end }}
+            - name: DB_ENGINE
+            {{- if .Values.global.dbEngine }}
+              value: {{ .Values.global.dbEngine }}
+            {{- else }}
+              value: NDBCLUSTER
+            {{- end }}
+            - name: CONFIGURATION_FILE
+              value: "/opt/oracle/conf/defaultconfig.yaml"
+            - name: SCHEMA_FILE
+              value: "/opt/oracle/conf/defaultschema.json"
+            - name: RELEASE_VERSION
+              value: {{ .Chart.Version | quote }}
+            - name: MICROSERVICE_NAME
+              value: {{ .Values.commonServiceName }}
+              #value: {{ template "nsconfig.fullname" . }}
+            - name: HOOK_TYPE
+              value: pre-install
+            - name: SERVICE_MESH_CHECK
+              value: {{ .Values.global.serviceMeshCheck | quote }}
+            - name: ISTIO_SIDECAR_QUIT_URL
+              value: {{ .Values.global.istioSidecarQuitUrl }}
+            - name: ISTIO_SIDECAR_READY_URL
+              value: {{ .Values.global.istioSidecarReadyUrl }}
+      volumes:
+        - name: default-configuration-files
+          configMap:
+            name: {{ template "nsconfig.fullname" . }}-hooks-configmap
+  {{- end }}

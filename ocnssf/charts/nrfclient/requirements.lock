@@ -1,0 +1,15 @@
+dependencies:
+- name: appinfo
+  repository: http://ocnrf-registry.us.oracle.com:8081
+  version: 22.1.2
+- name: perf-info
+  repository: http://ocnrf-registry.us.oracle.com:8081
+  version: 22.1.2
+- name: config-server
+  repository: http://ocnrf-registry.us.oracle.com:8081
+  version: 22.1.2
+- name: nrf-client
+  repository: http://ocnrf-registry.us.oracle.com:8081
+  version: 22.1.5
+digest: sha256:a7718aa6120438c3a51f4fbafc289de0efe26a9b5b6482c9d811ea1fbd6458c0
+generated: "2022-04-25T17:31:01.559480934Z"

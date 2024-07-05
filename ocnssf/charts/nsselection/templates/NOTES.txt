@@ -1,0 +1,10 @@
+# Copyright 2019 (C), Oracle and/or its affiliates. All rights reserved.
+
+Thank you for installing {{ .Chart.Name }}.
+
+Your release is named {{ .Release.Name }} , Release Revision: {{ .Release.Revision}}.
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }}
+  $ helm get {{ .Release.Name }}
+

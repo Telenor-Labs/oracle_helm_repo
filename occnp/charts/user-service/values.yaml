@@ -1,0 +1,184 @@
+global:
+  imagePullPolicy: IfNotPresent
+  # Docker registry name
+  dockerRegistry: docker-registry.openstack.in.oracle.com:5000
+  serviceMeshEnabled: 'false'
+  istioSidecarReadyUrl: http://127.0.0.1:15020/healthz/ready
+  enableDefaultHttpHeadersContentTypeJson: false
+  logStorage: 0 #default calculated value 70
+  crictlStorage: 0 #default calculated value 1
+  envJaegerAgentHost: ''
+  envJaegerAgentPort: 6831
+  envMysqlHost: ''
+  envMysqlPort: ''
+  shutdownGracePeriod:
+    app: 30s
+  servicePorts:
+      udrConnectorHttp: 5808
+      udrConnectorHttps: 8443
+      chfConnectorHttp: 5808
+      chfConnectorHttps: 8443
+
+      preServiceHttp: 5806
+      configServerHttp: 5807
+      pcfSmServiceHttp: 5809
+      pcfAmServiceHttp: 5904
+      pcfUeServiceHttp: 5809
+      nrfClientNfDiscoveryHttp: 5910
+      egressGatewayHttp: 8080
+      policydsHttp: 8080
+      cmServiceHttp: 8000
+  containerPorts:
+      javaDebugger: 5801
+      monitoringHttp: 9000
+      udrConnectorHttp: 8080
+      udrConnectorHttps: 8443
+      chfConnectorHttp: 8080
+      chfConnectorHttps: 8443
+  udrConnectorEnable: true
+  chfConnectorEnable: true
+  performCombineSubscription: true
+  k8sResource:
+    container:
+      prefix:
+      suffix:
+
+  customExtension:
+    allResources:
+      labels: {}
+      annotations: {}
+    lbServices:
+      labels: {}
+      annotations: {}
+    lbDeployments:
+      labels: {}
+      annotations: {}
+    nonlbServices:
+      labels: {}
+      annotations: {}
+    nonlbDeployments:
+      labels: {}
+      annotations: {}
+  configFetch:
+    maxRetries: 2
+    retryInterval: 1000
+  cncMetricsName: cnc-metrics
+  exposeObservabilityAtService: false
+
+image: occnp/oc-pcf-user
+imageTag: 22.1.0
+envCfgAppId: '18282'
+envCfgAppName: userservice
+envCfgTopics: system
+envHttp2Enabled: 'true'
+envJaegerSamplerParam: '5'
+envJaegerSamplerType: ratelimiting
+envLoggingLevelApp: WARN
+envOathAccessTokenNfType: 'true'
+envHttpClientConnectionIdleTimeout: 600000
+nodeSelectorEnabled: false
+nodeSelectorKey: zone
+nodeSelectorValue: app
+appName: ocpm
+useLbLabelsAndAnnotations: false
+altServiceHTTP2Enabled: true
+altServiceReqTimeout: 3000
+altServiceLookupInterval: 3000
+altServiceCachingEnabled: true
+maxHttp2ClientConnPerDestination: 6
+httpServerConnectionIdleTimeout: 660000
+
+timers:
+  configConnectionTimeout: 5000
+  configReadTimeout: 1000
+
+udrConnectorResources:
+  limits:
+    ephemeralStorage: 1Gi
+    cpu: 200m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 1Gi
+
+chfConnectorResources:
+  limits:
+    ephemeralStorage: 1Gi
+    cpu: 200m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 1Gi
+
+readinessProbe:
+  initialDelaySeconds: 20
+  timeoutSeconds: 3
+  periodSeconds: 10
+  successThreshold: 1
+  failureThreshold: 3
+
+livenessProbe:
+  initialDelaySeconds: 60
+  timeoutSeconds: 3
+  periodSeconds: 15
+  successThreshold: 1
+  failureThreshold: 3
+
+minReplicas: 2
+maxReplicas: 8
+
+udrConnectorMinReplicas: 2
+udrConnectorMaxReplicas: 8
+
+chfConnectorMinReplicas: 2
+chfConnectorMaxReplicas: 8
+
+averageCpuUtil: 60
+
+service:
+  type: ClusterIP
+  port: 0
+  customExtension:
+    labels: {}
+    annotations: {}
+deployment:
+  customExtension:
+    labels: {}
+    annotations: {}
+
+fullnameOverride: oc-pcf-user
+udrConnectorFullnameOverride: oc-udr-connector
+chfConnectorFullnameOverride: oc-chf-connector
+
+dependenciesLogging:
+  - name: logging.level.org.springframework
+    value: WARN
+  - name: logging.level.org.hibernate
+    value: WARN
+  - name: logging.level.io.undertow
+    value: WARN
+  - name: logging.level.io.jaegertracing
+    value: WARN
+
+logging:
+  burst:
+    rate: 750
+    max: 3000
+  consoleFormat: jsonConsole
+  locationInfo: false
+
+extraContainers: USE_GLOBAL_VALUE
+
+probes:
+  liveness:
+    monitorInterval: 5
+    features:
+      deadlockDetection: true
+
+cmagent:
+  connectTimeout: 1000
+  readTimeout: 1000
+  maxRetries: 2
+  retryInterval: 1000
+  pollingInterval: 5000
+  nfProfileUri: /pcf/nf-common-component/v1/nrf-client-nfmanagement/nfProfileList

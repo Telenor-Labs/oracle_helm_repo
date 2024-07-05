@@ -1,0 +1,15 @@
+{{- if .Values.global.commonCfgClient.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "nsavailability.fullname" . }}-hooks-configmap
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade,pre-rollback,pre-delete,post-upgrade,post-rollback
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+data:
+  defaultconfig.yaml: |-
+    {{ include "defaultconfig-nsavailability.labels" . | quote }}
+  defaultschema.json: |-
+{{ .Files.Get "defaultconfigschema.json" | indent 4}}
+{{- end }}

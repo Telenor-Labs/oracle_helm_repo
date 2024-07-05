@@ -1,0 +1,21 @@
+{{- if .Values.global.bulwarkServiceEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "service-name-bulwark-service-coherence-headless" . }}
+  annotations:
+    {{- include "annotations.services" . }}
+  labels:
+    {{- include "labels.services" . }}
+    io.kompose.service: {{ template "bulwark-service-coherence-headless-service-label" . }}
+    category: occnp
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    io.kompose.service: {{ template "bulwarkservice-deployment-name" . }}
+  ports:
+    - name: tcp-distcache
+      port: {{ .Values.global.servicePorts.bulwarkServiceDistCache }}
+{{- end }}

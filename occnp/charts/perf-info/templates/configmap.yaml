@@ -1,0 +1,28 @@
+{{- if $.Values.global.performanceServiceEnable }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: perfinfo-config-{{ .Release.Name }}
+data:
+  dbparam: |
+    [k8s]
+    namespace={{ .Release.Namespace }}
+    prometheus={{ .Values.configmapPerformance.prometheus }}
+    prometheus_irate_range=2m
+
+    [jaeger]
+    jaeger_query_url={{ .Values.global.envJaegerQueryUrl }}
+
+    [leader_election]
+    mysql_host={{ .Values.dbConfig.dbHost }}
+    mysql_port={{ .Values.dbConfig.dbPort }}
+    mysql_engine={{ .Values.dbConfig.dbEngine }}
+    mysql_secret={{ .Values.dbConfig.secretName }}
+    mysql_username_key={{ .Values.dbConfig.dbUNameLiteral }}
+    mysql_password_key={{ .Values.dbConfig.dbPwdLiteral }}
+    mysql_database={{ .Values.envMysqlDatabase }}
+    mysql_table={{ .Values.envLeaderElectionTableName }}
+    heartbeat_interval={{ .Values.leaderElectionHeartbeatInterval | default 2 }}
+    heartbeat_timeout={{ .Values.leaderElectionHeartbeatTimeout | default 8 }}
+
+{{- end }}

@@ -1,0 +1,233 @@
+global:
+  servicePorts:
+      appInfoHttp: 5906
+  containerPorts:
+      monitoringHttp: 9000
+      appInfoHttp: 5906
+  cncMetricsName: cnc-metrics
+  exposeObservabilityAtService: false
+
+  # Docker Registry's Host or IP from where container images will be pulled.
+  dockerRegistry: ocpm
+  appinfoServiceEnable: true
+
+  serviceAccountName: ''
+  logStorage: 0 #default calculated value 70
+  crictlStorage: 0 #default calculated value 1
+  #Resource Values for Hook Jobs
+  hookJobResources:
+     limits:
+       cpu: 2
+       memory: 2Gi
+     requests:
+       cpu: 1
+       memory: 1Gi
+
+  # ********  Sub-Section Start: Custom Extension Global Parameters ********
+  #**************************************************************************
+
+  customExtension:
+    allResources:
+      labels: {}
+      annotations: {}
+
+    lbServices:
+      labels: {}
+      annotations: {}
+
+    lbDeployments:
+      labels: {}
+      annotations: {}
+
+    nonlbServices:
+      labels: {}
+      annotations: {}
+
+    nonlbDeployments:
+      labels: {}
+      annotations: {}
+
+  # ********  Sub-Section End: Custiom Extensions Global Parameters ********
+  #**************************************************************************
+
+
+  # ********  Sub-Section Start: Prefix/Suffix Global Parameters ************
+  #**************************************************************************
+
+  k8sResource:
+    container:
+      prefix:
+      suffix:
+
+  # ********  Sub-Section End: Prefix/Suffix Global Parameters *************
+  #**************************************************************************
+  
+  # ******** Debug tools ********
+  #**************************************************************************
+
+  debugTools:
+    image: "occnp/ocdebug-tools"
+    imageTag: "22.1.0"
+
+  # Allowed Values: DISABLED, ENABLED
+  extraContainers: DISABLED
+  extraContainersTpl: |
+    - command:
+        - /bin/sleep
+        - infinity
+      image: {{ .Values.global.dockerRegistry }}/{{ .Values.global.debugTools.image }}:{{ .Values.global.debugTools.imageTag }}
+      imagePullPolicy: IfNotPresent
+      name: {{ printf "%s-tools-%s" (include "getprefix" .) (include "getsuffix" .) | trunc 63 | trimPrefix "-" | trimSuffix "-"  }}
+      resources:
+        requests:
+          ephemeral-storage: "2Gi"
+          cpu: "0.5"
+          memory: "1Gi"
+        limits:
+          ephemeral-storage: "4Gi"
+          cpu: "1"
+          memory: "2Gi"
+      securityContext:
+        allowPrivilegeEscalation: true
+        capabilities:
+          drop:
+          - ALL
+          add:
+          - NET_RAW
+          - NET_ADMIN
+        readOnlyRootFilesystem: false
+        runAsUser: 7000
+
+  nodeSelector: {}
+  tolerations: []
+
+image: occnp/oc-app-info
+imageTag: 22.1.0
+pullPolicy: IfNotPresent
+replicas: 1
+#loadShaddingEnabled: false
+#prometheusURL: prometheus.istio-system.svc.cluster.local:9090
+#topic: NRF.UDR
+#nrfURL: ''
+debug: false
+watchMySQL: false
+replicationStatusCheck: false
+scrapeInterval: 5
+dbStatusUri: http://occne-db-monitor-svc.occne-infra:8080/db-tier/status/local
+realtimeDbStatusUri: http://occne-db-monitor-svc.occne-infra:8080/db-tier/status/cluster/local/realtime
+infraServices: []
+
+##core_service can be defined null. And the definition of "null" is just as bellow:
+#core_service: {}
+##  
+core_services: {}
+
+serviceMeshCheck: false
+istioSidecarQuitUrl: "http://127.0.0.1:15000/quitquitquit"
+istioSidecarReadyUrl: "http://127.0.0.1:15000/ready"
+
+resources:
+  limits: 
+    cpu: 200m
+    memory: 1Gi
+    ephemeralStorage: 1Gi
+  requests:
+    cpu: 200m
+    memory: 1Gi
+
+readinessProbe:
+  initialDelaySeconds: 10
+  timeoutSeconds: 3
+  periodSeconds: 10
+  successThreshold: 1
+  failureThreshold: 10
+
+livenessProbe:
+  initialDelaySeconds: 20
+  timeoutSeconds: 3
+  periodSeconds: 15
+  successThreshold: 1
+  failureThreshold: 10
+
+service:
+  type: ClusterIP
+  port: 0
+
+  customExtension:
+    labels: {}
+    annotations: {}
+
+deployment:
+  customExtension:
+    labels: {}
+    annotations: {}
+
+fullnameOverride: ocpm-app-info
+
+app:
+  namespace: ''
+  namePrefix: ''
+
+extraContainers: USE_GLOBAL_VALUE
+gunicornTimeout: 90
+
+# Config client configuration
+commonCfgClient:
+  enabled: true
+commonCfgServer:
+  # If below parameter is present then it will be used for integrating with config-server.
+  # This parameter will be appended with the current release name when deployed with alternate-route
+  # In case host name is expected, then leave this parameter blank
+  configServerSvcName: occnp-config-mgmt
+  host: 10.113.78.180
+  port: 8000
+  pollingInterval: 5000 #(in ms)
+  connectionTimeout: 10000 #(in ms)
+commonServiceName: app-info
+
+dbHookImage:
+  name: common_config_hook
+  tag: 22.1.2
+  pullPolicy: IfNotPresent
+
+# Db Hook Configuration
+dbConfig:
+  dbHost: data-mysql.default
+  dbPort: 3306
+  configFile: defaultconfig.yaml
+  schemaFile: defaultschema.json
+  secretName: dbhook-secret
+  dbName: commonconfig
+  # Name of the Key configured for "DB Username" in Secret with following name: "<dbConfig.secretName>"
+  dbUNameLiteral: dbUsername
+  # Name of the Key configured for "DB Password" in Secret with following name: "<dbConfig.secretName>"
+  dbPwdLiteral: dbPassword
+  #Db hook Configuration
+  dbEngine: InnoDB
+
+
+log:
+  level:
+    appinfo: INFO
+  
+gracefulShutdown:
+  # Grace period to wait for active requests to be handled
+  # If there are no active requests then this time period is neglected
+  # If there are pending requests even after this period, then application will be forcefully shutdown 
+  gracePeriod: 1m
+
+
+#The sidecar (istio url) when deployed in serviceMesh
+# Default value: http://127.0.0.1:15020/quitquitquit
+istioSidecarQuitUrl: ""
+# Default value: http://127.0.0.1:15020/ready
+istioSidecarReadyUrl: ""
+#Enabled when deployed in serviceMesh
+serviceMeshCheck: false
+
+# nodeSelector can be defined as:
+# nodeSelector:
+#   key: value
+helmBasedConfigurationNodeSelectorApiVersion: "v2"
+nodeSelector: {}
+tolerations: []

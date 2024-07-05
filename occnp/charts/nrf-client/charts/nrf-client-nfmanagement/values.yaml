@@ -1,0 +1,182 @@
+global:
+  nrfClientNfManagementEnable: true
+  app_name: nrfclient
+  alternateRouteServiceEnable: false
+  #Alternate Route Conf
+  altServiceHTTP2Enabled: true
+  altServiceReqTimeout: 3000
+  altServiceLookupInterval: 3000
+  envJaegerAgentHost: ''
+  envJaegerAgentPort: 6831
+  nrfClientNodePort: 0
+  #dockerRegistry: cgbudocker.us.oracle.com:5655
+  #dockerRegistry: reg-1:5000
+  dockerRegistry: ocnrf-registry.us.oracle.com:5000
+  deploymentNrfClientService:
+    envNfNamespace: 'nrf'
+    envNfType: 'nrf'
+    envConsumeSvcName: 'appinfo'
+    envEgressGatewayFullnameOverride: egressgateway
+    envEgressGatewayPort: "8080"
+    nfApiRoot: http://ocnrf-ingressgateway.ocnrf:80
+    nodeSelectorEnabled: false
+    nodeSelectorKey: zone
+    nodeSelectorValue: app
+  #ephemeralStorage value in MB.  Value 0 means ephemeral-storage will not be set during deployment
+  logStorage: 0 #default calculated value 70
+  crictlStorage: 0 #default calculated value 1
+  ephemeralStorageLimit: 0 #default calculated value 1024
+
+  #Upgrade strategy, maxUnavailable pods declared for upgrade process
+  #The only supported upgrade strategy is RollingUpdate
+  upgradeStrategy: "RollingUpdate"
+  #maxUnavailable: "25%" # Not Used as it is single Pod Service
+
+  vendor: "Oracle"
+  applicationName: "nrf-client"
+  nrfClientCommonServicePort: '9090'
+  prometheusScrapingConfig:
+    enabled: true
+    path: "/actuator/prometheus"
+    
+  k8sResource:
+    container:
+      prefix:
+      suffix:
+  customExtension:
+    factoryLabelTemplates: {}
+    factoryAnnotationTemplates: {}
+    allResources:
+      labels: {}
+      annotations: {}
+
+    lbServices:
+      labels: {}
+      annotations: {}
+
+    lbDeployments:
+      labels: {}
+      annotations: {}
+
+    nonlbServices:
+      labels: {}
+      annotations: {}
+
+    nonlbDeployments:
+      labels: {}
+      annotations: {}
+#deploymentNrfClientService:
+image: nrf-client
+imageTag: 22.1.2
+replicas: 1
+envJaegerSamplerParam: '1'
+envJaegerSamplerType: ratelimiting
+envJaegerServiceName: nrf-client-nfmanagement
+#  envNfNamespace: 'nrf'
+#  envNfType: 'nrf'
+#  envConsumeSvcName: 'appinfo'
+#  nodeSelectorEnabled: false
+#  nodeSelectorKey: zone
+#  nodeSelectorValue: app
+helmBasedConfigurationNodeSelectorApiVersion: "v1"
+tolerations: []
+cpuRequest: 1
+cpuLimit: 1
+memoryRequest: 1Gi
+memoryLimit: 1Gi
+#  envEgressGatewayFullnameOverride: egressgateway
+#  envEgressGatewayPort: "8080"
+#  enableSubscriptionAutoRenewal: true
+#  nfApiRoot: http://ocnrf-ingressgateway.ocnrf:80
+#serviceNrfClientService:
+type: NodePort
+isDiscovery: false
+threadPoolSize: 10
+
+# configurable port numbers
+envPlatformServicePort: 5906
+envPerformanceServicePort: 5905
+envCfgServerPort: 5807
+containerHttpPort: 8080
+containerHttpsPort: 9443
+serviceHttpPort: 5910
+serviceHttpsPort: 5805
+envCacheServicePort: 5907
+cacheServicePortStart: 8095
+cacheServicePortEnd: 8096
+
+useLbLabelsAndAnnotations: false
+nfProfileConfigMode: "REST"
+nrfRouteConfigMode: "HELM"
+
+service:
+  customExtension:
+    labels: {}
+    annotations: {}
+
+deployment:
+  customExtension:
+    labels: {}
+    annotations: {}
+commonCfgClient:
+  enabled: false
+
+commonCfgServer:
+  configServerSvcName: common-config-server
+  host: 10.75.224.123
+  port: 30081
+  scheme: http
+  pollingInterval: 5000 #(in ms)
+
+connectionTimeout: 10000 #(in ms)
+
+commonServiceName: nrf-client-nfmanagement
+restoreBackupOnInstall: false
+dbHookImage:
+  name: common_config_hook
+  tag: 22.1.2
+  pullPolicy: IfNotPresent
+
+dbConfig:
+   dbHost: 'ocnrf-mysql.ocnrf'
+   dbPort: '3306'
+   #dbEngine: InnoDB
+   configFile: defaultNrfClientConfig.yaml
+   schemaFile: defaultNrfClientSchema.json
+   secretName: 'occnp-db-pass'
+   dbName: 'ocpm_config_server'
+  # Name of the Key configured for "DB Username" in Secret with following name: "<dbConfig.secretName>"
+   dbUNameLiteral: mysql-username
+  # Name of the Key configured for "DB Password" in Secret with following name: "<dbConfig.secretName>"
+   dbPwdLiteral: mysql-password
+
+logging:
+  level:
+    root: WARN
+    nrfclient: WARN
+
+generalOptions:
+#Default NFProfile Update mode
+  nfProfileUpdateMode: CompleteUpdate
+#Default NFRegistration
+  triggerNfRegistration: true
+
+#Restart Policy for hooks
+hookRestartPolicy: Never
+# prefix for Metrics
+metricPrefix: ""
+# suffix for Metrics
+metricSuffix: ""
+#The sidecar (istio url) when deployed in serviceMesh
+# Default value: http://127.0.0.1:15000/quitquitquit
+istioSidecarQuitUrl: ""
+# Default value: http://127.0.0.1:15000/ready
+istioSidecarReadyUrl: ""
+serviceMeshCheck: false
+# Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+imagePullPolicy: IfNotPresent
+
+#custom validator configuration. These configurations are needed for hooks to populate values in db
+componentValidator: "com.oracle.common.nrf.NrfClientCustomValidator"
+#Will be comma separated values. for eg: "com.oracle.common.oauth.OauthCustomValidator,com.oracle.common.nrf.NrfClientCustomValidator"
+dependentValidators: ""

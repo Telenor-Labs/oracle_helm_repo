@@ -1,0 +1,96 @@
+{{- if $.Values.global.alternateRouteServiceEnable }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+   name: {{ template "configmap.fullname" .}}
+   labels:
+     {{- include "labels.allResources" . }}
+   annotations:
+     {{- include "annotations.allResources" . }}
+data:
+  application.yaml: |-
+    server:
+      port: {{ .Values.ports.containerPort }}
+      http2:
+        enabled: true 
+      shutdown: graceful
+    spring:
+      lifecycle:
+        timeout-per-shutdown-phase: {{ .Values.gracefulShutdown.gracePeriod | quote }}
+     
+    # flag to indicate config is been read in k8s environment
+    configMapReadIndicator: true
+     
+    virtual-fqdn-static-conf:
+      virtualFqdns:
+      {{- range .Values.staticVirtualFqdns }}
+        - name: {{ .name }}
+          alternateFqdns:
+          {{- range .alternateFqdns }}
+            - target: {{ .target }}
+              port: "{{ .port }}"
+              priority: "{{ .priority }}"
+          {{- end}}
+      {{- end}}
+
+    dnsSrvEnabled: {{ .Values.dnsSrvEnabled }}
+    metricPrefix: ${METRIC_PREFIX:myprefix}
+    metricSuffix: ${METRIC_SUFFIX:mysuffix}
+    
+    dnsSrvFqdnSetting:
+      enabled: {{ .Values.dnsSrvFqdnSetting.enabled }}
+      pattern: {{ .Values.dnsSrvFqdnSetting.pattern | quote }}
+      
+    async-task-executor:
+      corePoolSize: {{ .Values.asyncTaskExecutor.corePoolSize }}
+      maxPoolSize: {{ .Values.asyncTaskExecutor.maxPoolSize }}
+      queueCapacity: {{ .Values.asyncTaskExecutor.queueCapacity }}
+      
+    refresh-task-executor:
+      corePoolSize: {{ .Values.refreshTaskExecutor.corePoolSize }}
+      maxPoolSize: {{ .Values.refreshTaskExecutor.maxPoolSize }}
+      queueCapacity: {{ .Values.refreshTaskExecutor.queueCapacity }}
+      
+    cleanup-task-executor:
+      corePoolSize: {{ .Values.cleanupTaskExecutor.corePoolSize }}
+      maxPoolSize: {{ .Values.cleanupTaskExecutor.maxPoolSize }}
+      queueCapacity: {{ .Values.cleanupTaskExecutor.queueCapacity }}
+      
+    refresh-scheduler:
+      enabled: {{ .Values.refreshScheduler.enabled }}
+      interval: {{ mul .Values.refreshScheduler.interval 60000 }}  #in minutes
+      auditorShuffle: {{ .Values.refreshScheduler.auditorShuffle }}
+      throttling:
+        burstLimit: {{ .Values.refreshScheduler.throttling.burstLimit }}  #This is the limit for the number of DNS-SRV queries which can be sent at one go.
+        burstInterval: {{ mul .Values.refreshScheduler.throttling.burstInterval 1000 }}  #in seconds
+        threadPoolSize: {{ .Values.refreshScheduler.throttling.threadPoolSize }}
+        
+    cleanup-scheduler:
+      enabled: {{ .Values.cleanupScheduler.enabled }}
+      interval: {{ mul .Values.cleanupScheduler.interval 60000 }}  #in minutes and will used for triggering cleanup-scheduler as per time interval configured
+      lastUsedInterval: {{ mul .Values.cleanupScheduler.lastUsedInterval 60000 }}   #in minutes and will used for selection of records for cleanup
+    
+    upstream-dns-config-mode: {{ .Values.upstreamDNSConfigMode }}
+    
+    upstream-dns-config:
+      enabled: {{ .Values.upstreamDnsConfig.enabled }}
+      watchSecretTimeout: {{ .Values.upstreamDnsConfig.watchSecretTimeout }}
+      fixedTsigKeyMonitorDelay: {{ .Values.upstreamDnsConfig.fixedTsigKeyMonitorDelay }}
+      tsigKeyNamespace: {{ .Values.upstreamDnsConfig.tsigKeyNamespace }}
+      tsigKeySecretName: {{ .Values.upstreamDnsConfig.tsigKeySecretName }}
+      upstreamDNSTimeout: {{ .Values.upstreamDnsConfig.upstreamDNSTimeout }}
+      host: {{ .Values.upstreamDnsConfig.host }}
+      port: {{ .Values.upstreamDnsConfig.port }}
+      zone: {{ .Values.upstreamDnsConfig.zone }}
+    
+    {{- if  .Values.jaegerTracingEnabled }} 
+    opentracing :
+      jaeger:
+        enabled: {{ .Values.jaegerTracingEnabled }}
+        udp-sender: 
+          host: {{ .Values.openTracing.jaeger.udpSender.host | quote}}
+          port:  {{ .Values.openTracing.jaeger.udpSender.port }}
+        probabilistic-sampler: 
+          sampling-rate: {{ .Values.openTracing.jaeger.probabilisticSampler }} 
+    {{- end }}  
+{{- end }}

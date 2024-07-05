@@ -1,0 +1,4 @@
+apiVersion: v1
+description: Helm chart for occnp components
+name: occnp
+version: 22.1.0

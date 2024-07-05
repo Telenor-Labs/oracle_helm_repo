@@ -1,0 +1,25 @@
+{{- if .Values.global.diamGatewayEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{ include "diam-gateway-annotations.nonlbService" . }}
+  labels:
+    {{ include "diam-gateway-labels.nonlbService" . }}
+    io.kompose.service: {{ template "diam-gateway-headless-service-label" . }}
+    category: occnp
+  name: {{ template "service-name-oc-diam-gateway-headless" . }}
+spec:
+  ports:
+    - name: tcp-diameter
+      port: {{ .Values.global.servicePorts.diamGatewayDiameter }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.diamGatewayDiameter }}
+    - name: http-signaling
+      port: {{ .Values.global.servicePorts.diamGatewayHttp }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.diamGatewayHttp }}
+  selector:
+    io.kompose.service: {{ template "diam-gateway-deployment-name" . }}
+  clusterIP: None
+{{- end }}

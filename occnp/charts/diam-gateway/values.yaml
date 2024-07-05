@@ -1,0 +1,174 @@
+global:
+  # Docker registry name
+  imagePullPolicy: IfNotPresent
+  dockerRegistry: docker-registry.openstack.in.oracle.com:5000
+  serviceMeshEnabled: 'false'
+  istioSidecarQuitUrl: http://127.0.0.1:15020/quitquitquit
+  istioSidecarReadyUrl: http://127.0.0.1:15020/healthz/ready
+  envJaegerAgentHost: ''
+  envJaegerAgentPort: 6831
+  isPCRF: true
+  envMysqlHost: ''
+  envMysqlPort: ''
+  nfInstanceId: "NA"
+  servicePorts:
+      diamGatewayHttp: 8000
+      diamGatewayDiameter: 3868
+      configServerHttp: 5807
+      bindingHttp: 8080
+      diamGatewayDistCache: 5801
+      dbConnStatusHttp: 8000
+  containerPorts:
+      monitoringHttp: 9000
+      diamGatewayHttp: 8000
+      diamGatewayDiameter: 3868
+      diamGatewayDistCache: 5801
+      configContainerSignalingHttp: 8100
+      configContainerMonitoringHttp: 8101
+  cncMetricsName: cnc-metrics
+  exposeObservabilityAtService: false
+
+  istioIngressTlsSupport:
+      diamGateway: false
+
+  k8sResource:
+    container:
+      prefix:
+      suffix:
+  metricPrefix:
+  metricSuffix:
+  customExtension:
+    allResources:
+      labels: {}
+      annotations: {}
+    lbServices:
+      labels: {}
+      annotations: {}
+    lbDeployments:
+      labels: {}
+      annotations: {}
+    nonlbServices:
+      labels: {}
+      annotations: {}
+    nonlbDeployments:
+      labels: {}
+      annotations: {}
+  logStorage: 0 #default calculated value 70
+  crictlStorage: 0 #default calculated value 1
+  subsActMappingTableEntrySize: 20
+
+image: occnp/oc-diam-gateway
+imageTag: 22.1.0
+configserverContainerImage: occnp/oc-config-server
+configserverContainerImageTag: 22.1.0
+replicas: 1
+envGatewayMode: ''
+envGatewayDeploymentType: 'CONVERGED'
+envDiameterYaml: /etc/ocpm/config/diameter.yaml
+envDeployPcrfCore: 'pcrf-core'
+envLoggingLevelApp: INFO
+envDiameterPort: 3868
+envDiameterRealm: ''
+envDiameterIdentity: ''
+envDiameterIOThreadCount: 0
+envDiameterIOQueueSize: 0
+envDiameterMsgBufferThreadCount: 0
+envDiameterMsgBufferQueueSize: 0
+envDiameterValidationStrictParsing: false
+envDiameterHostIp: ''
+envHttp2Enabled: true
+appName: ocpm
+hookRestartPolicy: OnFailure
+nodeSelectorEnabled: false
+nodeSelectorKey: zone
+nodeSelectorValue: app
+envBindingServiceHttp2Enabled: false
+envBindingServiceReqTimeoutInMs: 7000
+envBsfManagementServiceHttp2Enabled: false
+envBsfManagementServiceReqTimeoutInMs: 3000
+useLbLabelsAndAnnotations: true
+envDbConnStatusHttpEnabled: false
+envSupportedIpAddressType: 'IPv4'
+envEnableTopologyHiding: false
+envAppsToHide: 'Gx,Rx,Sy,Sh'
+envJaegerSamplerParam: '1'
+envJaegerSamplerType: ratelimiting
+envMysqlDatabaseConfigServer: 'occnp_config_server'
+envDefaultMessagePriority: 10
+envEnableDefaultDrmpPriority: false
+
+resources:
+  limits:
+    ephemeralStorage: 1Gi
+    cpu: 200m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 1Gi
+
+readinessProbe:
+  initialDelaySeconds: 20
+  timeoutSeconds: 3
+  periodSeconds: 10
+  successThreshold: 1
+  failureThreshold: 3
+
+livenessProbe:
+  initialDelaySeconds: 60
+  timeoutSeconds: 3
+  periodSeconds: 15
+  successThreshold: 1
+  failureThreshold: 10
+
+nonlbService:
+  customExtension:
+    labels: {}
+    annotations: {}
+lbService:
+  customExtension:
+    labels: {}
+    annotations: {}
+
+service:
+  type: LoadBalancer
+  port: 0
+  customExtension:
+    labels: {}
+    annotations: {}
+deployment:
+  customExtension:
+    labels: {}
+    annotations: {}
+    
+fullnameOverride: oc-diam-gateway
+
+dependenciesLogging:
+  - name: logging.level.org.springframework
+    value: WARN
+  - name: logging.level.org.hibernate
+    value: WARN
+  - name: logging.level.io.undertow
+    value: WARN
+  - name: logging.level.io.jaegertracing
+    value: ERROR
+  - name: logging.level.com.zaxxer.hikari
+    value: WARN
+  - name: logging.level.com.hazelcast
+    value: WARN
+logging:
+  burst:
+    rate: 750
+    max: 3000
+  consoleFormat: jsonConsole
+  locationInfo: false
+
+extraContainers: USE_GLOBAL_VALUE
+
+persistence:
+  lock:
+    retryLimit: 3
+    retryInterval: 1000
+
+#Db hook Configuration
+dbConfig:
+  dbEngine: InnoDB

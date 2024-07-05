@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "service.egw.CoherenceSvcFullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.nonlbCacheServices" . }}
+    app.kubernetes.io/component: egress-front-end
+  annotations:
+    {{- include "annotations.nonlbCacheServices" . }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: {{ template "chart.fullname" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  publishNotReadyAddresses: true
+  ports:
+  - name: notused
+    port: {{ .Values.coherence.port }}

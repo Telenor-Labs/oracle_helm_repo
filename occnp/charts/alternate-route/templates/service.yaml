@@ -1,0 +1,24 @@
+{{- if $.Values.global.alternateRouteServiceEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "service.fullname" . }}
+  labels:
+    {{- include "labels.nonlbServices" . }}
+    {{- if not $.Values.global.serviceMeshEnabled }}
+    primary-port-name: http2-text
+    {{- end }}
+  annotations:
+    {{- include "annotations.nonlbServices" . }}
+    oracle.com/cnc: "true"
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.ports.servicePort }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: {{ template "alternate-route.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

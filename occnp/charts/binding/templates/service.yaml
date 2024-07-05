@@ -1,0 +1,38 @@
+{{- if $.Values.global.bindingSvcEnabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{- include "annotations.services" . }}
+  labels:
+    {{- include "labels.services" . }}
+    io.kompose.service: {{ template "binding-deployment-name" . }}
+    category: common
+    {{- if not $.Values.global.serviceMeshEnabled }}
+    primary-port-name: http2-text
+    {{- end }}
+  name: {{ template "service-name-binding" . }}
+spec:
+  {{- if or (eq .Values.service.type "NodePort") (eq .Values.service.type "LoadBalancer") }}
+  externalTrafficPolicy: Cluster
+  {{- end }}
+  ports:
+    - name: http2-text
+      port: {{ .Values.global.servicePorts.bindingHttp }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.bindingHttp }}
+    - name: https
+      port: {{ .Values.global.servicePorts.bindingHttps }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.bindingHttps }}
+    {{- if .Values.global.exposeObservabilityAtService }}
+    - name: {{ .Values.global.cncMetricsName  }}
+      port: {{ .Values.global.containerPorts.monitoringHttp }}
+      protocol: TCP
+    {{- end }}
+
+  selector:
+    io.kompose.service: {{ template "binding-deployment-name" . }}
+  sessionAffinity: None
+  type: {{ .Values.service.type }}
+  {{- end }}

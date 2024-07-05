@@ -1,0 +1,318 @@
+# Default values for alternate-route.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+
+global:
+  alternateRouteServiceEnable: true
+  appinfoServiceEnable: true
+  serviceAccountName: ''
+  #dockerRegistry: ocnrf-registry.us.oracle.com:5000
+  dockerRegistry: 10.75.226.79:5000
+  vendor: "Oracle"
+  #ephemeral-storage (Values specified are in MB)
+  logStorage: 0
+  crictlStorage: 0
+  ephemeralStorageLimit: 0
+  app_name: "alternate-route"
+  # If metricPrefix is configured then it will be added as a prefix to all the metrics in alternate route service. Default value is empty string.
+  metricPrefix: ""
+  # If metricSuffix is configured then it will be added as a suffix to all the metrics in alternate route service. Default value is empty string.
+  metricSuffix: ""
+  nodeSelector:
+    nodeKey: ''
+    nodeValue: ''
+  customExtension:
+    allResources:
+      labels: {}
+      annotations: {}
+
+    lbServices:
+      labels: {}
+      annotations: {}
+
+    lbDeployments:
+      labels: {}
+      annotations: {}
+
+    nonlbServices:
+      labels: {}
+      annotations: {}
+
+    nonlbDeployments:
+      labels: {}
+      annotations: {}
+
+  k8sResource:
+    container:
+      prefix: 
+      suffix: 
+
+# Use 'extraContainers' attribute to control the usage of extra container(DEBUG tool).
+# Allowed Values: DISABLED, ENABLED, USE_GLOBAL_VALUE
+# If assigned with ENABLED or USE_GLOBAL_VALUE, then ensure "extraContainersTpl" Yaml chunk is defined  
+# at Service level or Global level in the parent chart based on the value assigned respectivley.
+extraContainers: USE_GLOBAL_VALUE
+
+replicaCount: 1
+
+deploymentDnsSrv:
+  image: alternate_route
+  tag: 22.1.2
+  pullPolicy: IfNotPresent
+  
+dbHookImage:
+  name: common_config_hook
+  tag: 22.1.2
+  pullPolicy: IfNotPresent
+
+# Specify type of service - Possible values are :- ClusterIP, NodePort, LoadBalancer and ExternalName
+service:
+  type: ClusterIP
+  
+  customExtension:
+    labels: {}
+    annotations: {}
+ 
+  # Labels and Annotations that are specific to service alternateroute are added here.
+deployment:
+  customExtension:
+    labels: {}
+    annotations: {}
+
+nodeSelector:
+  nodeKey: ''
+  nodeValue: ''
+
+# Number of Pods must always be available, even during a disruption.
+minAvailable: 2
+# Min replicas to scale to maintain an average CPU utilization
+minReplicas: 2
+# Max replicas to scale to maintain an average CPU utilization
+maxReplicas: 5
+
+ports:
+  servicePort: 80
+  containerPort: 8004
+  actuatorPort: 9090
+ 
+log:
+  level:
+    root: WARN
+    altroute: WARN
+    hook: WARN
+
+#Static virtual FQDN Config
+staticVirtualFqdns:
+  - name: https://abc.test.com
+    alternateFqdns:
+     - target: abc.test.com
+       port: 5060
+       priority: 10
+     - target: xyz.test.com
+       port: 5060
+       priority: 20
+  - name: http://xyz.test.com
+    alternateFqdns:
+    - target: xyz.test.com
+      port: 5060
+      priority: 10
+    - target: abc.test.com
+      port: 5060
+      priority: 20
+# If metricPrefix is configured then it will be added as a prefix to all the metrics in alternate route service. Default value is empty string.
+metricPrefix: ""
+# If metricSuffix is configured then it will be added as a suffix to all the metrics in alternate route service. Default value is empty string.
+metricSuffix: ""
+#Flag to control if DNS-SRV queries are sent to coreDNS or not
+dnsSrvEnabled: true
+#Below configuration is for customizing the format of FQDN which will used while querying coreDNS for SRV Records
+dnsSrvFqdnSetting:
+  enabled: true  #If this flag is disabled, then default value of "_{scheme}._tcp.{fqdn}." will be used for Pattern
+  pattern: "_{scheme}._tcp.{fqdn}."   #Ex: _http._tcp.service.example.org.
+
+#Thread pool conf for running "registration" logic
+asyncTaskExecutor:
+  corePoolSize: 10
+  maxPoolSize: 10
+  queueCapacity: 100
+
+#Thread pool conf for running "auto-refresh" scheduled task  
+refreshTaskExecutor:
+  corePoolSize: 10
+  maxPoolSize: 10
+  queueCapacity: 20
+
+#Thread pool conf for running "auto-cleanup" scheduled task  
+cleanupTaskExecutor:
+  corePoolSize: 3
+  maxPoolSize: 3
+  queueCapacity: 5
+  
+refreshScheduler:
+  enabled: true
+  #This will be used for triggering refresh-scheduler as per time interval configured
+  interval: 60  #in minutes
+  auditorShuffle: false  #Set it to true if auditor(auto-refresh) functionality is to be randomly rotated among available pods. 
+  throttling:
+    #This is the limit for the number of DNS-SRV queries which can be sent in single loop while doing auto-refresh.
+    burstLimit: 50  #Should be greater than zero.
+    #This is the time to wait before triggering the next burst of DNS-SRV queries while doing auto-refresh.
+    burstInterval: 5  #in seconds. Should be greater than zero.
+    #This value denotes the number of threads in ThreadPoolExecutors which will schedule the auto refresh bursts as per burstInterval
+    threadPoolSize: 5  #Number of threads.
+
+cleanupScheduler:
+  enabled: true
+  #This will be used for triggering cleanup-scheduler as per time interval configured
+  interval: 100  #in minutes
+  #This will be used for selection of records for cleanup
+  lastUsedInterval: 200   #in minutes
+  
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+coherence:
+  port: 8000  #Should not be same value as "ports.containerPort"
+  mode: "dev"
+  messagingPort1: 8095
+  messagingPort2: 8096
+  
+startupProbe:
+  # tells the kubelet that it should wait second before performing the first probe
+  initialDelaySeconds: 30
+  # Number of seconds after which the probe times out
+  timeoutSeconds: 3
+  # specifies that the kubelet should perform a readiness probe every xx seconds
+  periodSeconds: 10
+  # Minimum consecutive successes for the probe to be considered successful after having failed
+  successThreshold: 1
+  # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+  failureThreshold: 6
+
+readinessProbe:
+  # tells the kubelet that it should wait second before performing the first probe
+  initialDelaySeconds: 30
+  # Number of seconds after which the probe times out
+  timeoutSeconds: 3
+  # specifies that the kubelet should perform a liveness probe every xx seconds
+  periodSeconds: 10
+  # Minimum consecutive successes for the probe to be considered successful after having failed
+  successThreshold: 1
+  # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+  failureThreshold: 3
+  
+livenessProbe:
+  # tells the kubelet that it should wait second before performing the first probe
+  initialDelaySeconds: 30
+  # Number of seconds after which the probe times out
+  timeoutSeconds: 3
+  # specifies that the kubelet should perform a liveness probe every xx seconds
+  periodSeconds: 15
+  # Minimum consecutive successes for the probe to be considered successful after having failed
+  successThreshold: 1
+  # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+  failureThreshold: 3
+
+# Resource details
+resources:
+  limits:
+    cpu: 2
+    commonHooksCpu: 1
+    memory: 4Gi
+    commonHooksMemory: 1Gi
+  requests:
+    cpu: 1
+    commonHooksCpu: 1
+    memory: 2Gi
+    commonHooksMemory: 1Gi
+  target:
+    averageCpuUtil: 65
+
+# enable jaeger tracing
+jaegerTracingEnabled: false
+
+openTracing :
+  jaeger:
+    udpSender:
+      # udpsender host
+      host: "occne-tracer-jaeger-agent.occne-infra"
+      # udpsender port
+      port: 6831 
+    probabilisticSampler: 0.5
+    
+# Config client configuration
+commonCfgClient:
+  enabled: false
+commonCfgServer:
+  # If below parameter is present then it will be used for integrating with config-server.
+  # This parameter will be appended with the current release name when deployed with alternate-route
+  # In case host name is expected, then leave this parameter blank
+  configServerSvcName: common-config-server
+  host: 10.75.224.123
+  port: 30081
+  pollingInterval: 5000 #(in ms)
+  connectionTimeout: 10000 #(in ms)
+commonServiceName: alt-route
+
+restoreBackupOnInstall: false
+
+# Db Hook Configuration
+dbConfig:
+  dbHost: data-mysql.default
+  dbPort: 3306
+  configFile: defaultconfig.yaml
+  schemaFile: defaultschema.json
+  secretName: dbhook-secret
+  dbName: commonconfig
+  #dbEngine: InnoDB
+  #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  #configure when ur backup table should have sepereate schema
+  #backupDbName: commonconfig
+  #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  # Name of the Key configured for "DB Username" in Secret with following name: "<dbConfig.secretName>"
+  dbUNameLiteral: dbUsername
+  # Name of the Key configured for "DB Password" in Secret with following name: "<dbConfig.secretName>"
+  dbPwdLiteral: dbPassword
+  
+gracefulShutdown:
+  # Grace period to wait for active requests to be handled
+  # If there are no active requests then this time period is neglected
+  # If there are pending requests even after this period, then application will be forcefully shutdown 
+  gracePeriod: 1m
+
+
+#The sidecar (istio url) when deployed in serviceMesh
+# Default value: http://127.0.0.1:15020/quitquitquit
+istioSidecarQuitUrl: ""
+# Default value: http://127.0.0.1:15020/ready
+istioSidecarReadyUrl: ""
+#Enabled when deployed in serviceMesh
+serviceMeshCheck: false
+
+#Enabled when deployed in Ipv6 cluster
+isIpv6Enabled: false
+
+# dynamic update dns configuration
+upstreamDnsConfig:
+  enabled: false
+  watchSecretTimeout: 2000 # in ms
+  fixedTsigKeyMonitorDelay: 15000 # in ms, it should always be more than watchSecretTimeout
+  tsigKeyNamespace: alt-route
+  tsigKeySecretName: tsig-secret
+  host: 10.75.175.222
+  port: 53
+  zone: example.search
+  upstreamDNSTimeout: 10000
+
+upstreamDNSConfigMode: HELM
+
+
+#custom validator configuration. These configurations are needed for hooks to populate values in db
+componentValidator: "com.oracle.common.altroute.AlternateRouteCustomValidator"
+#Will be comma separated values. for eg: "com.oracle.common.oauth.OauthCustomValidator,com.oracle.common.igw.IngressCustomValidator"
+dependentValidators: ""
+

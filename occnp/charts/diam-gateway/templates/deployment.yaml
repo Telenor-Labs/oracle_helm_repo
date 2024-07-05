@@ -1,0 +1,254 @@
+{{- if .Values.global.diamGatewayEnable }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  annotations:
+    traffic.sidecar.istio.io/excludeOutboundPorts: {{ .Values.global.containerPorts.diamGatewayDistCache | quote }}
+    traffic.sidecar.istio.io/excludeInboundPorts: {{ .Values.global.containerPorts.diamGatewayDistCache | quote }}
+    {{- include "annotations.deployments" . }}
+  labels:
+    {{- include "labels.deployments" . }}
+    io.kompose.service: {{ template "diam-gateway-deployment-name" . }}
+  name: {{ template "diam-gateway-deployment-name" . }}
+spec:
+  replicas: {{ .Values.replicas }}
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      io.kompose.service: {{ template "diam-gateway-deployment-name" . }}
+  serviceName: ""
+  updateStrategy:
+     type: RollingUpdate
+     rollingUpdate:
+        partition: 0
+  template:
+    metadata:
+      annotations:
+        {{- include "annotations.deployments" .  | indent 4 }}
+        traffic.sidecar.istio.io/excludeOutboundPorts: {{ .Values.global.containerPorts.diamGatewayDistCache | quote }}
+        traffic.sidecar.istio.io/excludeInboundPorts: {{ .Values.global.containerPorts.diamGatewayDistCache | quote }}
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: {{ .Values.global.containerPorts.monitoringHttp | quote }}
+        prometheus.io/scrape: 'true'
+      labels:
+        {{- include "labels.deployments" .  | indent 4 }}
+        io.kompose.service: {{ template "diam-gateway-deployment-name" . }}
+    spec:
+      containers:
+      - env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: KUBERNETES_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: JAVA_OPTS
+        - name: CFG_SERVER_HOST
+          value: {{ template "service-name-config-server" . }}
+        - name: CFG_SERVER_PORT
+          value: {{ .Values.global.servicePorts.configServerHttp | quote }}
+        - name: CONNECT_RETRY_MAX
+          value: {{ .Values.global.configFetch.maxRetries | quote }}
+        - name: CONNECT_RETRY_INTERVAL
+          value: {{ .Values.global.configFetch.retryInterval | quote }}
+        - name: BINDING_SERVICE_URL
+          value: http://{{ template "service-name-binding" . }}:{{ .Values.global.servicePorts.bindingHttp }}/binding/v1/dependentContextBinding/find/context-owner
+        - name: BINDING_SERVICE_REQTIMEOUTINMS
+          value: {{ .Values.envBindingServiceReqTimeoutInMs | quote }}
+        - name: DIAM_CONN_SVC
+          value: {{ template "service-name-diameter-connector" . }}
+        - name: PCRF_CORE_SVC
+          value: {{ template "service-name-pcrf-core" . }}
+        - name: DEFAULT_MESSAGE_PRIORITY
+          value: {{ .Values.envDefaultMessagePriority | quote }}
+        - name: ENABLE_DEFAULT_DRMP_PRIORITY
+          value: {{ .Values.envEnableDefaultDrmpPriority | quote }}
+        {{- if eq .Values.envGatewayMode "bsf" }}
+        - name: BSF_MANAGEMENT_SERVICE_URL
+          value: http://{{ template "service-name-bsf-management" . }}:{{ .Values.global.servicePorts.bsfManagementServiceHttp }}
+        - name: BSF_MANAGEMENT_SERVICE_REQTIMEOUTINMS
+          value: {{ .Values.envBsfManagementServiceReqTimeoutInMs | quote }}
+        - name: BSF_MANAGEMENT_SERVICE_HTTP2ENABLED
+          value: {{ .Values.envBsfManagementServiceHttp2Enabled | quote }}
+        {{- end }}
+        - name: MARKETING_VERSION
+          value: {{ .Chart.AppVersion | quote }}
+        - name: APPLICATION_NAME
+          value: {{ .Values.appName | quote }}
+        - name: MICROSERVICE_NAME
+          value: {{ template "diam-gateway.fullname" .}}
+        - name: ENGINEERING_VERSION
+          value: {{ .Chart.Version | quote }}
+        - name: BINDING_SERVICE_HTTP2ENABLED
+          value: {{ .Values.envBindingServiceHttp2Enabled | quote }}
+        - name: DEPLOY_SERVICE_NAMESPACE
+          value: {{ .Release.Name | quote }}
+        - name: DEPLOY_SERVICE_NAME
+          value: {{ template "service-name-oc-diam-gateway" . }}
+        - name: HEADLESS_SERVICE_NAME
+          value: {{ template "service-name-oc-diam-gateway-headless" . }}
+        - name: COHERENCE_HEADLESS_SERVICE_NAME
+          value: {{ template "service-name-oc-diam-gateway-coherence-headless" . }}
+        - name: GATEWAY_Mode
+          value: {{ .Values.envGatewayMode | quote }}
+        {{- if ne .Values.envGatewayMode "bsf" }}
+        - name: GATEWAY_DeploymentType
+          value: {{ .Values.envGatewayDeploymentType | quote }}
+        {{end}}
+        - name: DIAMETER_YAML
+          value: {{ .Values.envDiameterYaml | quote }}
+        - name: HTTP2_ENABLED
+          value: {{ .Values.envHttp2Enabled | quote }}
+        - name: LOGGING_LEVEL_APP
+          value: {{ .Values.envLoggingLevelApp | quote }}
+        - name: DIAMETER_PORT
+          value: {{ .Values.global.containerPorts.diamGatewayDiameter | quote }}
+        - name: SIGNALING_PORT
+          value: {{ .Values.global.containerPorts.diamGatewayHttp | quote }}
+        - name: MONITORING_PORT
+          value: {{ .Values.global.containerPorts.monitoringHttp | quote }}
+        - name: DIAMETER_Realm
+          value: {{ .Values.envDiameterRealm | quote }}
+        - name: DIAMETER_Identity
+          value: {{ .Values.envDiameterIdentity | quote }}
+        - name: DIAMETER_IOThreadCount
+          value: {{ .Values.envDiameterIOThreadCount | quote }}
+        - name: DIAMETER_IOQueueSize
+          value: {{ .Values.envDiameterIOQueueSize | quote }}
+        - name: DIAMETER_MsgBufferThreadCount
+          value: {{ .Values.envDiameterMsgBufferThreadCount | quote }}
+        - name: DIAMETER_MsgBufferQueueSize
+          value: {{ .Values.envDiameterMsgBufferQueueSize | quote }}
+        - name: DIAMETER_Validation_StrictParsing
+          value: {{ .Values.envDiameterValidationStrictParsing | quote }}
+        - name: DIST_CACHE_PORT
+          value: {{ .Values.global.containerPorts.diamGatewayDistCache | quote }}
+        - name: DB_CONN_STATUS_CHK_FOR_READINESS
+          value: {{ .Values.envDbConnStatusHttpEnabled | quote }}
+        - name: DB_CONN_STATUS_URL
+          value: http://{{ template "service-name-app-info" . }}:{{ .Values.global.servicePorts.dbConnStatusHttp }}/status/category/realtimedatabase
+        - name: SUPPORTED_IPADDRESS_TYPE
+          value: {{ .Values.envSupportedIpAddressType | quote }}
+        - name: SUBS_ACT_MAPPINGTABLE_ENTRY_SIZE
+          value: {{ .Values.global.subsActMappingTableEntrySize | quote }}
+        {{- if .Values.global.isPCRF}}
+        - name: DIAMETER_HostIp
+          value: {{ .Values.envDiameterHostIp | quote }}
+        - name: DIAMETER_Node_Name
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+        {{end}}
+        - name: LOG4J2_BURST_RATE
+          value: {{ .Values.logging.burst.rate | quote }}
+        - name: LOG4J2_BURST_MAX
+          value: {{ .Values.logging.burst.max | quote }}
+        - name: LOG4J2_LOCATION_INFO
+          value: {{ .Values.logging.locationInfo | quote }}
+        - name: LOG4J2_CONSOLE_FORMAT
+          value: {{ .Values.logging.consoleFormat | quote }}
+        - name: SERVICE_MESH_CHECK
+          value: {{ .Values.global.serviceMeshEnabled | quote }}
+        - name: ISTIO_SIDECAR_READY_URL
+          value: {{ .Values.global.istioSidecarReadyUrl }}
+        - name: CFG_SERVER_READINESS_URL
+          value: "http://{{ template "service-name-config-server" . }}:{{ .Values.global.servicePorts.configServerHttp }}/topics"
+        {{- range $logger := .Values.dependenciesLogging }}
+        - name: {{ $logger.name | quote }}
+          value: {{ $logger.value | quote }}
+        {{- end }}
+        - name: METRICS_NAME_PREFIX
+          value: {{ .Values.global.metricPrefix | quote }}
+        - name: METRICS_NAME_SUFFIX
+          value: {{ .Values.global.metricSuffix | quote }}
+        {{- if .Values.imageTag }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image }}:{{ .Values.imageTag }}"
+        {{- else }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image }}:{{ .Values.global.imageTag }}"
+        {{- end }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        name: {{ template "container.fullname" . }} 
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: {{ .Values.global.containerPorts.monitoringHttp }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.livenessProbe.successThreshold }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+        readinessProbe:
+          httpGet:
+            path: /actuator/readiness
+            port: {{ .Values.global.containerPorts.monitoringHttp }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.readinessProbe.successThreshold }}
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+        ports:
+          - containerPort: {{ .Values.global.containerPorts.diamGatewayDiameter }}
+            protocol: TCP
+          - containerPort: {{ .Values.global.containerPorts.diamGatewayHttp }}
+            protocol: TCP
+          - name: distcacheport
+            containerPort: {{ .Values.global.containerPorts.diamGatewayDistCache }}
+            protocol: TCP
+          - name: {{ .Values.global.cncMetricsName  }}
+            containerPort: {{ .Values.global.containerPorts.monitoringHttp }}
+            protocol: TCP
+        volumeMounts:
+          - name: config-volume
+            mountPath: /etc/ocpm/config/
+        resources:
+          limits:
+            {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ .Values.resources.limits.ephemeralStorage | quote }}
+            {{- end }}
+            cpu: {{ .Values.resources.limits.cpu | quote }}
+            memory: {{ .Values.resources.limits.memory | quote }}
+          requests:
+            {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ template "diam-gateway-ephemeral-storage-request" . }}
+            {{- end }}
+            cpu: {{ .Values.resources.requests.cpu | quote }}
+            memory: {{ .Values.resources.requests.memory | quote }}
+    {{- include "extraContainers" . | nindent 6}}
+      volumes:
+        - name: config-volume
+          configMap:
+            name: {{ template "diam-gateway-configmap-name" . }}
+            items:
+              - key: diameter-config-peers
+                path: diameter.yaml
+
+    {{- if $.Values.nodeSelectorEnabled }}
+      nodeSelector:
+        {{ $.Values.nodeSelectorKey }}: {{ $.Values.nodeSelectorValue }}
+    {{- end }}
+    {{- if $.Values.global.serviceAccountName }}
+      serviceAccountName: {{ .Values.global.serviceAccountName }}
+    {{- else }}
+      serviceAccountName: {{ template "diamGateway.serviceaccount" .}}
+    {{- end }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100 
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: "app.kubernetes.io/name"
+                  operator: In
+                  values:
+                  - {{ template "chart.fullname" .}} 
+              topologyKey: "kubernetes.io/hostname"
+
+      restartPolicy: Always
+      schedulerName: default-scheduler
+{{- end }}

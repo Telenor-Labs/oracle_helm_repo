@@ -1,0 +1,15 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ template "service.fullname" .}}-podDisruptionBudget
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+  annotations:
+    {{- include "annotations.allResources" . }}
+spec:
+  minAvailable: {{ .Values.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "alternate-route.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}

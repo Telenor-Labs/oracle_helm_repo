@@ -1,0 +1,1024 @@
+cmName: ingressgateway
+   
+global:
+  # Docker registry name
+  dockerRegistry: 10.75.226.79:5000
+
+  # port on which NRF's API-Gateway service is exposed
+  # If httpsEnabled is false, this Port would be HTTP/2.0 Port (unsecured)
+  # If httpsEnabled is true, this Port would be HTTPS/2.0 Port (secured SSL)
+  publicHttpSignalingPort: 80
+  publicHttp1SignalingPort: 81
+  publicHttpsSignalingPort: 443
+  serviceAccountName: ''
+  #Specify type of service - Possible values are :- ClusterIP, NodePort, LoadBalancer and ExternalName
+  type: LoadBalancer
+  
+  #If Static load balancer IP needs to be set, then set staticIpAddressEnabled flag to true and provide value for staticIpAddress
+  #Else random IP will be assigned by the metalLB from its IP Pool
+  staticIpAddressEnabled: false
+  staticIpAddress: 10.75.212.60
+
+  #If Static node port needs to be set, then set staticNodePortEnabled flag to true and provide value for staticNodePort
+  #Else random node port will be assigned by K8
+  staticNodePortEnabled: true
+  staticHttpNodePort: 30075
+  staticHttpsNodePort: 30043
+  staticHttp1NodePort: 30095
+
+  # Config-Server Service. Shall be used as {{ ReleaseName }}-configServerFullNameOverride
+  configServerFullNameOverride: ocpm-config
+  configServerPort: 5807
+
+  # In case of ASPEN Service Mesh enabled, to support clear text traffic from outside of the cluster below flag needs to be true.
+  istioIngressTlsSupport:
+    ingressGateway: false
+    
+  vendor: "Oracle"
+  #ephemeral-storage (Values specified are in MB)
+  logStorage: 0
+  crictlStorage: 0
+  ephemeralStorageLimit: 0
+  app_name: "ingress-gateway"
+  # If metricPrefix is configured then it will be added as a prefix to all the metrics in the ingress gateway. Default value is empty string.
+  metricPrefix: ""
+  # If metricSuffix is configured then it will be added as a suffix to all the metrics in the ingress gateway. Default value is empty string.
+  metricSuffix: ""
+
+  #If xfccHeader Validation needs to be set, then set enabled to true and configure the scpList according to entries in the incoming xfcc header
+  #matchCerts will start matching from the right most cert entry in the xfcc header, matchField denotes the entry that needs to be matched against scpList
+  xfccHeaderValidation:
+    validation:
+      enabled: false
+      peerList:
+        - name: scp1.com
+          enabled: true
+        - name: scp2.com
+        - name: scp3.com
+          enabled: false
+        - name: xyz.test.com
+          enabled: true
+          scheme: http
+          type: virtual
+        - name: abc.test.com
+          enabled: true
+          scheme: https
+          type: virtual
+      matchCerts: -1
+      matchField: DNS
+      dnsResolutionInterval: 300000 #this scheduler will be used to resolved failed FQDNS in interval of milliseconds
+      errorCodeOnValidationFailure: 400
+      errorDescriptionOnValidationFailure: ""
+      errorCauseOnValidationFailure: ""
+      errorTitleOnValidationFailure: ""
+      retryAfter: ""
+      redirectUrl: ""
+      # exceptionType can take any of the valid values mentioned below. These values are the trigger cause of the error scenarios during xfcc validation
+      # XFCC_HEADER_NOT_PRESENT_OR_EMPTY,
+      #	XFCC_MATCHCERTCOUNT_GREATER_THAN_CERTS_IN_HEADER,
+      #	XFCC_HEADER_INVALID
+      errorTrigger:
+        - exceptionType: XFCC_HEADER_NOT_PRESENT_OR_EMPTY
+          errorCode: "401"
+          errorDescription: ""
+          errorCause: xfcc header is not present or empty in the request
+          errorTitle: ""
+          retryAfter: ""
+          redirectUrl: ""
+        - exceptionType: XFCC_MATCHCERTCOUNT_GREATER_THAN_CERTS_IN_HEADER
+          errorCode: "402"
+          errorDescription: ""
+          errorCause: matchCerts count is greater than the certs in the request
+          errorTitle: ""
+          retryAfter: ""
+          redirectUrl: ""
+        - exceptionType: XFCC_HEADER_INVALID
+          errorCode: "403"
+          errorDescription: ""
+          errorCause: xfcc header is invalid
+          errorTitle: ""
+          retryAfter: ""
+          redirectUrl: ""
+    extract:
+      enabled: false
+      #0//right most,-1//left most, 2-3rd from right most
+      certExtractIndex: 0
+      extractField: DNS
+      #0//right most,-1//left most, 2-3rd from right most
+      extractIndex: 0
+
+  #CONFIGUREABLE ERROR CODES
+  configurableErrorCodes:
+    enabled: false
+    errorScenarios:
+    - exceptionType: "ConnectionTimeout"
+      errorCode: "408"
+      errorDescription: "Connection Timeout"
+      errorCause: ""
+      errorTitle: ""
+    - exceptionType: "RequestTimeout"
+      errorCode: "408"
+      errorDescription: "Request Timeout"
+      errorCause: ""
+      errorTitle: ""
+    - exceptionType: "UnknownHostException"
+      errorCode: "300"
+      errorDescription: "Unknown Host"
+      errorCause: ""
+      errorTitle: ""
+      retryAfter: "10"
+      redirectUrl: "xyz.com"
+    - exceptionType: "ConnectException"
+      errorCode: "503"
+      errorDescription: "Connection failure"
+      errorCause: ""
+      errorTitle: ""
+    - exceptionType: "RejectedExecutionException"
+      errorCode: "503"
+      errorDescription: "Rejected Execution"
+      errorCause: ""
+      errorTitle: ""
+    - exceptionType: "BlackListIpException"
+      errorCode: "503"
+      errorDescription: "Black listed ip"
+      errorCause: ""
+      errorTitle: ""
+    - exceptionType: "ClosedChannelException"
+      errorCode: "503"
+      errorDescription: "closed channel"
+      errorCause: ""
+      errorTitle: ""
+    - exceptionType: "NotFoundException"
+      errorCode: "404"
+      errorDescription: "Error, Not Found"
+      errorCause: ""
+      errorTitle: ""
+    - exceptionType: "InternalError"
+      errorCode: "300"
+      errorDescription: "Internal Processing error"
+      errorCause: ""
+      errorTitle: ""
+      retryAfter: "5"
+      redirectUrl: "nf.com"
+    - exceptionType: "LateArrivalException"
+      errorCode: "504"
+      errorDescription: "Request has already expired"
+      errorCause: "TIMED_OUT_REQUEST"
+      errorTitle: ""
+      retryAfter: ""
+      redirectUrl: ""
+    - exceptionType: "UserAgentHeaderValidationFailureException"
+      errorCode: "401"
+      errorDescription: "User-Agent Header Validation Failure"
+      errorCause: ""
+      errorTitle: ""
+      retryAfter: ""
+      redirectUrl: ""
+  tolerations: []
+  nodeSelector:
+    nodeKey: ''
+    nodeValue: ''
+   
+  customExtension:
+    allResources:
+      labels: {}
+      annotations: {}
+
+    lbServices:
+      labels: {}
+      annotations: {}
+
+    lbDeployments:
+      labels: {}
+      annotations: {}
+
+    nonlbServices:
+      labels: {}
+      annotations: {}
+
+    nonlbDeployments:
+      labels: {}
+      annotations: {}
+
+  k8sResource:
+    container:
+      prefix:  
+      suffix:
+  # Size configuration for subscriber.activity.logging.mapping.pcf
+  subsActMappingTableEntrySize: 20
+
+prefix: ''
+
+image:
+  # image name
+  name: ocingress_gateway
+  # tag name of image
+  tag: 22.1.9
+  # Pull Policy - Possible Values are:- Always, IfNotPresent, Never 
+  pullPolicy: IfNotPresent
+
+initContainersImage:
+  # inint Containers image name
+  name: configurationinit
+  # tag name of init Container image
+  tag: 22.1.9
+  # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+  pullPolicy: IfNotPresent
+  
+updateContainersImage:
+  # update Containers image name
+  name: configurationupdate
+  # tag name of update Container image
+  tag: 22.1.9
+  # Pull Policy - Possible Values are:- Always, IfNotPresent, Never
+  pullPolicy: IfNotPresent
+  
+dbHookImage:
+  name: common_config_hook
+  tag: 22.1.9
+  pullPolicy: IfNotPresent
+
+# Use 'extraContainers' attribute to control the usage of extra container(DEBUG tool).
+# Allowed Values: DISABLED, ENABLED, USE_GLOBAL_VALUE
+# If assigned with ENABLED or USE_GLOBAL_VALUE, then ensure "extraContainersTpl" Yaml chunk is defined  
+# at Service level or Global level in the parent chart based on the value assigned respectivley.
+extraContainers: USE_GLOBAL_VALUE
+
+service:
+  ssl:
+    tlsVersion: TLSv1.2
+    
+    privateKey:
+      k8SecretName: ocegress-secret
+      k8NameSpace: ocegress
+      rsa:
+        fileName: rsa_private_key_pkcs1.pem
+      ecdsa:
+        fileName: ssl_ecdsa_private_key.pem
+
+    certificate:
+      k8SecretName: ocegress-secret
+      k8NameSpace: ocegress
+      rsa:
+        fileName: tmp.cer
+      ecdsa:
+        fileName: ssl_ecdsa_certificate.crt
+
+    caBundle:
+      k8SecretName: ocegress-secret
+      k8NameSpace: ocegress
+      fileName: caroot.cer
+
+    keyStorePassword:
+      k8SecretName: ocegress-secret
+      k8NameSpace: ocegress
+      fileName: key.txt
+
+    trustStorePassword:
+      k8SecretName: ocegress-secret
+      k8NameSpace: ocegress
+      fileName: trust.txt
+
+    initialAlgorithm: RS256
+  
+  # Labels and Annotations that are specific to service ingressgateway are added here.
+  customExtension:
+    labels: {}
+    annotations: {}
+  
+  # Labels and Annotations that are specific to deployment ingressgateway are added here.
+deployment:
+  customExtension:
+    labels: {}
+    annotations: {}  
+   
+
+ports:
+  # ContainerPort represents a network port in a single container
+  containerPort: 8081
+  containersslPort: 8443
+  containerHttp1Port: 8888
+  actuatorPort: 9090
+
+#Set the root log level
+log:
+  level: 
+    root: WARN
+    ingress: WARN
+    oauth: WARN
+    updateContainer: WARN
+    hook: WARN
+    cncc:
+      root: WARN
+      audit: INFO
+      security: INFO
+      loggingFilters: []
+      loggingMasks: []
+  traceIdGenerationEnabled: true
+
+startupProbe:
+  # tells the kubelet that it should wait second before performing the first probe
+  initialDelaySeconds: 30
+  # Number of seconds after which the probe times out
+  timeoutSeconds: 3
+  # specifies that the kubelet should perform a readiness probe every xx seconds
+  periodSeconds: 10
+  # Minimum consecutive successes for the probe to be considered successful after having failed
+  successThreshold: 1
+  # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+  failureThreshold: 6
+
+readinessProbe:
+  # tells the kubelet that it should wait second before performing the first probe
+  initialDelaySeconds: 30
+  # Number of seconds after which the probe times out
+  timeoutSeconds: 3
+  # specifies that the kubelet should perform a readiness probe every xx seconds
+  periodSeconds: 10
+  # Minimum consecutive successes for the probe to be considered successful after having failed
+  successThreshold: 1
+  # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+  failureThreshold: 3
+  
+livenessProbe:
+  # tells the kubelet that it should wait second before performing the first probe
+  initialDelaySeconds: 30
+  # Number of seconds after which the probe times out
+  timeoutSeconds: 3
+  # specifies that the kubelet should perform a liveness probe every xx seconds
+  periodSeconds: 15
+  # Minimum consecutive successes for the probe to be considered successful after having failed
+  successThreshold: 1
+  # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+  failureThreshold: 3
+# Flag to configure the readiness related configuration in HELM or REST mode
+readinessConfigMode: HELM
+readinessCheckEnabled: false
+readinessIndicatorPollingInterval: 3000
+# Configuration for readiness logic
+readinessConfig:
+  serviceProfiles:
+    - id: ""
+      url: ""
+      responseCode: 200
+      responseBody: ""
+      onExceptionUsePreviousState: true
+      initialState: "ACCEPTING_TRAFFIC"
+      requestTimeout: 2000
+#User-Agent header validator configuration
+#Mode of configuration. Can be either HELM or REST
+userAgentHeaderValidationConfigMode: HELM
+userAgentHeaderValidation:
+  enabled: false
+  # If User-Agent header is not present or it's value is null in the incoming request then validation type can be used to skip or perform validation. If set to strict then validation will be performed.
+  # If set to relaxed then validation will be skipped.
+  validationType: strict
+  # List of consumer NF Types to be matched against the value of User-Agent header in the request
+  consumerNfTypes:
+    - ""
+# Resource details
+resources:
+  limits:
+    cpu: 2
+    initServiceCpu: 1
+    updateServiceCpu: 1
+    commonHooksCpu: 1
+    memory: 4Gi
+    updateServiceMemory: 1Gi
+    initServiceMemory: 1Gi
+    commonHooksMemory: 1Gi
+  requests:
+    cpu: 2
+    initServiceCpu: 1
+    updateServiceCpu: 1
+    commonHooksCpu: 1
+    memory: 2Gi
+    updateServiceMemory: 1Gi
+    initServiceMemory: 1Gi
+    commonHooksMemory: 1Gi
+  target:
+    averageCpuUtil: 65
+
+# Number of Pods that will be unavailable during a disruption.
+maxUnavailable: 1
+# Min replicas to scale to maintain an average CPU utilization
+minReplicas: 2
+# Max replicas to scale to maintain an average CPU utilization
+maxReplicas: 5
+
+# enable jaeger tracing
+jaegerTracingEnabled: false
+
+openTracing :
+  jaeger:
+    #send b3 zipkin headers instead of uber-trace-id
+    enableb3Propagation: false
+    udpSender:
+      # udpsender host
+      host: "jaeger-agent.cne-infra"
+      # udpsender port
+      port: 6831 
+    probabilisticSampler: 0.5
+# label to override name of api-gateway micro-service name
+#fullnameOverride: ingress
+
+#commonServiceHttpPort: 8081
+allowedCipherSuites:
+  - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+  - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+  - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+  - TLS_DHE_RSA_WITH_AES_256_GCM_SHA384
+  - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+  - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+
+cipherSuites:
+  - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+  - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+  - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+  - TLS_DHE_RSA_WITH_AES_256_GCM_SHA384
+  - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+  - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+
+#OAUTH CONFIGURATION
+oauthValidatorEnabled: false
+nfType: SMF
+nfInstanceId: 6faf1bbc-6e4a-4454-a507-a14ef8e1bc11
+producerScope: nsmf-pdusession,nsmf-event-exposure
+allowedClockSkewSeconds: 1L
+#Enabling this will start a preUpgrade hook when persistent config is enabled 
+# and populate InstanceId configuration based on the contens of nrfPublicKeyKubeSecret 
+# if instance id config previously present for previous release then that will be picked
+enableInstanceIdConfigHook: false
+nrfPublicKeyKubeSecret: nrfpublickeysecret
+nrfPublicKeyKubeNamespace: ocegress
+validationType: strict
+producerPlmnMNC: "123"
+producerPlmnMCC: "346"
+oauthErrorConfigForValidationFailure:
+  errorCode: 401
+  errorTitle: "Validation failure"
+  errorDescription: "UNAUTHORIZED"
+  errorCause: "oAuth access Token validation failed"
+  redirectUrl:
+  retryAfter:
+  # exceptionType can take any of the valid values mentioned below. This value will take precedence over the default error profile.
+  # These values are the trigger cause of the error scenarios during oauth token validation
+  # OAUTH_TOKEN_INVALID,
+  # OAUTH_AUDIENCE_NOT_PRESENT_OR_INVALID,
+  # OAUTH_PRODUCER_PLMNID_MISMATCH,
+  # OAUTH_PRODUCER_SCOPE_NOT_PRESENT,
+  # OAUTH_PRODUCER_SCOPE_MISMATCH,
+  # OAUTH_MISMATCH_IN_KID,
+  # OAUTH_MISMATCH_IN_NRF_INSTNACEID,
+  # OAUTH_CERT_EXPIRED
+  errorTrigger:
+  - exceptionType: OAUTH_CERT_EXPIRED
+    errorCode: 408
+    errorCause: certificate has expired
+    errorTitle:
+    errorDescription:
+    retryAfter:
+    redirectUrl:
+  - exceptionType: OAUTH_MISMATCH_IN_KID
+    errorCode: 407
+    errorCause: kid configured does not match with the one present in the token
+    errorTitle:
+    errorDescription:
+    retryAfter:
+    redirectUrl:
+  - exceptionType: OAUTH_PRODUCER_SCOPE_NOT_PRESENT
+    errorCode: 406
+    errorCause: producer scope is not present in token
+    errorTitle:
+    errorDescription:
+    retryAfter:
+    redirectUrl:
+  - exceptionType: OAUTH_PRODUCER_SCOPE_MISMATCH
+    errorCode: 405
+    errorCause: produce scope in token does not match with the configuration
+    errorTitle:
+    errorDescription:
+    retryAfter:
+    redirectUrl:
+  - exceptionType: OAUTH_MISMATCH_IN_NRF_INSTNACEID
+    errorCode: 404
+    errorCause: nrf id configured does not match with the one present in the token
+    errorTitle:
+    errorDescription:
+    retryAfter:
+    redirectUrl:
+  - exceptionType: OAUTH_PRODUCER_PLMNID_MISMATCH
+    errorCode: 403
+    errorCause: producer plmn id in token does not match with the configuration
+    errorTitle:
+    errorDescription:
+    retryAfter:
+    redirectUrl:
+  - exceptionType: OAUTH_AUDIENCE_NOT_PRESENT_OR_INVALID
+    errorCode: 402
+    errorCause: audience in token does not match with the configuration
+    errorTitle:
+    errorDescription:
+    retryAfter:
+    redirectUrl:
+  - exceptionType: OAUTH_TOKEN_INVALID
+    errorCode: 401
+    errorCause: oauth token is corrupted
+    errorTitle:
+    errorDescription:
+    retryAfter:
+    redirectUrl:
+oauthErrorConfigOnTokenAbsence:
+  errorCode: 400
+  errorTitle: "Token not present"
+  errorDescription: "UNAUTHORIZED"
+  errorCause: "oAuth access Token is not present"
+  redirectUrl: 
+  retryAfter: 
+
+#######################################################################
+# To Initialize SSL related infrastructure in init/update container
+initssl: true
+#Server Configuration for http and https support
+enableIncomingHttp: false
+enableIncomingHttp1: false
+enableTLSIncomingHttp1: false
+enableIncomingHttps: true
+enableOutgoingHttps: false
+#needClientAuth must be true if client certificate identity is required in the header x-custom-ingress-client-identity
+needClientAuth: true
+#######################################################################
+serviceMeshCheck: false
+isSbiTimerEnabled: false
+publishHeaders: false
+sbiTimerTimezone: GMT
+#To allow igw to redirect to uri present in location header in case of 301,308,302,303,307 response code set autoRedirect to true otherwise set it to false. Default value is true
+autoRedirect: true
+# If metricPrefix is configured then it will be added as a prefix to all the metrics in the ingress gateway. Default value is empty string. If not empty then this local metricPrefix which will have higher priority than the metricPrefix defined under global section
+metricPrefix: ""
+# If metricSuffix is configured then it will be added as a suffix to all the metrics in the ingress gateway. Default value is empty string. If not empty then this local metricSuffix which will have higher priority than the metricSuffix defined under global section
+metricSuffix: ""
+sbiPriorityHeaderName: 3gpp-sbi-message-priority
+#Dns Refresh Delay in milli-seconds
+dnsRefreshDelay: 120000
+
+#Delay between pings in seconds.When set to <=0,ping is disabled
+pingDelay: 60
+
+#Below field is used for blacklisting(removing) a request header at global level. Hence, it will be applied to all routes configured.
+globalRemoveRequestHeader:
+- name: myheader4  #Change the value to the reqeust header name which you want removed from all requests which match to any route configured.
+#Below field is used for blacklisting(removing) a response header at global level. Hence, it will be applied to all routes configured.
+globalRemoveResponseHeader:
+- name: myresponseheader2  #Change the value to the response header name which you want removed from all responses which match to any route configured.
+routeConfigMode: HELM
+
+# Configurable flags to enable/disable addition of X-Fowarded headers by SCG 
+enableXForwardedForHeader: true
+enableXForwardedHostHeader: true
+enableXForwardedPortHeader: true
+enableXForwardedProtoHeader: true
+enableXForwardedPrefixHeader: true
+
+convertHelmRoutesToREST: false
+routesConfig:
+- id: demo
+  uri: https://demoapp.ocegress:8440/
+  path: /**
+  order: 1
+  #Below field is used to provide an option to enable/disable route level xfccHeaderValidation, it will override global configuration for xfccHeaderValidation.enabled
+  metadata:
+    # requestTimeout is used to set timeout at route level. Value should be in milliseconds.
+    requestTimeout: 4000
+    requiredTime: 3000
+    xfccHeaderValidation:
+      validationEnabled: false
+    oauthValidator:
+      enabled: false
+    svcName: "demo"
+    # Server header configuration if defined at Route level(irrespective of being enabled/disabled) will take precedence over the Global conf. Uncomment only if needed at Route level.
+    #serverHeaderDetails:
+    #  enabled: false
+    #  errorCodeSeriesId: E2  # If not defined here, value at Global level will be used as fallback. Value need to be one among "errorCodeSeriesList" resource defined later.
+  filters:
+    addRequestHeader: # specify what headers you need to add
+    - name: X-Forwarded-Proto
+      value: https
+    # If this filter is configured, then keep the 'order' value highest compared to other routes
+    # Comment the following filter if configurable error code is not required for invalid route
+    invalidRouteFilter:
+    - errorCodeOnInvalidRoute: 500
+      errorCauseOnInvalidRoute: ""
+      errorTitleOnInvalidRoute: ""
+      errorDescriptionOnInvalidRoute: ""
+    #Below are Request Custom Headers
+    customReqHeaderEntryFilter:
+      headers:
+        - methods:
+            - ALL
+          headersList:
+            - headerName: x-entry-headeReq-1
+              defaultVal: abc
+              source: incomingReq
+              sourceHeader: x-entry-current-user
+            - headerName: x-entry-current-user
+              defaultVal: 123
+              source: incomingReq
+              sourceHeader: test
+    customReqHeaderExitFilter:
+      headers:
+        - methods:
+            - ALL
+          headersList:
+            - headerName: x-exit-headeReq-1
+              defaultVal: abc
+              source: incomingReq
+              sourceHeader: x-exit-current-user
+            - headerName: x-exit-current-user
+              defaultVal: 123
+              source: incomingReq
+              sourceHeader: sbi-timer-feature
+        - methods:
+            - GET
+            - POST
+          headersList:
+            - headerName: x-exit-headeReq-3
+              defaultVal: abc
+              source: incomingReq
+              sourceHeader: x-exit-new-req
+              override: false
+            - headerName: x-exit-headeReq-4
+              defaultVal: 123
+              source: incomingReq
+              sourceHeader: x-exit-headeReq-1
+              override: false
+        - methods:
+            - DELETE
+            - GET
+          headersList:
+            - headerName: x-exit-headerReq-5
+              defaultVal: abc
+              source: incomingReq
+              sourceHeader: x-exit-headerReq-new
+              override: false
+            - headerName: x-exit-headerReq-6
+              defaultVal: 123
+              source: incomingReq
+              sourceHeader: x-exit-headerReq-temp
+              override: false
+   # Below are Response Custom Headers
+    customResHeaderEntryFilter:
+      headers:
+        - methods:
+            - ALL
+          headersList:
+            - headerName: x-entry-headerRes-1
+              defaultVal: abc
+              source: incomingReq
+              sourceHeader: x-entry-headeReq-1
+              override: false
+            - headerName: sbi-timer-feature-Res
+              defaultVal: 123
+              source: incomingReq
+              sourceHeader: x-exit-new-req
+    customResHeaderExitFilter:
+      headers:
+        - methods:
+            - ALL
+          headersList:
+            - headerName: x-exit-headerRes-1
+              defaultVal: abc
+              source: incomingReq
+              sourceHeader: x-exit-headerReq-1
+              override: false
+            - headerName: sbi-timer-feature
+              defaultVal: 123
+              source: incomingRes
+              sourceHeader: x-exit-headerRes-1
+        - methods:
+            - GET
+            - PUT
+          headersList:
+            - headerName: x-exit-headeRes-3
+              defaultVal: abc
+              source: incomingRes
+              sourceHeader: x-exit-SourceRes-a
+              override: true
+            - headerName: x-exit-headeRes-4
+              defaultVal: 123
+              source: incomingReq
+              sourceHeader: x-exit-SourceRes-b
+              override: false
+        - methods:
+            - DELETE
+          headersList:
+            - headerName: x-exit-headeRes-5
+              defaultVal: abc
+              source: incomingRes
+              sourceHeader: ""
+              override: false
+            - headerName: x-exit-headeRes-6
+              defaultVal: 123
+              source: incomingRes
+              sourceHeader: ""
+              override: false
+  #Below field is used for blacklisting(removing) a request header at route level.
+  removeRequestHeader:
+  - name: myheader1
+  - name: myheader3
+  #Below field is used for blacklisting(removing) a response header at route level.
+  removeResponseHeader:
+  - name: myresponseheader1
+  - name: myresponseheader3
+ingressGwCertReloadEnabled: true
+ingressGwCertReloadPath: /ingress-gw/certificate/reload
+
+#Jetty Client settings
+maxConcurrentPushedStreams: 1000
+maxRequestsQueuedPerDestination: 1024
+#Below value will be used when serviceMeshCheck is enabled
+maxConnectionsPerDestination: 4
+maxConnectionsPerIp: 4
+connectionTimeout: 10000 #(ms)
+requestTimeout: 1000 #(ms)
+jettyGracefulRequestTermination: false
+
+rateLimiting:
+  enabled: false
+globalIngressRateLimiting:
+  enabled: true
+  duration: 1 # in seconds
+  burstCapacity: 1
+  refillRate: 1
+  minTokenRequest: 25
+  maxTokenRequest: 50
+  rangePoint: 6
+errorCodeOnRatelimit: 503
+errorDescriptionOnRatelimit: ""
+errorTitleOnRateLimit: ""
+errorCauseOnRateLimit: ""
+retryAfter: ""
+redirectUrl: ""
+
+#Below configurations are used by Overload Ctrl Percentage Discard and Route Level Rate Limit Priority Discard
+#to fetch tokens from Cache in incremental order
+bucketConfiguration:
+  minimumTokenRequest: 25
+  maximumTokenRequest: 50
+  incrementalCounter: 5
+
+#http1.1 settings when enablehttp1 is set to true
+#if keepAlive false then the connection will be closed after one request
+#useConnectionPool false it will create new connection instead of looking for active connection
+http1:
+  client: 
+    keepAlive: false
+    useConnectionPool: false
+
+# CNCC configuration
+cncc:
+  # To enable CNCC Core Security Configurations
+  enabled: false
+  # Will only enable OAuth resource server disabling OAuth Client.
+  onlyResourceServerEnabled: false
+  # By default ingress handles only http2 request.
+  enablehttp1: false
+  # Enable Security logs for CNCC
+  securityLogEnabled: false
+  # Enable CNCC metrics
+  metricsEnabled: false
+  # Headers Config
+  headers:
+    roleHeader: oc-cncc-role
+  # Core Configuration
+  core:
+    # Session Timeout Value in Seconds
+    # Default: 1800 , Minimum: 300 , Maximum: 7200 
+    sessionTimeout: 1800
+    # These rules are used to configure CNCC authorization for request based on path and CNCC-IAM Roles
+    # If no authRules are specified, then authorization is permitted to all request urls
+    authRules: []
+  # IAM Configuration
+  iam:
+    # White-list of trusted IAM issuers
+    # Note: In case MI/MC disabled list will have only one issuer 
+    #       which will be used for OAuth Client and OAuth Resource Server
+    issuers: []
+    prefix: /cncc/auth
+    realm: cncc
+    clientId: cncc
+    clientAuthenticationMethod: none # Default uses client_secret_basic
+
+# Config server switch
+cfgServer:
+  enabled: false
+
+cfgClient:
+  enabled: false
+  
+# Sepp Integration
+sepp:
+  forwardProxy: false
+
+webclient:
+  threadSizeMultiByCore: 2
+  threadQueueCapacity: 1000
+
+tolerations: []
+helmBasedConfigurationNodeSelectorApiVersion: "v1"
+nodeSelector:
+  nodeKey: ''
+  nodeValue: ''
+
+#Coherence port used if either Ratelimiting or OAuth is enabled
+coherence:
+  port: 8000
+  mode: "dev"
+  messagingPort1: 8095
+  messagingPort2: 8096
+
+#Netty server default settings frame value
+# if serverDefaultSettingsMaxConcurrentStream > 0 it will be added to settings frame
+serverDefaultSettingsMaxConcurrentStream: 0
+# if serverDefaultSettingsInitialWindowSize > 0 it will be added to settings frame
+serverDefaultSettingsInitialWindowSize: 0
+serverDefaultWindowUpdateRatio: 0.5f
+
+podProtection:
+  enabled: false
+  monitoringInterval: 100 
+  congestionControl:
+    enabled: false
+    stateChangeSampleCount: 10
+    actionSamplingPeriod: 3
+    states:
+      - name: Normal
+        weight: 0
+        entryAction:
+          - action: MaxConcurrentStreamsUpdate
+            args:
+              incrementBy: 30
+              maxConcurrentStreamsPerCon: 100
+          - action: AcceptIncomingConnections
+            args:
+              accept: true
+      - name: DoC
+        weight: 1
+        resourceThreshold:
+          cpu: 60
+          memory: 60
+          pendingMessage: 5000
+        entryAction:
+          - action: AcceptIncomingConnections
+            args:
+              accept: false
+          - action: MaxConcurrentStreamsUpdate
+            args:
+              incrementBy: 30
+              decrementBy: 30
+              maxConcurrentStreamsPerCon: 50
+      - name: Congested
+        weight: 2
+        resourceThreshold:
+          cpu: 75
+          memory: 75
+          pendingMessage: 7000
+        entryAction:
+          - action: AcceptIncomingConnections
+            args:
+              accept: false
+          - action: MaxConcurrentStreamsUpdate
+            args:
+              decrementBy: 30
+              maxConcurrentStreamsPerCon: 5
+    
+#keep alive settings
+ingressServer:
+  keepAlive: 
+    enabled: false
+    idealTime: 180  #in seconds
+    count: 9
+    interval: 60 #in seconds
+  
+# Common configuration service
+commonCfgClient:
+  enabled: false
+commonCfgServer:
+  configServerSvcName: common-config-server
+  host: 10.75.224.123
+  port: 30081
+  pollingInterval: 5000
+commonServiceName: igw
+restoreBackupOnInstall: false
+dropTablesOnUpgrade: false
+
+#Db hook Configuration
+dbConfig:
+  dbHost: data-mysql.default
+  dbPort: 3306
+  configFile: defaultconfig.yaml
+  schemaFile: defaultschema.json
+  secretName: dbhook-secret
+  dbName: commonconfig
+  #dbEngine: InnoDB
+  #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  #configure when ur backup table should have sepereate schema
+  #backupDbName: commonconfig
+  #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  
+  # Name of the Key configured for "DB Username" in Secret with following name: "<dbConfig.secretName>" 
+  dbUNameLiteral: dbUsername
+  # Name of the Key configured for "DB Password" in Secret with following name: "<dbConfig.secretName>"
+  dbPwdLiteral: dbPassword
+
+#custom validator configuration. These configurations are needed for hooks to populate values in db
+componentValidator: "com.oracle.common.igw.IngressCustomValidator"
+#Will be comma separated values. for eg: "com.oracle.common.oauth.OauthCustomValidator,com.oracle.common.igw.IngressCustomValidator"
+dependentValidators: ""
+  
+gracefulShutdown:
+  # Grace period to wait for active requests to be executed
+  # If there are no active requests then this period is neglected
+  gracePeriod: 1m # 's' in case of seconds and 'm' in case of minutes
+  # Configurable error code to be sent when new requests are sent during shutdown phase
+  defaultErrorCode: 500
+  errorDescription: ""
+  errorCause: ""
+  errorTitle: ""
+  retryAfter: ""
+  redirectUrl: ""
+
+#The sidecar (istio url) when deployed in serviceMesh
+# Default value: http://127.0.0.1:15020/quitquitquit
+istioSidecarQuitUrl: ""
+# Default value: http://127.0.0.1:15020/ready
+istioSidecarReadyUrl: ""
+
+#Sampling interval used to push Pending & Failed req counts from Local Maps to Hazelcast.
+requestCountSamplingInteval: 300 #in milliseconds
+
+# Possible values: HELM, REST. Based on this value, the feature flag for "server" header will need to be enabled either in Helm configuration or Rest configuration.
+serverHeaderConfigMode: HELM
+
+# All attributes under "serverHeaderDetails" will need to be configured only if "serverHeaderConfigMode" is set as "HELM"
+serverHeaderDetails:
+  # If enabled at Global level, Global conf will be used by default if no conf exists at Route level.
+  enabled: false
+  # Mandatory attribute if not defined at Route level. By default used for Global level conf. Value need to be one among "errorCodeSeriesList" resource defined below.
+  errorCodeSeriesId: E1
+  configuration:
+    # Mandatory attribute. This value is common across Global and Route level conf. If not defined, server header will not be included in response.
+    nfType: PCF
+    # Optional attribute. This value is common across Global and Route level conf. If not defined, only "nfType" will be used for server header value.
+    nfInstanceId: INS-1
+
+# Use below configuration to define errorCodeSeries list
+errorCodeSeriesList:
+  # Value of "id" attribute will need to used for assigning "errorCodeSeriesId" either at Global or Route level conf for Server header.
+- id: E1
+  errorCodeSeries:
+    # Possible values for "errorSet" attribute: 5xx, 4xx, 3xx, 2xx, 1xx
+  - errorSet: 4xx
+    # Possible values include all error codes in the respective HttpSeries(Ex: 4xx) value assinged for "errorSet". Use single value of -1 if all error codes are to be considered.
+    errorCodes:
+    - 400
+    - 408
+  - errorSet: 5xx
+    errorCodes:
+    - 500
+    - 503
+- id: E2
+  errorCodeSeries:
+  - errorSet: 4xx
+    errorCodes:
+    - -1
+
+# DNS SRV configuration
+dnsSrv:
+  host: localhost  #localhost
+  port: 8004           #8004
+  scheme: http
+
+#Enabled when deployed in Ipv6 cluster
+isIpv6Enabled: false
+
+# Possible values: HELM, REST. Based on this value, the feature flag for pod protection will need to be enabled either in Helm configuration or Rest configuration.
+podProtectionConfigMode: HELM
+
+nfSpecificConfig:
+  enabled: false
+  featureList:
+    - podprotection
+    - trafficrejectmode
+    - readinessconfig
+    - errorcodeserieslist
+    - messagelogging
+    - serverheaderdetails
+    - routelevelratelimiting
+    - ocpolicymapping
+    - routesconfiguration
+    - ocdiscardpolicies
+    - errorcodeprofiles
+    - oauthvalidatorconfiguration
+    - logging
+    - useragentheadervalidation

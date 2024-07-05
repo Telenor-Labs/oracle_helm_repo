@@ -1,0 +1,57 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Release.Name }}-test"
+  labels:
+    {{- include "labels.allResources" . }}
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": test
+spec:
+  #activeDeadlineSeconds: {{ .Values.global.test.config.timeout }}
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        {{- include "labels.allResources" . | indent 4}}
+      annotations:
+        sidecar.istio.io/inject: "false"
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      containers:
+      - name: test-{{ .Values.global.test.nfName }}
+        image: "{{ .Values.global.dockerRegistry }}/{{.Values.global.test.image.name}}:{{ .Values.global.test.image.tag }}"
+        imagePullPolicy: Always
+        resources:
+{{ toYaml .Values.global.hookJobResources | indent 10 }}
+        env:
+          - name: NF_NAMESPACE
+            value: "{{ .Release.Namespace }}"
+          - name: NF_LABELSELECTOR
+            value: "app.kubernetes.io/instance={{ .Release.Name }}"
+          - name: LOGGING_LEVEL_ROOT
+            value: "{{ .Values.global.test.config.logLevel }}"
+          - name: TEST_TIMEOUT
+            value: "{{ .Values.global.test.config.timeout }}"
+          - name: ENGINEERING_VERSION
+            value: {{.Chart.Version}}
+          - name: MARKETING_VERSION
+            value: {{.Chart.AppVersion}}
+          - name: K8S_CLUSTER_NAME
+            value: "{{ .Release.Name }}"
+          - name: K8S_NAMESPACE
+            value: "{{ .Release.Namespace }}"
+          - name: APPLICATION_NAME
+            value: "{{ .Release.Name }}"
+          - name: MICROSERVICE_NAME
+            value: "test"
+          - name: K8S_NODE
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName   
+      restartPolicy: Never
+      {{- if .Values.global.serviceAccountName }}
+      serviceAccountName: {{ .Values.global.serviceAccountName }}
+      {{- else }}
+      serviceAccountName: {{ template "ocnssf.serviceaccount" . }}
+      {{- end }} 

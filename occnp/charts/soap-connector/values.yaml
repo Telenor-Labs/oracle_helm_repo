@@ -1,0 +1,104 @@
+global:
+  pcrfSoapEnable: false
+  soapConnectorEnable: true
+  imagePullPolicy: IfNotPresent
+  # Docker registry name
+  dockerRegistry: docker-registry.openstack.in.oracle.com:5000
+  logStorage: 0 #default calculated value 70
+  crictlStorage: 0 #default calculated value 1
+  envJaegerAgentHost: ''
+  serviceMeshEnabled: 'false'
+  istioSidecarReadyUrl: http://127.0.0.1:15020/healthz/ready
+  servicePorts:
+      soapConnectorHttp: 8082
+      soapConnectorHttps: 8443
+      configServerHttp: 5807
+      policydsHttp: 8080
+  containerPorts:
+      monitoringHttp: 9000
+      soapConnectorHttp: 8082
+      soapConnectorHttps: 8443
+      javaDebugger: 5801
+  k8sResource:
+    container:
+      prefix:
+      suffix:
+  customExtension:
+    allResources:
+      labels: {}
+      annotations: {}
+
+    lbServices:
+      labels: {}
+      annotations: {}
+    lbDeployments:
+      labels: {}
+      annotations: {}
+
+    nonlbServices:
+      labels: {}
+      annotations: {}
+    nonlbDeployments:
+      labels: {}
+      annotations: {}
+  cncMetricsName: cnc-metrics
+  exposeObservabilityAtService: false
+
+image: occnp/oc-soap-connector
+imageTag: 22.1.0
+replicas: 2
+envLoggingLevelApp: WARN
+nodeSelectorEnabled: false
+nodeSelectorKey: zone
+nodeSelectorValue: app
+useLbLabelsAndAnnotations: false
+envJaegerSamplerParam: '1'
+envJaegerSamplerType: ratelimiting
+maxHttp2ClientConnPerDestination: 6
+httpServerConnectionIdleTimeout: 660000
+
+resources:
+  limits:
+    ephemeralStorage: 1Gi
+    cpu: 2
+    memory: 1Gi
+  requests:
+    cpu: 0.5
+    memory: 0.5Gi
+
+readinessProbe:
+  initialDelaySeconds: 20
+  timeoutSeconds: 3
+  periodSeconds: 10
+  successThreshold: 1
+  failureThreshold: 3
+
+livenessProbe:
+  initialDelaySeconds: 60
+  timeoutSeconds: 3
+  periodSeconds: 15
+  successThreshold: 1
+  failureThreshold: 3
+
+service:
+  type: ClusterIP
+  port: 0
+  customExtension:
+    labels: {}
+    annotations: {}
+
+deployment:
+  customExtension:
+    labels: {}
+    annotations: {}
+
+fullnameOverride: oc-soap-connector
+appName: ocpm
+logging:
+  burst:
+    rate: 750
+    max: 3000
+  consoleFormat: jsonConsole
+  locationInfo: false
+
+extraContainers: USE_GLOBAL_VALUE

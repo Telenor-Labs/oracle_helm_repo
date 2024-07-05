@@ -1,0 +1,54 @@
+{{- if $.Values.global.nrfClientNfManagementEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{- include "annotations.services" . }}
+  labels:
+    {{- include "labels.services" . }}
+    io.kompose.service: {{ template "service-prefix" . }}-nrf-client-nfmanagement
+    category: ocnrf
+    {{- if not $.Values.global.serviceMeshEnabled }}
+    primary-port-name: http2
+    {{- end }}
+    app.kubernetes.io/name: {{ template "nrf-client.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  name: {{ template "service-prefix" . }}-nrf-client-nfmanagement
+spec:
+  ports:
+    - name: http2
+      port: {{ .Values.serviceHttpPort }}
+      protocol: TCP
+      targetPort: {{ .Values.containerHttpPort }}
+      {{- if ne (.Values.global.nrfClientNodePort | int) 0 }}
+      nodePort: {{ .Values.global.nrfClientNodePort }}
+      {{- end }}
+    - name: https
+      port: {{ .Values.serviceHttpsPort }}
+      protocol: TCP
+      targetPort: {{ .Values.containerHttpsPort }}
+    - name: cnc-metrics
+      port: {{ .Values.global.nrfClientCommonServicePort }}
+  selector:
+    io.kompose.service: {{ template "service-prefix" . }}-nrf-client-nfmanagement
+    app.kubernetes.io/name: {{ template "nrf-client.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  sessionAffinity: None
+  type: {{ .Values.type }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "service-prefix" . }}-nrf-client-cache
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: {{ template "chart.fullname" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  publishNotReadyAddresses: true
+  ports:
+  - name: notused
+    port: {{ .Values.envCacheServicePort }}
+{{- end }}

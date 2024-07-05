@@ -1,0 +1,28 @@
+{{- if $.Values.global.performanceServiceEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{- include "annotations.services" . }}
+  labels:
+    {{- include "labels.services" . }}
+    io.kompose.service: {{ template "perf-info-deployment-name" . }}
+    category: common
+  name: {{ template "service-name-perf-info" . }}
+spec:
+  ports:
+    - name: http-signaling
+      port: {{ .Values.global.servicePorts.perfInfoHttp }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.perfInfoHttp }}
+    {{- if .Values.global.exposeObservabilityAtService }}
+    - name: {{ .Values.global.cncMetricsName  }}
+      port: {{ .Values.global.containerPorts.monitoringHttp }}
+      protocol: TCP
+    {{- end }}
+
+  selector:
+    io.kompose.service: {{ template "perf-info-deployment-name" . }}
+  sessionAffinity: None
+  type: {{ .Values.service.type }}
+{{- end }}

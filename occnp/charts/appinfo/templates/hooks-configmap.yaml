@@ -1,0 +1,15 @@
+{{- if and .Values.commonCfgClient.enabled .Values.global.appinfoServiceEnable }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-hook-configmap-appinfo
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade,pre-rollback,pre-delete,post-upgrade,post-rollback
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+data:
+  defaultconfig.yaml: |-
+    {{ include "appinfo.defaultconfig.labels" . | quote }}
+  defaultschema.json: |-
+{{ .Files.Get "defaultschema.json" | indent 4}}
+{{- end }}

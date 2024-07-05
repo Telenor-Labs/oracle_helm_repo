@@ -1,0 +1,124 @@
+global:
+  imageTag: 1.0.0
+  imagePullPolicy: IfNotPresent
+  bulwarkServiceEnable: true
+  # Docker registry name
+  serviceAccountName: ''
+  dockerRegistry: docker-registry.openstack.in.oracle.com:5000
+  envJaegerAgentHost: ''
+  envJaegerAgentPort: 6831
+  serviceMeshEnabled: 'false'
+  istioSidecarQuitUrl: http://127.0.0.1:15020/quitquitquit
+  istioSidecarReadyUrl: http://127.0.0.1:15020/healthz/ready
+  extraContainers: DISABLED
+  logStorage: 0 #default calculated value 70
+  crictlStorage: 0 #default calculated value 1
+  configFetch:
+    maxRetries: 2
+    retryInterval: 1000
+  servicePorts:
+    bulwarkServiceHttp: 8000
+    bulwarkServiceDistCache: 6801
+    configServerHttp: 5807
+  containerPorts:
+    bulwarkServiceHttp: 8080
+    bulwarkServiceDistCache: 6801
+    monitoringHttp: 9000
+    javaDebugger: 5801
+  k8sResource:
+    container:
+      prefix:
+      suffix:
+  customExtension:
+    allResources:
+      labels: { }
+      annotations: { }
+    lbServices:
+      labels: { }
+      annotations: { }
+    lbDeployments:
+      labels: { }
+      annotations: { }
+    nonlbServices:
+      labels: { }
+      annotations: { }
+    nonlbDeployments:
+      labels: { }
+      annotations: { }
+
+image: occnp/oc-bulwark
+imageTag: 22.1.0
+envJaegerSamplerParam: '1'
+envJaegerSamplerType: ratelimiting
+nodeSelectorEnabled: false
+nodeSelectorKey: zone
+nodeSelectorValue: app
+envLoggingLevelApp: WARN
+httpServerConnectionIdleTimeout: 660000
+appName: ocpm
+
+resources:
+  limits:
+    cpu: 8
+    memory: 2Gi
+    ephemeralStorage: 2Gi
+  requests:
+    cpu: 1
+    memory: 1Gi
+
+readinessProbe:
+  initialDelaySeconds: 20
+  timeoutSeconds: 3
+  periodSeconds: 10
+  successThreshold: 1
+  failureThreshold: 3
+
+livenessProbe:
+  initialDelaySeconds: 60
+  timeoutSeconds: 3
+  periodSeconds: 15
+  successThreshold: 1
+  failureThreshold: 3
+
+
+minAvailable: 2 #Number of Pods must always be available, even during a disruption.
+minReplicas: 2
+maxReplicas: 8
+averageCpuUtil: 60
+
+service:
+  type: ClusterIP
+  port: 0
+
+  customExtension:
+    labels: {}
+    annotations: {}
+
+deployment:
+  customExtension:
+    labels: {}
+    annotations: {}
+
+
+fullnameOverride: ocpm-common-bulwark
+
+dependenciesLogging:
+  - name: logging.level.org.springframework
+    value: WARN
+  - name: logging.level.io.undertow
+    value: WARN
+  - name: logging.level.io.jaegertracing
+    value: ERROR
+
+metrics:
+  egressLatencyBuckets:
+    max: 10
+    size: 50
+logging:
+  burst:
+    rate: 750
+    max: 3000
+  consoleFormat: jsonConsole
+  locationInfo: false
+
+extraContainers: USE_GLOBAL_VALUE

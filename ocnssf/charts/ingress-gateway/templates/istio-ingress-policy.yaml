@@ -1,0 +1,13 @@
+{{- if .Values.global.istioIngressTlsSupport.ingressGateway }}
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: {{ template "service.fullname" .}}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: ingress-front-end
+  mtls:
+    mode: PERMISSIVE
+{{- end }}

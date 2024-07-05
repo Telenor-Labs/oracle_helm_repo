@@ -1,0 +1,13 @@
+{{- if and .Values.global.diamGatewayEnable .Values.global.istioIngressTlsSupport.diamGateway }}
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: Policy
+metadata:
+  name: {{ template "service-name-oc-diam-gateway" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  targets:
+  - name: {{ template "service-name-oc-diam-gateway" . }}
+  peers:
+  - mtls:
+      mode: PERMISSIVE
+{{- end }}

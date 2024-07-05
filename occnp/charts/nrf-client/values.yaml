@@ -1,0 +1,110 @@
+global:
+  nrfClientNfDiscoveryEnable: true
+  nrfClientNfManagementEnable: true
+  envJaegerAgentHost: ''
+  envJaegerAgentPort: 6831
+  nrfClientNodePort: 0
+  #dockerRegistry: cgbudocker.us.oracle.com:5655
+  #dockerRegistry: reg-1:5000
+  dockerRegistry: ocnrf-registry.us.oracle.com:5000
+  configServerFullNameOverride: ocpm-config
+
+  #Upgrade strategy, maxUnavailable pods declared for upgrade process
+  #The only supported upgrade strategy is RollingUpdate
+  upgradeStrategy: "RollingUpdate"
+  maxUnavailable: "25%"
+
+helmBasedConfigurationNodeSelectorApiVersion: "v1"
+configmapApplicationConfig:
+      # Config-map to provide inputs to Nrf-Client
+      # primaryNrfApiRoot - Primary NRF Hostname and Port
+      # SecondaryNrfApiRoot - Secondary NRF Hostname and Port
+      # nrfRouteList - Can be used to specify routes with priority instead of primary and secondary NRF API root
+      # useNrfRouteList - Can be used to specify whether nrfRouteList should be used instead of primary and secondary NRF API root
+      # nrfScheme - Scheme of primary and secondary NRF http or https
+      # retryAfterTime - Default downtime(in Duration) of an NRF detected to be unavailable. 
+      # nrfClientType - The NfType of the NF registering
+      # nrfClientSubscribeTypes - the NFType for which the NF wants to subscribe to the NRF. 
+      # appProfiles - The NfProfile of the NF to be registered with NRF.
+      # enableF3 - Support for 29.510 Release 15.3  
+      # enableF5 - Support for 29.510 Release 15.5    
+      # registrationRetryInterval - Retry Interval after a failed autonomous registration request
+      # subscriptionRetryInterval - Retry Interval after a failed autonomous subscription request
+      # discoveryRetryInterval - Retry Interval after a failed autonomous discovery request  
+      # renewalTimeBeforeExpiry - Time Period(seconds) before the Subscription Validity time expires.
+      # validityTime - The default validity time(days) for subscriptions. 
+      # enableSubscriptionAutoRenewal - Enable Renewal of Subscriptions automatically. 
+      # nfHeartbeatRate - This value specifies the rate at which the NF shall heartbeat with the NRF. The value shall be configured in terms of percentage(1-100). if the heartbeatTimer is 60s, then the NF shall heartbeat at nfHeartBeatRate * 60/100
+      # acceptAdditionalAttributes - Enable additionalAttributes as part of 29.510 Release 15.5   
+      # retryForCongestion - The duration(seconds) after which nrf-client should retry to a NRF server found to be congested.
+      # supportedDataSetId - The data-set value to be used in queryParams for NFs autonomous/on-demand discovery. e.g. data-set=POLICY
+      # enableVirtualNrfResolution- enable virtual NRF session retry by Alternate routing service
+      # virtualNrfFqdn - virtual NRF FQDN used to query static list of route
+      # virtualNrfScheme - http or https
+      # useAlternateScpOnAlternateRouting - enable use SCP on alternate routing service
+      # subscriberNotificationRetry - number of health status notification retries to a subscriber 
+      # requestTimeoutGracePeriod - grace period(seconds) for timeout period until no response is received from NRF
+      # nrfRetryConfig - configurations required for the NRF Retry mechanism
+      #serviceRequestType - type of service operation for which configuration is applicable
+      #primaryNRFRetryCount - number of retries for primary instance
+      #nonPrimaryNRFRetryCount - number of retries for non-primary instance
+      #alternateNRFRetriesCount - number of retry attempts
+      #errorReasonsForFailure - httpStatusCode or error conditions for which retry shall be attempted
+      #requestTimeout - timeout period(seconds) where no response is received from NRF
+      #gatewayErrorCodes - httpStatusCode sent by gateway for which retry shall be attempted
+      # healthCheckConfig - configurations required for the Health check of NRFs 
+      #healthCheckCount - consecutive success/failure operation count (default -1 means disabled)
+      #healthCheckInterval - interval duration in seconds to perform health check
+      #requestTimeout - timeout period(seconds) where no response is received from NRF
+      #errorReasonsForFailure - httpStatusCode or error conditions for which the NRF is considered as unhealthy
+      #gatewayErrorCodes - httpStatusCode sent by gateway for the NRF shall be considered unhealthy
+      profile: |-        
+         [appcfg]
+         primaryNrfApiRoot=nrfDeployName-nrf-1-nrf-simulator.nrfDeployNamespace-nrf-1.svc:5808
+         secondaryNrfApiRoot=
+         nrfRouteList=[{"nrfApi":"nrfDeployName-nrf-1:8080","scheme":"http","weight":100,"priority":1}]
+         useNrfRouteList=false
+         nrfScheme=http
+         retryAfterTime=PT120S
+         nrfClientType=NRF
+         nrfClientSubscribeTypes=PCF
+         appProfiles=[{}]
+         enableF3=true
+         enableF5=true
+         registrationRetryInterval=5000
+         subscriptionRetryInterval=5000
+         discoveryRetryInterval=5000
+         renewalTimeBeforeExpiry=3600
+         validityTime=30
+         enableSubscriptionAutoRenewal=true
+         nfHeartbeatRate=80
+         acceptAdditionalAttributes=false
+         retryForCongestion=5
+         supportedDataSetId=
+         enableVirtualNrfResolution=false
+         virtualNrfFqdn=nrf.oracle.com
+         virtualNrfScheme=http
+         useAlternateScpOnAlternateRouting=
+         subscriberNotificationRetry=2
+         requestTimeoutGracePeriod=2
+         nrfRetryConfig=[{"serviceRequestType":"ALL_REQUESTS","primaryNRFRetryCount":1,"nonPrimaryNRFRetryCount":1,"alternateNRFRetryCount":-1,"errorReasonsForFailure":["503","504","500","SocketTimeoutException","JsonProcessingException","UnknownHostException","NoRouteToHostException","IOException"],"gatewayErrorCodes":["503"],"requestTimeout":10},{"serviceRequestType":"AUTONOMOUS_NFREGISTER","primaryNRFRetryCount":1,"nonPrimaryNRFRetryCount":1,"alternateNRFRetryCount":-1,"errorReasonsForFailure":["503","504","500","SocketTimeoutException","JsonProcessingException","UnknownHostException","NoRouteToHostException","IOException"],"gatewayErrorCodes":["503"],"requestTimeout":10}]
+         healthCheckConfig={"healthCheckCount":-1,"healthCheckInterval":5,"requestTimeout":10,"errorReasonsForFailure":["503","504","500","SocketTimeoutException","IOException"],"gatewayErrorCodes":[]}
+
+#custom validator configuration. These configurations are needed for hooks to populate values in db
+componentValidator: "com.oracle.common.nrf.NrfClientCustomValidator"
+#Will be comma separated values. for eg: "com.oracle.common.oauth.OauthCustomValidator,com.oracle.common.nrf.NrfClientCustomValidator"
+dependentValidators: ""         
+
+nrf-client-nfmanagement:
+  global:
+    #ephemeralStorage value in MB. Value 0 means ephemeral-storage will not be set during deployment.
+    logStorage: 0 #default calculated value 70
+    crictlStorage: 0 #default calculated value 1
+    ephemeralStorageLimit: 0 #default calculated value 1024
+
+nrf-client-nfdiscovery:
+  global:
+    #ephemeralStorage value in MB.  Value 0 means ephemeral-storage will not be set during deployment.
+    logStorage: 0 #default calculated value 70
+    crictlStorage: 0 #default calculated value 1
+    ephemeralStorageLimit: 0 #default calculated value 1024

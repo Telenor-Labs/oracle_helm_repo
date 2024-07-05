@@ -1,0 +1,34 @@
+{{- if .Values.global.performanceServiceEnable }}
+{{- if .Capabilities.APIVersions.Has "policy/v1/PodDisruptionBudget" }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ template "service-name-perf-info" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+  annotations:
+    {{- include "annotations.allResources" . }}
+spec:
+  maxUnavailable: {{ .Values.maxUnavailable }}
+  selector:
+    matchLabels:
+      io.kompose.service: {{ template "perf-info-deployment-name" . }}
+{{- else if .Capabilities.APIVersions.Has "policy/v1/PodDisruptionBudget" }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ template "service-name-perf-info" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+  annotations:
+    {{- include "annotations.allResources" . }}
+spec:
+  maxUnavailable: {{ .Values.maxUnavailable }}
+  selector:
+    matchLabels:
+      io.kompose.service: {{ template "perf-info-deployment-name" . }}
+{{- end }}
+{{- end }}
+

@@ -1,0 +1,218 @@
+# Copyright 2019 (C), Oracle and/or its affiliates. All rights reserved.
+
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hp-autoscaler-nssubscription
+  labels:
+    {{- include "labels.allResources" . }}
+  annotations:
+    {{- include "annotations.allResources" . }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ template "nssubscription.fullname" . }}
+  minReplicas: {{ .Values.minReplicas }}
+  maxReplicas: {{ .Values.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: {{ .Values.resources.target.averageCpuUtil }}
+---
+apiVersion: v1
+kind: Service
+metadata: 
+  name: {{ template "nssubscription.fullname" . }}
+  labels:
+    {{- include "labels.nonlbServices" . }}
+    io.kompose.service: {{ template "nssubscription.fullname" . }}
+    category: nssf
+  annotations:
+    {{- include "annotations.nonlbServices" . }}
+spec:
+  ports:
+  - port: {{ .Values.global.nssubscription.portConfiguration.servicePort }}
+    targetPort: {{ .Values.global.nssubscription.portConfiguration.containerPort }}
+    name: http2
+  selector:
+    app.kubernetes.io/name: {{ template "chart.fullname" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    io.kompose.service: {{ template "nssubscription.fullname" . }}
+  type: {{ .Values.service.type }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "nssubscription.fullname" . }}
+  labels:
+    {{- include "labels.nonlbDeployments" . }}
+    io.kompose.service: {{ template "nssubscription.fullname" . }}
+  annotations:
+    {{- include "annotations.nonlbDeployments" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "chart.fullname" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      io.kompose.service: {{ template "nssubscription.fullname" . }}
+  template: #create pods using pod definition in this template
+    metadata:
+      annotations:
+        {{- include "annotations.nonlbDeployments" . | indent 4 }}
+        prometheus.io/port: "{{ .Values.global.nssubscription.portConfiguration.commonServicePort }}"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/scrape: "true"
+        oracle.com/cnc: "true"
+      labels:
+        {{- include "labels.nonlbDeployments" . | indent 4 }}
+        io.kompose.service: {{ template "nssubscription.fullname" . }}
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: "app.kubernetes.io/name"
+                  operator: In
+                  values:
+                  - {{ template "nssubscription.fullname" . }}
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+      {{- include "extraContainers" . | nindent 6}}
+      - name: {{ template "container.fullname" . }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullpolicy }}
+        resources:
+          requests:
+            cpu: "{{ .Values.resources.requests.cpu }}"
+            memory: "{{ .Values.resources.requests.memory }}"
+          limits:
+            cpu: "{{ .Values.resources.limits.cpu }}"
+            memory: "{{ .Values.resources.limits.memory }}"
+
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: {{ .Values.global.nssubscription.portConfiguration.commonServicePort }}
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.readinessProbe.successThreshold }}
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.global.nssubscription.portConfiguration.commonServicePort }}
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.livenessProbe.successThreshold }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+
+
+        ports:
+        - containerPort: {{ .Values.global.nssubscription.portConfiguration.containerPort }}
+          name: http2-sig
+        - containerPort: {{ .Values.global.nssubscription.portConfiguration.commonServicePort }}
+          name: cnc-metrics
+        env:
+        - name: SERVER_PORT
+          value: "{{ .Values.global.nssubscription.portConfiguration.servicePort }}"
+        - name: CONTAINER_PORT
+          value: "{{ .Values.global.nssubscription.portConfiguration.containerPort }}"
+        - name: COMMON_SERVICE_PORT
+          value: "{{ .Values.global.nssubscription.portConfiguration.commonServicePort }}"
+        - name: SITE_ID
+          value: "{{ .Values.siteId }}"
+        - name: LOGGING_LEVEL
+          value: "{{ .Values.loglevel }}"
+        - name: VERSION
+          value: "{{ .Values.relVersion }}"
+        - name: NOTIFICATION_RETRY_DELAY
+          value: "{{ .Values.notificationRetryDelay }}"
+        - name: GR_ENABLED
+          value: "{{ .Values.global.grEnabled }}"
+        - name: OAUTH_TOKEN_REQUEST_ENABLED
+          value: "{{ .Values.oauthTokenRequestEnabled }}"
+        - name: MYSQL_PRIMARY_HOST
+          value: "{{ .Values.global.mysql.primary.host }}"
+        - name: MYSQL_SECONDARY_HOST
+          value: "{{ .Values.global.mysql.secondary.host }}"
+        - name: MYSQL_PORT
+          value: "{{ .Values.global.mysql.port }}"
+        - name: DATABASE_SECRETKEY_NAME
+          value: "{{ .Values.global.appDbCredSecretName }}"
+        - name: DATABASE_SECRETKEY_NAMESPACE
+          value: "{{ .Values.global.nameSpace }}"
+        - name: INDIRECT_COMMUNICATION_SUPPORT_ENABLE
+          value: "{{ .Values.global.indirectCommunicationSupportEnable }}"
+        - name: NSSF_API_ROOT
+          value: "{{ .Values.global.nssfApiRoot }}"
+        - name: NF_SET
+          value: "{{ .Values.global.nfSet }}"
+        - name: PROVISON_DATABASE_NAME
+          value: "{{ .Values.global.provisionDbName }}"
+        - name: STATE_DATABASE_NAME
+          value: "{{ .Values.global.stateDbName }}"
+        - name: spring.datasource.statedb.jdbc-url
+          value: jdbc:mysql://{{ .Values.global.mysql.primary.host }}:{{ .Values.global.mysql.port }},{{ .Values.global.mysql.secondary.host }}:{{ .Values.global.mysql.port }}/{{ .Values.global.stateDbName }}?failOverReadOnly=false&createDatabaseIfNotExist=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true
+        - name: spring.datasource.statedb.username
+          valueFrom:
+           secretKeyRef:
+            name: "{{ .Values.global.appDbCredSecretName }}"
+            key: mysql-username
+        - name: spring.datasource.statedb.password
+          valueFrom:
+           secretKeyRef:
+            name: "{{ .Values.global.appDbCredSecretName }}"
+            key: mysql-password
+        - name: spring.datasource.provisondb.jdbc-url
+          value: jdbc:mysql://{{ .Values.global.mysql.primary.host }}:{{ .Values.global.mysql.port }},{{ .Values.global.mysql.secondary.host }}:{{ .Values.global.mysql.port }}/{{ .Values.global.provisionDbName }}?failOverReadOnly=false&createDatabaseIfNotExist=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true
+        - name: spring.datasource.provisondb.username
+          valueFrom:
+           secretKeyRef:
+            name: "{{ .Values.global.appDbCredSecretName }}"
+            key: mysql-username
+        - name: spring.datasource.provisondb.password
+          valueFrom:
+           secretKeyRef:
+            name: "{{ .Values.global.appDbCredSecretName }}"
+            key: mysql-password
+        - name: EGRESS_GATEWAY_URL
+          value: "http://{{ .Release.Name }}-egress-gateway:8080"
+        - name: NF_ID
+          value: "{{ .Values.global.nfInstanceId }}"
+        - name: APP_NAME
+          value: {{ template "ocnssf.name" . }}
+        - name: ENG_VERSION
+          value: {{ .Chart.Version | quote }}
+        - name: APP_VERSION
+          value: {{ .Chart.AppVersion | quote }}
+        - name: MICROSERVICE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: K8S_NODE
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: MAX_RETRIES
+          value: "{{ .Values.httpMaxRetries }}"
+        - name: COMMON_CFG_CLIENT_ENABLED
+          value: {{ .Values.global.commonCfgClient.enabled | quote }}
+        - name: COMMON_CFG_SERVER_HOST
+          value: "{{ .Release.Name }}-nsconfig"
+        - name: COMMON_CFG_SERVER_PORT
+          value: {{ .Values.global.nsconfig.portConfiguration.servicePort | quote }}
+        - name: COMMON_CFG_SERVER_POLLING_INTERVAL
+          value: {{ .Values.global.commonCfgClient.pollingInterval | quote }}
+        - name: MICROSERVICE_NAME_FOR_COMMON_CONFIG
+          value: {{ .Values.commonServiceName }}

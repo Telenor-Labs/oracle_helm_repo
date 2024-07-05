@@ -1,0 +1,15 @@
+{{- if .Values.commonCfgClient.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "hook-configmap.igw.fullname" . }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade,pre-rollback,pre-delete,post-upgrade,post-rollback
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+data:
+  defaultconfig.yaml: |-
+    {{ include "defaultconfig-igw.labels" . | quote }}
+  defaultschema.json: |-
+{{ .Files.Get "defaultschema.json" | indent 4}}
+{{- end }}

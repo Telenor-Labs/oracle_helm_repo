@@ -1,0 +1,70 @@
+{{- if .Values.global.udrConnectorEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{- include "annotations.services" . }}
+  labels:
+    {{- include "labels.services" . }}
+    io.kompose.service: {{ template "occnp-udr-connector-deployment-name" . }}
+    category: pcf
+    {{- if not $.Values.global.serviceMeshEnabled }}
+    primary-port-name: http2-text
+    {{- end }}
+  name: {{ template "service-name-udr-connector" . }}
+spec:
+  ports:
+    - name: http2-text
+      port: {{ .Values.global.servicePorts.udrConnectorHttp }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.udrConnectorHttp }}
+    - name: https
+      port: {{ .Values.global.servicePorts.udrConnectorHttps }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.udrConnectorHttps }}
+    {{- if .Values.global.exposeObservabilityAtService }}
+    - name: {{ .Values.global.cncMetricsName  }}
+      port: {{ .Values.global.containerPorts.monitoringHttp }}
+      protocol: TCP
+    {{- end }}
+  selector:
+    io.kompose.service: {{ template "occnp-udr-connector-deployment-name" . }}
+  sessionAffinity: None
+  type: {{ .Values.service.type }}
+{{- end }}
+
+
+---
+
+{{- if .Values.global.chfConnectorEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{- include "annotations.services" . }}
+  labels:
+    {{- include "labels.services" . }}
+    io.kompose.service: {{ template "occnp-chf-connector-deployment-name" . }}
+    category: pcf
+    primary-port-name: http2-text
+  name: {{ template "service-name-chf-connector" . }}
+spec:
+  ports:
+    - name: http2-text
+      port: {{ .Values.global.servicePorts.chfConnectorHttp }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.chfConnectorHttp }}
+    - name: https
+      port: {{ .Values.global.servicePorts.chfConnectorHttps }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.chfConnectorHttps }}
+    {{- if .Values.global.exposeObservabilityAtService }}
+    - name: {{ .Values.global.cncMetricsName }}
+      port: {{ .Values.global.containerPorts.monitoringHttp }}
+      protocol: TCP
+    {{- end }}
+  selector:
+    io.kompose.service: {{ template "occnp-chf-connector-deployment-name" . }}
+  sessionAffinity: None
+  type: {{ .Values.service.type }}
+{{- end }}

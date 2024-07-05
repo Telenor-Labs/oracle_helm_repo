@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{- include "annotations.services" . }}
+  labels:
+    {{- include "labels.services" . }}
+    io.kompose.service: {{ template "config-server-deployment-name" . }}
+    category: common
+  name: {{ template "service-name-config-server" . }}
+spec:
+  ports:
+    - name: http-signaling
+      port: {{ .Values.global.servicePorts.configServerHttp }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.configServerHttp }}
+    {{- if .Values.global.exposeObservabilityAtService }}
+    - name: {{ .Values.global.cncMetricsName  }}
+      port: {{ .Values.global.containerPorts.monitoringHttp }}
+      protocol: TCP
+    {{- end }}
+  selector:
+    io.kompose.service: {{ template "config-server-deployment-name" . }}
+  sessionAffinity: None
+  type: {{ .Values.service.type }}

@@ -1,0 +1,94 @@
+dependencies:
+
+  - name: ingress-gateway
+    version: 22.1.4
+    repository: alias:cne-helm-repo
+    condition: ingress-gateway.enabled
+  - name: egress-gateway
+    version: 22.1.4
+    repository: alias:cne-helm-repo
+    condition: egress-gateway.enabled
+  - name: nrf-client
+    version: 22.1.2
+    repository: alias:ocnrf-helm-repo
+    condition: nrf-client.enabled
+  - name: alternate-route
+    version: 22.1.2
+    repository: alias:cne-helm-repo
+    condition: alternate-route.enabled
+  - name: diam-gateway
+    version: 22.1.0
+    repository: alias:occnp-helm-repo
+    condition: diam-gateway.enabled
+  - name: diam-connector
+    version: 22.1.0
+    repository: alias:occnp-helm-repo
+    condition: diam-connector.enabled
+  - name: am-service
+    version: 22.1.0
+    repository: alias:occnp-helm-repo
+    condition: am-service.enabled
+  - name: sm-service
+    version: 22.1.0
+    repository: alias:occnp-helm-repo
+    condition: sm-service.enabled
+  - name: ue-service
+    version: 22.1.0
+    repository: alias:occnp-helm-repo
+    condition: ue-service.enabled
+  - name: config-server
+    version: 22.1.0
+    repository: alias:occnp-helm-repo
+    condition: config-server.enabled
+  - name: user-service
+    version: 22.1.0
+    repository: alias:occnp-helm-repo
+    condition: user-service.enabled
+  - name: pre-service
+    version: 22.1.0
+    repository: alias:occnp-helm-repo
+    condition: pre-service.enabled
+  - name: cm-service
+    version: 22.1.0
+    repository: alias:occnp-helm-repo
+    condition: cm-service.enabled
+  - name: perf-info
+    version: 22.1.0
+    repository: alias:occnp-helm-repo
+    condition: perf-info.enabled
+  - name: appinfo
+    version: 22.1.0
+    repository: alias:occnp-helm-repo
+    condition: appinfo.enabled
+  - name: queryservice
+    version: 22.1.0
+    repository: alias:occnp-helm-repo
+    condition: queryservice.enabled
+  - name: bulwark
+    version: 22.1.0
+    repository: alias:occnp-helm-repo
+    condition: bulwark.enabled
+  - name: audit-service
+    version: 22.1.0
+    repository: alias:occnp-helm-repo
+    condition: audit-service.enabled
+  - name: ldap-gateway
+    version: 22.1.0
+    repository: alias:occnp-helm-repo
+    condition: ldap-gateway.enabled
+  - name: policyds
+    version: 22.1.0
+    repository: alias:occnp-helm-repo
+    condition: policyds.enabled
+  - name: binding
+    version: 22.1.0
+    repository: alias:occnp-helm-repo
+    condition: binding.enabled
+  - name: pcrf-core
+    version: 22.1.0
+    repository: alias:occnp-helm-repo
+    condition: pcrf-core.enabled
+  - name: soap-connector
+    version: 22.1.0
+    repository: alias:occnp-helm-repo
+    condition: soap-connector.enabled

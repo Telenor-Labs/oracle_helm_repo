@@ -1,0 +1,21 @@
+{{- if .Values.global.diamGatewayEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "service-name-oc-diam-gateway-coherence-headless" . }}
+  annotations:
+    {{ include "diam-gateway-annotations.nonlbService" . }}
+  labels:
+    {{ include "diam-gateway-labels.nonlbService" . }}
+    io.kompose.service: {{ template "diam-gateway-coherence-headless-service-label" . }}
+    category: occnp
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    io.kompose.service: {{ template "diam-gateway-deployment-name" . }}
+  ports:
+    - name: tcp-distcache
+      port: {{ .Values.global.servicePorts.diamGatewayDistCache }}
+{{- end }}

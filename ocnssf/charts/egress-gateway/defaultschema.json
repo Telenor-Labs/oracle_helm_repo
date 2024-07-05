@@ -1,0 +1,447 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "sample config json",
+	"description": "json validator",
+	"type": "object",
+	"properties": {
+		"logging": {
+			"type": "object",
+			"description": "An explanation about the purpose of this instance.",
+			"properties": {
+				"appLogLevel": {
+					"enum": [
+						"INFO",
+						"DEBUG",
+						"WARN",
+						"ERROR",
+						"FATAL",
+						"OFF",
+						"TRACE",
+						"ALL"
+					],
+					"type": "string",
+					"description": "An explanation about the purpose of this instance."
+				},
+				"packageLogLevel": {
+					"type": "array",
+					"minItems": 2,
+					"maxItems": 2,
+					"uniqueItems": true,
+					"items": {
+						"anyOf": [
+							{
+								"type": "object",
+								"properties": {
+									"packageName": {
+										"enum": [
+											"root",
+											"oauth"
+										],
+										"type": "string",
+										"description": "An explanation about the purpose of this instance."
+									},
+									"logLevelForPackage": {
+										"enum": [
+											"INFO",
+											"DEBUG",
+											"WARN",
+											"ERROR",
+											"FATAL",
+											"OFF",
+											"TRACE",
+											"ALL"
+										],
+										"type": "string",
+										"description": "An explanation about the purpose of this instance."
+									}
+								},
+								"required": [
+									"packageName",
+									"logLevelForPackage"
+								],
+								"description": "An explanation about the purpose of this instance."
+							}
+						]
+					},
+					"description": "An explanation about the purpose of this instance."
+				}
+			},
+			"required": [
+				"appLogLevel",
+				"packageLogLevel"
+			]
+		},
+		"forwardheaderdetails": {
+			"type": "object",
+			"description": "Resource to populate forward headers in outgoing request",
+			"properties": {
+				"enabled": {
+					"type": "boolean"
+				},
+				"forwardHeaderValue": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"enabled"
+			]
+		},
+		"messagelogging": {
+			"type": "object",
+			"required": [
+				"enabled"
+			],
+			"properties": {
+				"enabled": {
+					"type": "boolean"
+				},
+				"responseCodeSeries": {
+					"type": "array",
+					"additionalItems": true,
+					"items": {
+						"anyOf": [
+						{
+							"type": "object",
+							"required": [
+								"responseSet",
+								"responseCodes"
+							],
+							"properties": {
+								"responseSet": {
+									"type": "string",
+									"enum": ["1xx","2xx","3xx","4xx","5xx"]
+								},
+								"responseCodes": {
+									"type": "array",
+									"additionalItems": true,
+									"items": {
+										"anyOf": [
+										{
+											"type": "integer",
+											"enum": [-1,100,101,102,103,200,201,202,203,204,205,206,207,208,226,300,301,302,303,304,305,306,307,308,400,401,402,403,404,405,406,407,408,409,410,411,412,413,414,415,416,417,418,421,422,423,424,425,426,428,429,431,444,451,499,500,501,502,503,504,505,506,507,508,510,511,599]
+										}]
+									}
+								}
+							}
+						}]
+					}
+				},
+				"whiteListedHeaders": {
+					"type": "array",
+					"additionalItems": true,
+					"items": {
+						"anyOf": [
+						{
+							"type": "string"
+						}]
+					}
+				}
+			}
+		},
+		"peerconfiguration": {
+			"type": ["array","null"],
+			"additionalItems": true,
+			"uniqueItems": true,
+			"items": {
+				"anyOf": [
+				{
+					"type": "object",
+					"required": [
+						"id"
+					],
+					"additionalProperties": false,
+					"properties": {
+						"id": {
+							"type": "string"
+						},
+						"host": {
+							"type": "string",
+							"anyOf": [
+								{ "format": "hostname" },
+								{ "format": "ipv4" },
+								{ "format": "ipv6" }
+							]
+						},
+						"port": {
+							"type": "string"
+						},
+						"virtualHost": {
+							"type": "string"
+						},
+						"apiPrefix": {
+							"type": "string"
+						}
+					}
+				}]
+			}
+		},
+		"peersetconfiguration": {
+			"type": ["array","null"],
+			"additionalItems": true,
+			"uniqueItems": true,
+			"items": {
+				"anyOf": [
+				{
+					"type": "object",
+					"required": [
+						"id"
+					],
+					"additionalProperties": false,
+					"properties": {
+						"id": {
+							"type": "string"
+						},
+						"httpConfiguration": {
+							"type": "array",
+							"additionalItems": true,
+							"uniqueItems": true,
+							"items": {
+								"anyOf": [
+								{
+									"type": "object",
+									"required": [
+									    "priority",
+										"peerIdentifier"
+									],
+									"properties": {
+										"priority": {
+											"type": "integer"
+										},
+										"peerIdentifer": {
+											"type": "string"
+										}
+									}
+								}]
+							}
+						},
+						"httpsConfiguration": {
+                                                        "type": "array",
+                                                        "additionalItems": true,
+                                                        "uniqueItems": true,
+                                                        "items": {
+                                                                "anyOf": [
+                                                                {
+                                                                        "type": "object",
+                                                                        "required": [
+                                                                        		"priority",
+                                                                                "peerIdentifier"
+                                                                        ],
+                                                                        "properties": {
+                                                                                "priority": {
+                                                                                        "type": "integer"
+                                                                                },
+                                                                                "peerIdentifer": {
+                                                                                        "type": "string"
+                                                                                }
+                                                                        }
+                                                                }]
+                                                        }
+                                                }
+					}
+				}]
+			}
+		},
+		"serverheader":{
+			"type": "object",
+			"description": "Resource to populate forward headers in outgoing request",
+			"properties": {
+				"autoBlackListProxy": {
+					"type": "object",
+					"description": "Auto blacklist proxy",
+					"required": ["enabled"],
+					"properties": {
+						"blacklistingPeriod":{
+							"type": "integer"
+						},
+						"errorCodeList": {
+							"type": ["array","null"],
+							"items": {
+								"anyOf": [
+									{
+										"type": "object",
+										"properties": {
+											"errorSetId": {
+												"type": "string"
+											},
+											"errorCodes": {
+												"type":"string"
+											}
+										}
+									}
+								]
+							}
+						}
+					}
+				}
+			},
+			"required": [
+				"autoBlackListProxy"
+			]
+		},
+		"routesconfiguration": {
+			"type": ["array","null"],
+			"additionalItems": true,
+			"uniqueItems": true,
+			"items": {
+				"anyOf": [
+				{
+					"type": "object",
+					"required": [
+						"id"
+					],
+					"properties": {
+						"id": {
+							"type": "string"
+						},
+						"sbiRoutingConfiguration": {
+							"type": "object",
+							"required": [  
+								"enabled"
+							],
+							"properties": {
+								"enabled": {
+									"type": "boolean"
+								},
+								"peerSetIdentifier": {
+									"type": "string"
+								},
+								"alternateOnReroute": {
+									"type": "boolean"
+								}
+							}
+						},
+						"httpsTargetOnly": {
+							"type": "boolean"
+						},
+						"httpRuriOnly": {
+							"type": "boolean"
+						},
+						"serverHeaderEnabled": {
+							"type": "boolean"
+						},
+						"serverheadernfTypes": {
+							"type": ["array","null"]
+						},
+						"uri": {
+							"type": "string"
+						},
+						"order": {
+							"type": "integer"
+						},
+						"predicates": {
+							 "type": "array",
+                             "additionalItems": true,
+                             "uniqueItems": true,
+                             "items": {
+                              		"anyOf": [
+                                    {
+                                         "type": "object",
+                                     	 "required": [
+                                         	"name", "args"
+                                          ],
+                                          "properties": {
+                                          		"name": {
+                                                	"type": "string"
+                                           		},
+                                           		"args": {
+                                           			"type": "object",
+  													"patternProperties": {
+    													".{1,}": { "type": "string" }
+  													}
+                                            	}
+                                    		}
+                             		}]
+                         		}
+						},
+						"filters": {
+							"type": "array",
+							"additionalItems": true,
+
+							"items": {
+								"anyOf": [
+									{
+										"type": "object",
+										"required": [
+											"name"
+										],
+										"properties": {
+											"name": {
+												"type": "string"
+											},
+											"args":{
+												"anyOf": [
+													{
+														"type": "object",
+														"patternProperties": {
+															".{1,}": { "type": "string" }
+														}
+													},
+													{"type":"object"},
+													{
+														"type": ["array","null"],
+														"default": [],
+														"additionalItems": true,
+														"items": {
+															"anyOf": [
+																{
+																	"type": "object",
+																	"patternProperties": {
+																		".{1,}": { "type": "number" }
+																	}
+																},
+																{
+																	"type": "object",
+																	"patternProperties": {
+																		".{1,}": { "type": "string" }
+																	}
+																},
+																{
+																	"type": "object",
+																	"patternProperties": {
+																		".{1,}": { "type": "boolean" }
+																	}
+																},
+																{
+																	"type": "object",
+																	"patternProperties": {
+																		".{1,}": { "type": "object" }
+																	}
+																}
+															]
+														}
+													}
+												]
+											}
+										}
+									}]
+							}
+						},
+						"metadata": {
+							"type": "object",
+							"patternProperties": {
+								".{1,}": { "type": ["string", "object", "array", "boolean", "number"] }
+							}
+						}
+					}
+				}]
+			}
+		},
+		"useragentheader": {
+			"type": "object",
+			"description": "Configuration for generating user agent header",
+			"additionalProperties": false,
+			"required": [
+				"enabled",
+				"overwriteHeader"
+			],
+			"properties": {
+				"enabled": {"type": "boolean"},
+				"nfType": {"type": "string"},
+				"nfInstanceId": {"type": "string"},
+				"nfFqdn": {"type": "string"},
+				"addFqdnToHeader": {"type": "boolean"},
+				"overwriteHeader": {"type": "boolean"}
+			}
+		}
+	}
+}

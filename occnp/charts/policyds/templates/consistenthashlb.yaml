@@ -1,0 +1,12 @@
+{{- if .Values.global.istioConsistentHashBasedLoadBalancing.istioDestinationV1Alpha3Enable }}
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: {{ template "ocpm-policyds-deployment-name" . }}
+spec:
+    host: {{ template "service-name-policy-ds" . }}
+    trafficPolicy:
+          loadBalancer:
+            consistentHash:
+                  httpHeaderName: supi
+{{- end }}

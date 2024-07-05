@@ -1,0 +1,38 @@
+{{- if $.Values.global.nrfClientNfDiscoveryEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{- include "annotations.services" . }}
+  labels:
+    {{- include "labels.services" . }}
+    io.kompose.service: {{ template "service-prefix" . }}-nrf-client-nfdiscovery
+    category: ocnrf
+    {{- if not $.Values.global.serviceMeshEnabled }}
+    primary-port-name: http2
+    {{- end }}
+    app.kubernetes.io/name: {{ template "nrf-client.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  name: {{ template "service-prefix" . }}-nrf-client-nfdiscovery
+spec:
+  ports:
+    - name: http2
+      port: {{ .Values.serviceHttpPort }}
+      protocol: TCP
+      targetPort: {{ .Values.containerHttpPort }}
+      {{- if ne (.Values.global.nrfClientNodePort | int) 0 }}
+      nodePort: {{ .Values.global.nrfClientNodePort }}
+      {{- end }}
+    - name: https
+      port: {{ .Values.serviceHttpsPort }}
+      protocol: TCP
+      targetPort: {{ .Values.containerHttpsPort }}
+    - name: cnc-metrics
+      port: {{ .Values.global.nrfClientCommonServicePort }}
+  selector:
+    io.kompose.service: {{ template "service-prefix" . }}-nrf-client-nfdiscovery
+    app.kubernetes.io/name: {{ template "nrf-client.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  sessionAffinity: None
+  type: {{ .Values.type }}
+{{- end }}

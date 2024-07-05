@@ -1,0 +1,58 @@
+# Copyright 2018 (C), Oracle and/or its affiliates. All rights reserved.
+
+{{- if not  .Values.global.serviceAccountName }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ template "ocnf.serviceaccount" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+  annotations:
+    {{- include "annotations.allResources" . }}
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ template "ocnf.role" .}}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+  annotations:
+    {{- include "annotations.allResources" . }}
+rules:
+- apiGroups:
+  - "" # "" indicates the core API group
+  resources:
+  - pods
+  - persistentvolumeclaims
+  - services
+  - endpoints
+  - configmaps
+  verbs:
+  - list
+  - get
+  - watch
+---
+
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: {{ template "ocnf.rolebinding" .}}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+  annotations:
+    {{- include "annotations.allResources" . }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ template "ocnf.role" .}}
+#  namespace: {{ .Release.Namespace }}
+subjects:
+- kind: ServiceAccount
+  name: {{template "ocnf.serviceaccount" . }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}
+

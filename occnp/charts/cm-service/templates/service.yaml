@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{- include "annotations.services" . }}
+  labels:
+    {{- include "labels.services" . }}
+    io.kompose.service: {{ template "ocpm-cm-service-deployment-name" . }}
+    category: common
+  name: {{ template "service-name-config-mgmt" . }}
+spec:
+  {{- if or (eq .Values.service.type "NodePort") (eq .Values.service.type "LoadBalancer") }}
+  externalTrafficPolicy: Cluster
+  {{- end }}
+  ports:
+    - name: http
+      port: {{ .Values.global.servicePorts.cmServiceHttp }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.cmServiceHttp }}
+      {{- if ne (.Values.global.cmServiceNodePort | int) 0 }}
+      nodePort: {{ .Values.global.cmServiceNodePort }}
+      {{- end }}
+    {{- if .Values.global.exposeObservabilityAtService }}
+    - name: {{ .Values.global.cncMetricsName  }}
+      port: {{ .Values.global.containerPorts.monitoringHttp }}
+      protocol: TCP
+    {{- end }}
+      
+  selector:
+    io.kompose.service: {{ template "ocpm-cm-service-deployment-name" . }}
+  sessionAffinity: None
+  type: {{ .Values.service.type }}

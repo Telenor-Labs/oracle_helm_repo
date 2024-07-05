@@ -1,0 +1,28 @@
+{{- if $.Values.global.auditServiceEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{- include "annotations.services" . }}
+  labels:
+    {{- include "labels.services" . }}
+    io.kompose.service: {{ template "ocpm-audit-service-deployment-name" . }}
+    category: common
+  name: {{ template "service-name-audit" . }}
+spec:
+  ports:
+    - name: http-text
+      port: {{ .Values.global.servicePorts.auditServiceHttp }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.auditServiceHttp }}
+    {{- if .Values.global.exposeObservabilityAtService }}
+    - name: {{ .Values.global.cncMetricsName  }}
+      port: {{ .Values.global.containerPorts.monitoringHttp }}
+      protocol: TCP
+    {{- end }}
+
+  selector:
+    io.kompose.service: {{ template "ocpm-audit-service-deployment-name" . }}
+  sessionAffinity: None
+  type: {{ .Values.type }}
+  {{- end }}

@@ -1,0 +1,22 @@
+{{- if .Values.global.bulwarkServiceEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{- include "annotations.services" . }}      
+  labels:
+    {{- include "labels.services" . }}      
+    io.kompose.service: {{ template "bulwarkservice-deployment-name" . }}
+    category: common
+  name: {{ template "service-name-bulwark" . }}
+spec:
+  ports:
+    - name: http2-text
+      port: {{ .Values.global.servicePorts.bulwarkServiceHttp }}
+      protocol: TCP
+      targetPort: {{ .Values.global.containerPorts.bulwarkServiceHttp }}
+  selector:
+    io.kompose.service: {{ template "bulwarkservice-deployment-name" . }}
+  sessionAffinity: None
+  type: {{ .Values.service.type }}
+  {{- end }}

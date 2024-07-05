@@ -1,0 +1,203 @@
+{{- if $.Values.global.nrfClientNfManagementEnable }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    {{- include "labels.deployments" . }}
+    io.kompose.service: {{ template "service-prefix" . }}-nrf-client-nfmanagement
+    app.kubernetes.io/name: {{ template "nrf-client.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ .Values.global.applicationName }}
+  annotations:
+    traffic.sidecar.istio.io/excludeOutboundPorts: "{{ .Values.cacheServicePortStart }}, {{ .Values.cacheServicePortEnd }}"
+    traffic.sidecar.istio.io/excludeInboundPorts: "{{ .Values.cacheServicePortStart }}, {{ .Values.cacheServicePortEnd }}"
+    {{- include "annotations.deployments" . }}
+  name: {{ template "service-prefix" . }}-nrf-client-nfmanagement
+spec:
+  strategy:
+    type: {{ .Values.global.upgradeStrategy | quote }}
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 2
+  replicas: {{ .Values.replicas }}
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      io.kompose.service: {{ template "service-prefix" . }}-nrf-client-nfmanagement
+      app.kubernetes.io/name: {{ template "nrf-client.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "labels.deployments" . | indent 4 }}
+        io.kompose.service: {{ template "service-prefix" . }}-nrf-client-nfmanagement
+        app.kubernetes.io/name: {{ template "nrf-client.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: {{ .Values.global.applicationName }}
+      annotations:
+        traffic.sidecar.istio.io/excludeOutboundPorts: "{{ .Values.cacheServicePortStart }}, {{ .Values.cacheServicePortEnd }}"
+        traffic.sidecar.istio.io/excludeInboundPorts: "{{ .Values.cacheServicePortStart }}, {{ .Values.cacheServicePortEnd }}"
+        {{- include "annotations.deployments" . | indent 4 }}
+        prometheus.io/port: {{ .Values.global.nrfClientCommonServicePort | quote }}
+        prometheus.io/path: {{ .Values.global.prometheusScrapingConfig.path | quote }}
+        prometheus.io/scrape: {{ .Values.global.prometheusScrapingConfig.enabled | quote }}
+    spec:
+      tolerations: {{ include "ocnf.tolerations" . | nindent 6}}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: "app.kubernetes.io/name"
+                  operator: In
+                  values:
+                  - {{ template "chart.fullname" . }}
+              topologyKey: "kubernetes.io/hostname"
+      {{- if .Values.global.serviceAccountName }}
+      serviceAccountName: {{ .Values.global.serviceAccountName | quote}}
+      {{- else }}
+      serviceAccountName: {{ template "service-prefix" . }}-nrfclient-service-account
+      {{- end }}
+      containers:
+      - env:
+        - name: LOG_LEVEL_ROOT
+          value: {{ .Values.logging.level.root }}
+        - name: LOG_LEVEL_NRFCLIENT
+          value: {{ .Values.logging.level.nrfclient }}
+        - name: SVC_NAME_MAP
+          value: "{{ .Values.global.deploymentNrfClientService.envNfNamespace }}:{{ .Values.global.deploymentNrfClientService.envNfType }},{{ .Values.global.deploymentNrfClientService.envConsumeSvcName }}"
+        - name: PLATFORM_SERVICE_NAME
+          value: {{ template "service-prefix" . }}-app-info
+        - name: PLATFORM_SERVICE_PORT
+          value: {{ .Values.envPlatformServicePort | quote }}
+        - name: JAEGER_AGENT_HOST
+          value: {{ .Values.global.envJaegerAgentHost | quote }}
+        - name: JAEGER_AGENT_PORT
+          value: {{ .Values.global.envJaegerAgentPort | quote }}
+        - name: JAEGER_SAMPLER_PARAM
+          value: {{ .Values.envJaegerSamplerParam | quote }}
+        - name: JAEGER_SAMPLER_TYPE
+          value: {{ .Values.envJaegerSamplerType | quote }}
+        - name: JAEGER_SERVICE_NAME
+          value: {{ .Values.envJaegerServiceName | quote }}
+        - name: PERFORMANCE_SERVICE_NAME
+          value: {{ template "service-prefix" . }}-perf-info
+        - name: PERFORMANCE_SERVICE_PORT
+          value: {{ .Values.envPerformanceServicePort | quote }}
+        - name: API_ROOT
+          value: {{ .Values.global.deploymentNrfClientService.nfApiRoot }}
+        - name: CFG_SERVER_HOST
+          value: {{ template "service-prefix" . }}-config-server
+        - name: CFG_SERVER_PORT
+          value: {{ .Values.envCfgServerPort | quote }}
+        - name: CFG_SERVER_READY_PATH
+          value: /topics
+        - name: EGRESS_GATEWAY_HOST
+          value: {{ template "egress-gateway-host" . }}
+        - name: EGRESS_GATEWAY_PORT
+          value: {{ .Values.global.deploymentNrfClientService.envEgressGatewayPort | quote }}
+        - name: IS_DISCOVERY
+          value: {{ .Values.isDiscovery | quote }}
+        - name: NFPROFILE_CONFIG_MODE
+          value: {{ .Values.nfProfileConfigMode }}
+        - name: NRF_ROUTE_CONFIG_MODE
+          value: {{ .Values.nrfRouteConfigMode }}
+        - name: CLIENT_THREAD_POOL_SIZE
+          value: {{ .Values.threadPoolSize | quote }}
+        - name: SERVER_PORT
+          value: {{ .Values.containerHttpsPort | quote }}
+        - name: SERVER_HTTP_PORT
+          value: {{ .Values.containerHttpPort | quote }}
+        - name: METRICS_PREFIX
+          value: {{ .Values.metricPrefix | quote }}
+        - name: METRICS_SUFFIX
+          value: {{ .Values.metricSuffix | quote }}
+        - name: COMMON_SERVICE_PORT
+          value: {{ .Values.global.nrfClientCommonServicePort | quote }}
+        - name: CACHE_SERVICE_NAME
+          value: {{ template "service-prefix" . }}-nrf-client-cache
+        - name: CACHE_SERVICE_PORT_START
+          value: {{ .Values.cacheServicePortStart | quote }}
+        - name: CACHE_SERVICE_PORT_END
+          value: {{ .Values.cacheServicePortEnd | quote }}
+        - name: RELEASE_NAMESPACE
+          value: {{ .Release.Namespace }}
+        - name: ISTIO_SIDECAR_QUIT_URL
+          value: {{ .Values.istioSidecarQuitUrl }}
+        - name: ISTIO_SIDECAR_READY_URL
+          value: {{ .Values.istioSidecarReadyUrl }}
+        - name: SERVICE_MESH_CHECK
+          value: {{ .Values.serviceMeshCheck | quote }}
+      {{- if $.Values.global.alternateRouteServiceEnable }}
+        - name: ALTERNATE_ROUTE_SERVICE_HOST
+          value: {{ template "service-name-alternate-route" . }}
+        - name: ALTERNATE_ROUTE_SERVICE_PORT
+          value: {{ .Values.global.servicePorts.alternateRouteServiceHttp | quote }}
+        - name: ALTSRV_HTTP2_ENABLED
+          value: {{ .Values.global.altServiceHTTP2Enabled | quote }}
+        - name: ALTSRV_REQ_TIMEOUT
+          value: {{ .Values.global.altServiceReqTimeout | quote }}
+        - name: ALTSRV_LOOKUP_INTERVAL
+          value: {{ .Values.global.altServiceLookupInterval | quote }}
+      {{- end }}
+        - name: COMMON_CFG_SERVER_SCHEME
+          value: {{ .Values.commonCfgServer.scheme | quote }}
+        - name: COMMON_CFG_SERVER_HOST
+          value: {{ template "service.ConfigServerSvcFullname" .}}
+        - name: COMMON_CFG_SERVER_PORT
+          value: {{ .Values.commonCfgServer.port | quote }}
+        - name: COMMON_CFG_SERVER_POLLING_INTERVAL
+          value: {{ .Values.commonCfgServer.pollingInterval | quote }}
+        - name: CONNECTION_TIMEOUT
+          value: {{ .Values.connectionTimeout | quote }}
+        - name: COMMONSERVICE_NAME
+          value: {{ .Values.commonServiceName }}
+        - name: COMMON_CFG_CLIENT_ENABLED
+          value: {{ .Values.commonCfgClient.enabled | quote }}
+        - name: RELEASE_VERSION
+          value: {{ .Chart.Version | quote }}
+      {{- if .Values.imageTag }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image }}:{{ .Values.imageTag }}"
+      {{- else }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image }}:{{ .Values.global.imageTag }}"
+      {{- end }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        name: {{ template "container.fullname" . }}
+        resources:
+          requests:
+            {{- include "nrf-client-nfmanagement-ephemeral-storage-request" . | nindent 12 }}
+            cpu: {{ .Values.cpuRequest | quote}}
+            memory: {{ .Values.memoryRequest | quote}}
+          limits:
+            {{- include "nrf-client-nfmanagement-ephemeral-storage-limit" . | nindent 12 }}
+            cpu: {{ .Values.cpuLimit | quote}}
+            memory: {{ .Values.memoryLimit | quote}}
+        ports:
+          - containerPort: {{ .Values.containerHttpPort }}
+            protocol: TCP
+          - containerPort: {{ .Values.containerHttpsPort }}
+            protocol: TCP
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/config
+      volumes:
+        - name: config-volume
+          configMap:
+            name: {{ .Release.Name }}-application-config
+            items:
+            - key: profile
+              path: application.properties
+      {{- $helmBasedConfigurationNodeSelectorApiVersion:= .Values.helmBasedConfigurationNodeSelectorApiVersion | default "v1" }}  
+      {{- if (eq $helmBasedConfigurationNodeSelectorApiVersion "v2") }}
+      nodeSelector: {{ include "ocnf.nodeselector" . | nindent 8 }}
+      {{- else if $.Values.global.deploymentNrfClientService.nodeSelectorEnabled }}
+      {{- if $.Values.global.deploymentNrfClientService.nodeSelectorEnabled }}
+      nodeSelector:
+        {{ $.Values.global.deploymentNrfClientService.nodeSelectorKey }}: {{ $.Values.global.deploymentNrfClientService.nodeSelectorValue }}
+      {{- end }}
+      {{- end }}
+      restartPolicy: Always
+      schedulerName: default-scheduler
+{{- end }}

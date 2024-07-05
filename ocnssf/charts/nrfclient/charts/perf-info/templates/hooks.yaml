@@ -1,0 +1,525 @@
+{{- if and .Values.commonCfgClient.enabled .Values.global.performanceServiceEnable}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "pre-install-perfinfo-job.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "pre-install-perfinfo-job.fullname" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      tolerations: {{ include "ocnf.tolerations" . | nindent 6 }}
+      {{- $helmBasedConfigurationNodeSelectorApiVersion:= .Values.helmBasedConfigurationNodeSelectorApiVersion | default "v1" }}
+      {{- if (eq $helmBasedConfigurationNodeSelectorApiVersion "v2") }}
+      nodeSelector: {{ include "ocnf.nodeselector" . | nindent 8 }}
+      {{- else }}
+      {{- if $.Values.nodeSelectorEnabled }}
+      nodeSelector:
+        {{ $.Values.nodeSelectorKey }}: {{ $.Values.nodeSelectorValue }}
+      {{- end }}
+      {{- end }}
+      containers:
+      - name: {{ template "pre-install-perfinfo-job.container.fullname" . }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.dbHookImage.name }}:{{ .Values.dbHookImage.tag }}"
+        imagePullPolicy: "{{ .Values.dbHookImage.pullPolicy }}" 
+        volumeMounts:
+        - name: default-configuration-files
+          mountPath: /opt/oracle/conf
+        env:
+          - name: DB_HOST
+            value: {{ .Values.dbConfig.dbHost | quote }}
+          - name: DB_PORT
+            value: {{ .Values.dbConfig.dbPort | quote }}
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef: 
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{ .Values.dbConfig.dbUNameLiteral }}
+          - name: DB_PASSWD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{.Values.dbConfig.dbPwdLiteral }}
+          - name: DATABASE_NAME
+            value: {{ .Values.dbConfig.dbName }}
+          - name: BACKUP_DATABASE_NAME
+            value: {{ .Values.dbConfig.dbName }}
+          - name: DB_ENGINE
+            value: {{ .Values.dbConfig.dbEngine }}
+          - name: CONFIGURATION_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.configFile }}"
+          - name: SCHEMA_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.schemaFile }}"
+          - name: RELEASE_VERSION
+            value: {{ template "perfinfo.hook.chartVersion" .}} 
+          - name: MICROSERVICE_NAME
+            value: {{ .Values.commonServiceName }}
+          - name: RESTORE_BACKUP_ON_INSTALL
+            value: {{ .Values.restoreBackupOnInstall | quote }}
+          - name: HOOK_TYPE
+            value: pre-install 
+          - name: INSTANCE_ID
+            value: 
+          - name: SERVICE_MESH_CHECK
+            value: {{ .Values.serviceMeshCheck | quote }}
+          - name: ISTIO_SIDECAR_QUIT_URL
+            value: {{ .Values.istioSidecarQuitUrl }}
+          - name: ISTIO_SIDECAR_READY_URL
+            value: {{ .Values.istioSidecarReadyUrl }}
+        resources:
+{{ toYaml .Values.global.hookJobResources | indent 10 }}
+      volumes:
+        - name: default-configuration-files
+          configMap:
+            name: {{ .Release.Name }}-hook-configmap-perfinfo
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "pre-upgrade-perfinfo-job.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "pre-upgrade-perfinfo-job.fullname" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      tolerations: {{ include "ocnf.tolerations" . | nindent 6 }}
+      {{- $helmBasedConfigurationNodeSelectorApiVersion:= .Values.helmBasedConfigurationNodeSelectorApiVersion | default "v1" }}
+      {{- if (eq $helmBasedConfigurationNodeSelectorApiVersion "v2") }}
+      nodeSelector: {{ include "ocnf.nodeselector" . | nindent 8 }}
+      {{- else }}
+      {{- if $.Values.nodeSelectorEnabled }}
+      nodeSelector:
+        {{ $.Values.nodeSelectorKey }}: {{ $.Values.nodeSelectorValue }}
+      {{- end }}
+      {{- end }}
+      containers:
+      - name: {{ template "pre-upgrade-perfinfo-job.container.fullname" . }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.dbHookImage.name }}:{{ .Values.dbHookImage.tag }}"
+        imagePullPolicy: "{{ .Values.dbHookImage.pullPolicy }}" 
+        volumeMounts:
+        - name: default-configuration-files
+          mountPath: /opt/oracle/conf
+        env:
+          - name: DB_HOST
+            value: {{ .Values.dbConfig.dbHost | quote }}
+          - name: DB_PORT
+            value: {{ .Values.dbConfig.dbPort | quote }}
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{ .Values.dbConfig.dbUNameLiteral }}
+          - name: DB_PASSWD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{.Values.dbConfig.dbPwdLiteral }}
+          - name: DATABASE_NAME
+            value: {{ .Values.dbConfig.dbName }}
+          - name: BACKUP_DATABASE_NAME
+            value: {{ .Values.dbConfig.dbName }}
+          - name: DB_ENGINE
+            value: {{ .Values.dbConfig.dbEngine }}
+          - name: CONFIGURATION_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.configFile }}" 
+          - name: SCHEMA_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.schemaFile }}"
+          - name: RELEASE_VERSION
+            value: {{ template "perfinfo.hook.chartVersion" .}}   
+          - name: MICROSERVICE_NAME
+            value: {{ .Values.commonServiceName }}
+          - name: HOOK_TYPE
+            value: pre-upgrade 
+          - name: INSTANCE_ID
+            value: {{ .Values.prefix }}
+          - name: SERVICE_MESH_CHECK
+            value: {{ .Values.serviceMeshCheck | quote }}
+          - name: ISTIO_SIDECAR_QUIT_URL
+            value: {{ .Values.istioSidecarQuitUrl }}
+          - name: ISTIO_SIDECAR_READY_URL
+            value: {{ .Values.istioSidecarReadyUrl }}
+        resources:
+{{ toYaml .Values.global.hookJobResources | indent 10 }}
+      volumes:
+        - name: default-configuration-files
+          configMap:
+            name: {{ .Release.Name }}-hook-configmap-perfinfo
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "pre-rollback-perfinfo-job.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": pre-rollback
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "pre-rollback-perfinfo-job.fullname" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      tolerations: {{ include "ocnf.tolerations" . | nindent 6 }}
+      {{- $helmBasedConfigurationNodeSelectorApiVersion:= .Values.helmBasedConfigurationNodeSelectorApiVersion | default "v1" }}
+      {{- if (eq $helmBasedConfigurationNodeSelectorApiVersion "v2") }}
+      nodeSelector: {{ include "ocnf.nodeselector" . | nindent 8 }}
+      {{- else }}
+      {{- if $.Values.nodeSelectorEnabled }}
+      nodeSelector:
+        {{ $.Values.nodeSelectorKey }}: {{ $.Values.nodeSelectorValue }}
+      {{- end }}
+      {{- end }}
+      containers:
+      - name: {{ template "pre-rollback-perfinfo-job.container.fullname" . }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.dbHookImage.name }}:{{ .Values.dbHookImage.tag }}" 
+        imagePullPolicy: "{{ .Values.dbHookImage.pullPolicy }}"
+        volumeMounts:
+        - name: default-configuration-files
+          mountPath: /opt/oracle/conf
+        env:
+          - name: DB_HOST
+            value: {{ .Values.dbConfig.dbHost | quote }}
+          - name: DB_PORT
+            value: {{ .Values.dbConfig.dbPort | quote }}
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{ .Values.dbConfig.dbUNameLiteral }}
+          - name: DB_PASSWD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{.Values.dbConfig.dbPwdLiteral }}
+          - name: DATABASE_NAME
+            value: {{ .Values.dbConfig.dbName }}
+          - name: BACKUP_DATABASE_NAME
+            value: {{ .Values.dbConfig.dbName }}
+          - name: DB_ENGINE
+            value: {{ .Values.dbConfig.dbEngine }}
+          - name: CONFIGURATION_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.configFile }}" 
+          - name: SCHEMA_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.schemaFile }}"
+          - name: RELEASE_VERSION
+            value: {{ template "perfinfo.hook.chartVersion" .}} 
+          - name: MICROSERVICE_NAME
+            value: {{ .Values.commonServiceName }}
+          - name: HOOK_TYPE
+            value: pre-rollback 
+          - name: INSTANCE_ID
+            value: {{ .Values.prefix }}
+          - name: SERVICE_MESH_CHECK
+            value: {{ .Values.serviceMeshCheck | quote }}
+          - name: ISTIO_SIDECAR_QUIT_URL
+            value: {{ .Values.istioSidecarQuitUrl }}
+          - name: ISTIO_SIDECAR_READY_URL
+            value: {{ .Values.istioSidecarReadyUrl }}
+        resources:
+{{ toYaml .Values.global.hookJobResources | indent 10 }}
+      volumes:
+        - name: default-configuration-files
+          configMap:
+            name: {{ .Release.Name }}-hook-configmap-perfinfo
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "pre-delete-perfinfo-job.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "pre-delete-perfinfo-job.fullname" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      tolerations: {{ include "ocnf.tolerations" . | nindent 6 }}
+      {{- $helmBasedConfigurationNodeSelectorApiVersion:= .Values.helmBasedConfigurationNodeSelectorApiVersion | default "v1" }}
+      {{- if (eq $helmBasedConfigurationNodeSelectorApiVersion "v2") }}
+      nodeSelector: {{ include "ocnf.nodeselector" . | nindent 8 }}
+      {{- else }}
+      {{- if $.Values.nodeSelectorEnabled }}
+      nodeSelector:
+        {{ $.Values.nodeSelectorKey }}: {{ $.Values.nodeSelectorValue }}
+      {{- end }}
+      {{- end }}
+      containers:
+      - name: {{ template "pre-delete-perfinfo-job.container.fullname" . }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.dbHookImage.name }}:{{ .Values.dbHookImage.tag }}"
+        imagePullPolicy: "{{ .Values.dbHookImage.pullPolicy }}"
+        volumeMounts:
+        - name: default-configuration-files
+          mountPath: /opt/oracle/conf
+        env:
+          - name: DB_HOST
+            value: {{ .Values.dbConfig.dbHost | quote }}
+          - name: DB_PORT
+            value: {{ .Values.dbConfig.dbPort | quote }}
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef: 
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{ .Values.dbConfig.dbUNameLiteral }}
+          - name: DB_PASSWD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{.Values.dbConfig.dbPwdLiteral }}
+          - name: DATABASE_NAME
+            value: {{ .Values.dbConfig.dbName }}
+          - name: BACKUP_DATABASE_NAME
+            value: {{ .Values.dbConfig.dbName }}
+          - name: DB_ENGINE
+            value: {{ .Values.dbConfig.dbEngine }}
+          - name: CONFIGURATION_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.configFile }}"
+          - name: SCHEMA_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.schemaFile }}"
+          - name: RELEASE_VERSION
+            value: {{ template "perfinfo.hook.chartVersion" .}}  
+          - name: MICROSERVICE_NAME
+            value: {{ .Values.commonServiceName }}
+          - name: HOOK_TYPE
+            value: pre-delete 
+          - name: INSTANCE_ID
+            value: {{ .Values.prefix }}
+          - name: SERVICE_MESH_CHECK
+            value: {{ .Values.serviceMeshCheck | quote }}
+          - name: ISTIO_SIDECAR_QUIT_URL
+            value: {{ .Values.istioSidecarQuitUrl }}
+          - name: ISTIO_SIDECAR_READY_URL
+            value: {{ .Values.istioSidecarReadyUrl }}
+        resources:
+{{ toYaml .Values.global.hookJobResources | indent 10 }}
+      volumes:
+        - name: default-configuration-files
+          configMap:
+            name: {{ .Release.Name }}-hook-configmap-perfinfo
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "post-upgrade-perfinfo-job.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": post-upgrade
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "post-upgrade-perfinfo-job.fullname" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      tolerations: {{ include "ocnf.tolerations" . | nindent 6 }}
+      {{- $helmBasedConfigurationNodeSelectorApiVersion:= .Values.helmBasedConfigurationNodeSelectorApiVersion | default "v1" }}
+      {{- if (eq $helmBasedConfigurationNodeSelectorApiVersion "v2") }}
+      nodeSelector: {{ include "ocnf.nodeselector" . | nindent 8 }}
+      {{- else }}
+      {{- if $.Values.nodeSelectorEnabled }}
+      nodeSelector:
+        {{ $.Values.nodeSelectorKey }}: {{ $.Values.nodeSelectorValue }}
+      {{- end }}
+      {{- end }}
+      containers:
+      - name: {{ template "post-upgrade-perfinfo-job.container.fullname" . }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.dbHookImage.name }}:{{ .Values.dbHookImage.tag }}"
+        imagePullPolicy: "{{ .Values.dbHookImage.pullPolicy }}" 
+        volumeMounts:
+        - name: default-configuration-files
+          mountPath: /opt/oracle/conf
+        env:
+          - name: DB_HOST
+            value: {{ .Values.dbConfig.dbHost | quote }}
+          - name: DB_PORT
+            value: {{ .Values.dbConfig.dbPort | quote }}
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef: 
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{ .Values.dbConfig.dbUNameLiteral }}
+          - name: DB_PASSWD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{.Values.dbConfig.dbPwdLiteral }}
+          - name: DATABASE_NAME
+            value: {{ .Values.dbConfig.dbName }}
+          - name: BACKUP_DATABASE_NAME
+            value: {{ .Values.dbConfig.dbName }}
+          - name: DB_ENGINE
+            value: {{ .Values.dbConfig.dbEngine }}
+          - name: CONFIGURATION_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.configFile }}"
+          - name: SCHEMA_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.schemaFile }}"
+          - name: RELEASE_VERSION
+            value: {{ template "perfinfo.hook.chartVersion" .}}   
+          - name: MICROSERVICE_NAME
+            value: {{ .Values.commonServiceName }}
+          - name: HOOK_TYPE
+            value: post-upgrade
+          - name: INSTANCE_ID
+            value: {{ .Values.prefix }}
+          - name: SERVICE_MESH_CHECK
+            value: {{ .Values.serviceMeshCheck | quote }}
+          - name: ISTIO_SIDECAR_QUIT_URL
+            value: {{ .Values.istioSidecarQuitUrl }}
+          - name: ISTIO_SIDECAR_READY_URL
+            value: {{ .Values.istioSidecarReadyUrl }}
+        resources:
+{{ toYaml .Values.global.hookJobResources | indent 10 }}
+      volumes:
+        - name: default-configuration-files
+          configMap:
+            name: {{ .Release.Name }}-hook-configmap-perfinfo
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "post-rollback-perfinfo-job.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": post-rollback
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "post-rollback-perfinfo-job.fullname" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      tolerations: {{ include "ocnf.tolerations" . | nindent 6 }}
+      {{- $helmBasedConfigurationNodeSelectorApiVersion:= .Values.helmBasedConfigurationNodeSelectorApiVersion | default "v1" }}
+      {{- if (eq $helmBasedConfigurationNodeSelectorApiVersion "v2") }}
+      nodeSelector: {{ include "ocnf.nodeselector" . | nindent 8 }}
+      {{- else }}
+      {{- if $.Values.nodeSelectorEnabled }}
+      nodeSelector:
+        {{ $.Values.nodeSelectorKey }}: {{ $.Values.nodeSelectorValue }}
+      {{- end }}
+      {{- end }}
+      containers:
+      - name: {{ template "post-rollback-perfinfo-job.container.fullname" . }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.dbHookImage.name }}:{{ .Values.dbHookImage.tag }}"
+        imagePullPolicy: "{{ .Values.dbHookImage.pullPolicy }}" 
+        volumeMounts:
+        - name: default-configuration-files
+          mountPath: /opt/oracle/conf
+        env:
+          - name: DB_HOST
+            value: {{ .Values.dbConfig.dbHost | quote }}
+          - name: DB_PORT
+            value: {{ .Values.dbConfig.dbPort | quote }}
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef: 
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{ .Values.dbConfig.dbUNameLiteral }}
+          - name: DB_PASSWD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{.Values.dbConfig.dbPwdLiteral }}
+          - name: DATABASE_NAME
+            value: {{ .Values.dbConfig.dbName }}
+          - name: BACKUP_DATABASE_NAME
+            value: {{ .Values.dbConfig.dbName }}
+          - name: DB_ENGINE
+            value: {{ .Values.dbConfig.dbEngine }}
+          - name: CONFIGURATION_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.configFile }}"
+          - name: SCHEMA_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.schemaFile }}"
+          - name: RELEASE_VERSION
+            value: {{ template "perfinfo.hook.chartVersion" .}}   
+          - name: MICROSERVICE_NAME
+            value: {{ .Values.commonServiceName }}
+          - name: HOOK_TYPE
+            value: post-rollback
+          - name: INSTANCE_ID
+            value: 
+          - name: SERVICE_MESH_CHECK
+            value: {{ .Values.serviceMeshCheck | quote }}
+          - name: ISTIO_SIDECAR_QUIT_URL
+            value: {{ .Values.istioSidecarQuitUrl }}
+          - name: ISTIO_SIDECAR_READY_URL
+            value: {{ .Values.istioSidecarReadyUrl }}
+        resources:
+{{ toYaml .Values.global.hookJobResources | indent 10 }}
+      volumes:
+        - name: default-configuration-files
+          configMap:
+            name: {{ .Release.Name }}-hook-configmap-perfinfo
+{{- end }}

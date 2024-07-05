@@ -1,0 +1,26 @@
+{{- if (not .Values.global.serviceAccountName) }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: egress-front-end
+    app:  {{ template "chart.fullname" . }}
+  annotations:
+    {{- include "annotations.allResources" . }}
+  name:  {{ template "egressgateway.role" .}}
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - configmaps
+      - pods
+      - secrets
+      - endpoints       
+    verbs:
+      - get
+      - list
+      - watch
+{{- end }}

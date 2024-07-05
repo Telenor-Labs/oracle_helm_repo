@@ -1,0 +1,691 @@
+{{- if .Values.commonCfgClient.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "pre-install-job.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "pre-install-job.fullname" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      tolerations: {{ include "ocnf.tolerations" . | nindent 6 }}
+      {{- $helmBasedConfigurationNodeSelectorApiVersion:= .Values.helmBasedConfigurationNodeSelectorApiVersion | default "v1" }}
+      {{- if (eq $helmBasedConfigurationNodeSelectorApiVersion "v2") }}
+      nodeSelector: {{ include "ocnf.nodeselector" . | nindent 8 }}
+      {{- else if(eq $helmBasedConfigurationNodeSelectorApiVersion "v1")}}
+      {{- $globalnodeselector := and  .Values.global.nodeSelector.nodeKey .Values.global.nodeSelector.nodeValue }}
+      {{- $localnodeselector := and  .Values.nodeSelector.nodeKey .Values.nodeSelector.nodeValue }}
+      {{- if or $globalnodeselector $localnodeselector }}
+      nodeSelector:
+      {{- if $localnodeselector }}
+         {{ .Values.nodeSelector.nodeKey }}: {{ .Values.nodeSelector.nodeValue }}
+      {{- else}}
+         {{ .Values.global.nodeSelector.nodeKey }}: {{ .Values.global.nodeSelector.nodeValue }}
+      {{- end }}
+      {{- end }}
+      {{- end }}
+      containers:
+      - name: {{ template "pre-install-job.container.fullname" . }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.dbHookImage.name }}:{{ .Values.dbHookImage.tag }}"
+        imagePullPolicy: "{{ .Values.dbHookImage.pullPolicy }}" 
+        volumeMounts:
+        - name: default-configuration-files
+          mountPath: /opt/oracle/conf
+        env:
+          - name: DB_HOST
+            value: {{ .Values.dbConfig.dbHost | quote }}
+          - name: DB_PORT
+            value: {{ .Values.dbConfig.dbPort | quote }}
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef: 
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{ .Values.dbConfig.dbUNameLiteral }}
+          - name: DB_PASSWD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{.Values.dbConfig.dbPwdLiteral }}
+          - name: DATABASE_NAME
+            value: {{ .Values.dbConfig.dbName }}
+          - name: BACKUP_DATABASE_NAME
+          {{- if .Values.dbConfig.backupDbName }}
+            value: {{ .Values.dbConfig.backupDbName }}
+          {{- else }}
+            value: {{ .Values.dbConfig.dbName }}
+          {{- end }}
+          - name: DB_ENGINE
+          {{- if .Values.dbConfig.dbEngine }}
+            value: {{ .Values.dbConfig.dbEngine }}
+          {{- else }}
+            value: NDBCLUSTER
+          {{- end }}
+          - name: CONFIGURATION_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.configFile }}"
+          - name: SCHEMA_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.schemaFile }}"
+          - name: RELEASE_VERSION
+            value: {{ .Chart.Version | quote }}  
+          - name: MICROSERVICE_NAME
+            value: {{ .Values.commonServiceName }}
+          - name: HOOK_TYPE
+            value: pre-install 
+          - name: INSTANCE_ID
+            value: {{ .Values.prefix }}
+          - name: SERVICE_MESH_CHECK
+            value: {{ template "servicemesh.check" . }}
+          - name: ISTIO_SIDECAR_QUIT_URL
+            value: {{ template "istioproxy.quit.url" . }}
+          - name: ISTIO_SIDECAR_READY_URL
+            value: {{ template "istioproxy.ready.url" . }}
+          - name: RESTORE_BACKUP_ON_INSTALL
+            value: {{ .Values.restoreBackupOnInstall | quote }}
+          - name: COMPONENT_VALIDATOR
+            value: {{ .Values.componentValidator | default "" }}
+          - name: DEPENDENT_VALIDATORS
+            value: {{ .Values.dependentValidators }}
+        resources:
+          requests:
+            cpu: {{ .Values.resources.requests.commonHooksCpu | quote}}
+            memory: {{ .Values.resources.requests.commonHooksMemory | quote}}
+          {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ template "egress-gateway-ephemeral-storage-request" .}}
+          {{- end }}
+          limits:
+            cpu: {{ .Values.resources.limits.commonHooksCpu | quote}}
+            memory: {{ .Values.resources.limits.commonHooksMemory | quote}}
+          {{- if ne (int .Values.global.ephemeralStorageLimit)  0 }}
+            ephemeral-storage: {{ template "egress-gateway-ephemeral-storage-limit" .}}
+          {{- end }}
+      volumes:
+        - name: default-configuration-files
+          configMap:
+            name: {{ template "hook-configmap.egw.fullname" . }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "pre-upgrade-job.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "pre-upgrade-job.fullname" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      tolerations: {{ include "ocnf.tolerations" . | nindent 6 }}
+      {{- $helmBasedConfigurationNodeSelectorApiVersion:= .Values.helmBasedConfigurationNodeSelectorApiVersion | default "v1" }}
+      {{- if (eq $helmBasedConfigurationNodeSelectorApiVersion "v2") }}
+      nodeSelector: {{ include "ocnf.nodeselector" . | nindent 8 }}
+      {{- else if(eq $helmBasedConfigurationNodeSelectorApiVersion "v1")}}
+      {{- $globalnodeselector := and  .Values.global.nodeSelector.nodeKey .Values.global.nodeSelector.nodeValue }}
+      {{- $localnodeselector := and  .Values.nodeSelector.nodeKey .Values.nodeSelector.nodeValue }}
+      {{- if or $globalnodeselector $localnodeselector }}
+      nodeSelector:
+      {{- if $localnodeselector }}
+         {{ .Values.nodeSelector.nodeKey }}: {{ .Values.nodeSelector.nodeValue }}
+      {{- else}}
+         {{ .Values.global.nodeSelector.nodeKey }}: {{ .Values.global.nodeSelector.nodeValue }}
+      {{- end }}
+      {{- end }}
+      {{- end }}
+      containers:
+      - name: {{ template "pre-upgrade-job.container.fullname" . }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.dbHookImage.name }}:{{ .Values.dbHookImage.tag }}"
+        imagePullPolicy: "{{ .Values.dbHookImage.pullPolicy }}" 
+        volumeMounts:
+        - name: default-configuration-files
+          mountPath: /opt/oracle/conf
+        env:
+          - name: DB_HOST
+            value: {{ .Values.dbConfig.dbHost | quote }}
+          - name: DB_PORT
+            value: {{ .Values.dbConfig.dbPort | quote }}
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{ .Values.dbConfig.dbUNameLiteral }}
+          - name: DB_PASSWD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{.Values.dbConfig.dbPwdLiteral }}
+          - name: DATABASE_NAME
+            value: {{ .Values.dbConfig.dbName }}
+          - name: BACKUP_DATABASE_NAME
+          {{- if .Values.dbConfig.backupDbName }}
+            value: {{ .Values.dbConfig.backupDbName }}
+          {{- else }}
+            value: {{ .Values.dbConfig.dbName }}
+          {{- end }}
+          - name: DB_ENGINE
+          {{- if .Values.dbConfig.dbEngine }}
+            value: {{ .Values.dbConfig.dbEngine }}
+          {{- else }}
+            value: NDBCLUSTER
+          {{- end }}
+          - name: CONFIGURATION_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.configFile }}" 
+          - name: SCHEMA_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.schemaFile }}"
+          - name: RELEASE_VERSION
+            value: {{ .Chart.Version | quote }}  
+          - name: MICROSERVICE_NAME
+            value: {{ .Values.commonServiceName }}
+          - name: HOOK_TYPE
+            value: pre-upgrade 
+          - name: INSTANCE_ID
+            value: {{ .Values.prefix }}
+          - name: SERVICE_MESH_CHECK
+            value: {{ template "servicemesh.check" . }}
+          - name: ISTIO_SIDECAR_QUIT_URL
+            value: {{ template "istioproxy.quit.url" . }}
+          - name: ISTIO_SIDECAR_READY_URL
+            value: {{ template "istioproxy.ready.url" . }}
+          - name: COMPONENT_VALIDATOR
+            value: {{ .Values.componentValidator | default "" }}
+          - name: DEPENDENT_VALIDATORS
+            value: {{ .Values.dependentValidators }}
+        resources:
+          requests:
+            cpu: {{ .Values.resources.requests.commonHooksCpu | quote}}
+            memory: {{ .Values.resources.requests.commonHooksMemory | quote}}
+          {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ template "egress-gateway-ephemeral-storage-request" .}}
+          {{- end }}
+          limits:
+            cpu: {{ .Values.resources.limits.commonHooksCpu | quote}}
+            memory: {{ .Values.resources.limits.commonHooksMemory | quote}}
+          {{- if ne (int .Values.global.ephemeralStorageLimit)  0 }}
+            ephemeral-storage: {{ template "egress-gateway-ephemeral-storage-limit" .}}
+          {{- end }}
+      volumes:
+        - name: default-configuration-files
+          configMap:
+            name: {{ template "hook-configmap.egw.fullname" . }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "pre-rollback-job.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": pre-rollback
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "pre-rollback-job.fullname" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      tolerations: {{ include "ocnf.tolerations" . | nindent 6 }}
+      {{- $helmBasedConfigurationNodeSelectorApiVersion:= .Values.helmBasedConfigurationNodeSelectorApiVersion | default "v1" }}
+      {{- if (eq $helmBasedConfigurationNodeSelectorApiVersion "v2") }}
+      nodeSelector: {{ include "ocnf.nodeselector" . | nindent 8 }}
+      {{- else if(eq $helmBasedConfigurationNodeSelectorApiVersion "v1")}}
+      {{- $globalnodeselector := and  .Values.global.nodeSelector.nodeKey .Values.global.nodeSelector.nodeValue }}
+      {{- $localnodeselector := and  .Values.nodeSelector.nodeKey .Values.nodeSelector.nodeValue }}
+      {{- if or $globalnodeselector $localnodeselector }}
+      nodeSelector:
+      {{- if $localnodeselector }}
+         {{ .Values.nodeSelector.nodeKey }}: {{ .Values.nodeSelector.nodeValue }}
+      {{- else}}
+         {{ .Values.global.nodeSelector.nodeKey }}: {{ .Values.global.nodeSelector.nodeValue }}
+      {{- end }}
+      {{- end }}
+      {{- end }}
+      containers:
+      - name: {{ template "pre-rollback-job.container.fullname" . }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.dbHookImage.name }}:{{ .Values.dbHookImage.tag }}" 
+        imagePullPolicy: "{{ .Values.dbHookImage.pullPolicy }}"
+        volumeMounts:
+        - name: default-configuration-files
+          mountPath: /opt/oracle/conf
+        env:
+          - name: DB_HOST
+            value: {{ .Values.dbConfig.dbHost | quote }}
+          - name: DB_PORT
+            value: {{ .Values.dbConfig.dbPort | quote }}
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{ .Values.dbConfig.dbUNameLiteral }}
+          - name: DB_PASSWD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{.Values.dbConfig.dbPwdLiteral }}
+          - name: DATABASE_NAME
+            value: {{ .Values.dbConfig.dbName }}
+          - name: BACKUP_DATABASE_NAME
+          {{- if .Values.dbConfig.backupDbName }}
+            value: {{ .Values.dbConfig.backupDbName }}
+          {{- else }}
+            value: {{ .Values.dbConfig.dbName }}
+          {{- end }}
+          - name: DB_ENGINE
+          {{- if .Values.dbConfig.dbEngine }}
+            value: {{ .Values.dbConfig.dbEngine }}
+          {{- else }}
+            value: NDBCLUSTER
+          {{- end }}
+          - name: CONFIGURATION_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.configFile }}" 
+          - name: SCHEMA_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.schemaFile }}"
+          - name: RELEASE_VERSION
+            value: {{ .Chart.Version | quote }}  
+          - name: MICROSERVICE_NAME
+            value: {{ .Values.commonServiceName }}
+          - name: HOOK_TYPE
+            value: pre-rollback 
+          - name: INSTANCE_ID
+            value: {{ .Values.prefix }}
+          - name: SERVICE_MESH_CHECK
+            value: {{ template "servicemesh.check" . }}
+          - name: ISTIO_SIDECAR_QUIT_URL
+            value: {{ template "istioproxy.quit.url" . }}
+          - name: ISTIO_SIDECAR_READY_URL
+            value: {{ template "istioproxy.ready.url" . }}
+          - name: COMPONENT_VALIDATOR
+            value: {{ .Values.componentValidator | default "" }}
+          - name: DEPENDENT_VALIDATORS
+            value: {{ .Values.dependentValidators }}
+        resources:
+          requests:
+            cpu: {{ .Values.resources.requests.commonHooksCpu | quote}}
+            memory: {{ .Values.resources.requests.commonHooksMemory | quote}}
+          {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ template "egress-gateway-ephemeral-storage-request" .}}
+          {{- end }}
+          limits:
+            cpu: {{ .Values.resources.limits.commonHooksCpu | quote}}
+            memory: {{ .Values.resources.limits.commonHooksMemory | quote}}
+          {{- if ne (int .Values.global.ephemeralStorageLimit)  0 }}
+            ephemeral-storage: {{ template "egress-gateway-ephemeral-storage-limit" .}}
+          {{- end }}
+      volumes:
+        - name: default-configuration-files
+          configMap:
+            name: {{ template "hook-configmap.egw.fullname" . }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "pre-delete-job.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "pre-delete-job.fullname" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      tolerations: {{ include "ocnf.tolerations" . | nindent 6 }}
+      {{- $helmBasedConfigurationNodeSelectorApiVersion:= .Values.helmBasedConfigurationNodeSelectorApiVersion | default "v1" }}
+      {{- if (eq $helmBasedConfigurationNodeSelectorApiVersion "v2") }}
+      nodeSelector: {{ include "ocnf.nodeselector" . | nindent 8 }}
+      {{- else if(eq $helmBasedConfigurationNodeSelectorApiVersion "v1")}}
+      {{- $globalnodeselector := and  .Values.global.nodeSelector.nodeKey .Values.global.nodeSelector.nodeValue }}
+      {{- $localnodeselector := and  .Values.nodeSelector.nodeKey .Values.nodeSelector.nodeValue }}
+      {{- if or $globalnodeselector $localnodeselector }}
+      nodeSelector:
+      {{- if $localnodeselector }}
+         {{ .Values.nodeSelector.nodeKey }}: {{ .Values.nodeSelector.nodeValue }}
+      {{- else}}
+         {{ .Values.global.nodeSelector.nodeKey }}: {{ .Values.global.nodeSelector.nodeValue }}
+      {{- end }}
+      {{- end }}
+      {{- end }}
+      containers:
+      - name: {{ template "pre-delete-job.container.fullname" . }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.dbHookImage.name }}:{{ .Values.dbHookImage.tag }}"
+        imagePullPolicy: "{{ .Values.dbHookImage.pullPolicy }}"
+        volumeMounts:
+        - name: default-configuration-files
+          mountPath: /opt/oracle/conf
+        env:
+          - name: DB_HOST
+            value: {{ .Values.dbConfig.dbHost | quote }}
+          - name: DB_PORT
+            value: {{ .Values.dbConfig.dbPort | quote }}
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef: 
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{ .Values.dbConfig.dbUNameLiteral }}
+          - name: DB_PASSWD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{.Values.dbConfig.dbPwdLiteral }}
+          - name: DATABASE_NAME
+            value: {{ .Values.dbConfig.dbName }}
+          - name: BACKUP_DATABASE_NAME
+          {{- if .Values.dbConfig.backupDbName }}
+            value: {{ .Values.dbConfig.backupDbName }}
+          {{- else }}
+            value: {{ .Values.dbConfig.dbName }}
+          {{- end }}
+          - name: DB_ENGINE
+          {{- if .Values.dbConfig.dbEngine }}
+            value: {{ .Values.dbConfig.dbEngine }}
+          {{- else }}
+            value: NDBCLUSTER
+          {{- end }}
+          - name: CONFIGURATION_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.configFile }}"
+          - name: SCHEMA_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.schemaFile }}"
+          - name: RELEASE_VERSION
+            value: {{ .Chart.Version | quote }} 
+          - name: MICROSERVICE_NAME
+            value: {{ .Values.commonServiceName }}
+          - name: HOOK_TYPE
+            value: pre-delete 
+          - name: INSTANCE_ID
+            value: {{ .Values.prefix }}
+          - name: SERVICE_MESH_CHECK
+            value: {{ template "servicemesh.check" . }}
+          - name: ISTIO_SIDECAR_QUIT_URL
+            value: {{ template "istioproxy.quit.url" . }}
+          - name: ISTIO_SIDECAR_READY_URL
+            value: {{ template "istioproxy.ready.url" . }}
+          - name: COMPONENT_VALIDATOR
+            value: {{ .Values.componentValidator | default "" }}
+          - name: DEPENDENT_VALIDATORS
+            value: {{ .Values.dependentValidators }}
+        resources:
+          requests:
+            cpu: {{ .Values.resources.requests.commonHooksCpu | quote}}
+            memory: {{ .Values.resources.requests.commonHooksMemory | quote}}
+          {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ template "egress-gateway-ephemeral-storage-request" .}}
+          {{- end }}
+          limits:
+            cpu: {{ .Values.resources.limits.commonHooksCpu | quote}}
+            memory: {{ .Values.resources.limits.commonHooksMemory | quote}}
+          {{- if ne (int .Values.global.ephemeralStorageLimit)  0 }}
+            ephemeral-storage: {{ template "egress-gateway-ephemeral-storage-limit" .}}
+          {{- end }}
+      volumes:
+        - name: default-configuration-files
+          configMap:
+            name: {{ template "hook-configmap.egw.fullname" . }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "post-upgrade-job.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": post-upgrade
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "post-upgrade-job.fullname" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      tolerations: {{ include "ocnf.tolerations" . | nindent 6 }}
+      {{- $helmBasedConfigurationNodeSelectorApiVersion:= .Values.helmBasedConfigurationNodeSelectorApiVersion | default "v1" }}
+      {{- if (eq $helmBasedConfigurationNodeSelectorApiVersion "v2") }}
+      nodeSelector: {{ include "ocnf.nodeselector" . | nindent 8 }}
+      {{- else if(eq $helmBasedConfigurationNodeSelectorApiVersion "v1")}}
+      {{- $globalnodeselector := and  .Values.global.nodeSelector.nodeKey .Values.global.nodeSelector.nodeValue }}
+      {{- $localnodeselector := and  .Values.nodeSelector.nodeKey .Values.nodeSelector.nodeValue }}
+      {{- if or $globalnodeselector $localnodeselector }}
+      nodeSelector:
+      {{- if $localnodeselector }}
+         {{ .Values.nodeSelector.nodeKey }}: {{ .Values.nodeSelector.nodeValue }}
+      {{- else}}
+         {{ .Values.global.nodeSelector.nodeKey }}: {{ .Values.global.nodeSelector.nodeValue }}
+      {{- end }}
+      {{- end }}
+      {{- end }}
+      containers:
+      - name: {{ template "post-upgrade-job.container.fullname" . }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.dbHookImage.name }}:{{ .Values.dbHookImage.tag }}"
+        imagePullPolicy: "{{ .Values.dbHookImage.pullPolicy }}" 
+        volumeMounts:
+        - name: default-configuration-files
+          mountPath: /opt/oracle/conf
+        env:
+          - name: DB_HOST
+            value: {{ .Values.dbConfig.dbHost | quote }}
+          - name: DB_PORT
+            value: {{ .Values.dbConfig.dbPort | quote }}
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef: 
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{ .Values.dbConfig.dbUNameLiteral }}
+          - name: DB_PASSWD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{.Values.dbConfig.dbPwdLiteral }}
+          - name: DATABASE_NAME
+            value: {{ .Values.dbConfig.dbName }}
+          - name: BACKUP_DATABASE_NAME
+          {{- if .Values.dbConfig.backupDbName }}
+            value: {{ .Values.dbConfig.backupDbName }}
+          {{- else }}
+            value: {{ .Values.dbConfig.dbName }}
+          {{- end }}
+          - name: DB_ENGINE
+          {{- if .Values.dbConfig.dbEngine }}
+            value: {{ .Values.dbConfig.dbEngine }}
+          {{- else }}
+            value: NDBCLUSTER
+          {{- end }}
+          - name: CONFIGURATION_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.configFile }}"
+          - name: SCHEMA_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.schemaFile }}"
+          - name: RELEASE_VERSION
+            value: {{ .Chart.Version | quote }}  
+          - name: MICROSERVICE_NAME
+            value: {{ .Values.commonServiceName }}
+          - name: HOOK_TYPE
+            value: post-upgrade
+          - name: INSTANCE_ID
+            value: {{ .Values.prefix }}
+          - name: SERVICE_MESH_CHECK
+            value: {{ template "servicemesh.check" . }}
+          - name: ISTIO_SIDECAR_QUIT_URL
+            value: {{ template "istioproxy.quit.url" . }}
+          - name: ISTIO_SIDECAR_READY_URL
+            value: {{ template "istioproxy.ready.url" . }}
+        resources:
+          requests:
+            cpu: {{ .Values.resources.requests.commonHooksCpu | quote}}
+            memory: {{ .Values.resources.requests.commonHooksMemory | quote}}
+          {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ template "egress-gateway-ephemeral-storage-request" .}}
+          {{- end }}
+          limits:
+            cpu: {{ .Values.resources.limits.commonHooksCpu | quote}}
+            memory: {{ .Values.resources.limits.commonHooksMemory | quote}}
+          {{- if ne (int .Values.global.ephemeralStorageLimit)  0 }}
+            ephemeral-storage: {{ template "egress-gateway-ephemeral-storage-limit" .}}
+          {{- end }}
+      volumes:
+        - name: default-configuration-files
+          configMap:
+            name: {{ template "hook-configmap.egw.fullname" . }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "post-rollback-job.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "labels.allResources" . }}
+    app.kubernetes.io/component: internal
+  annotations:
+    {{- include "annotations.allResources" . }}
+    "helm.sh/hook": post-rollback
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: {{ template "post-rollback-job.fullname" . }}
+      labels:
+        {{- include "labels.allResources" . | indent 4 }}
+        app.kubernetes.io/component: internal
+      annotations:
+        {{- include "annotations.allResources" . | indent 4 }}
+    spec:
+      restartPolicy: Never
+      tolerations: {{ include "ocnf.tolerations" . | nindent 6 }}
+      {{- $helmBasedConfigurationNodeSelectorApiVersion:= .Values.helmBasedConfigurationNodeSelectorApiVersion | default "v1" }}
+      {{- if (eq $helmBasedConfigurationNodeSelectorApiVersion "v2") }}
+      nodeSelector: {{ include "ocnf.nodeselector" . | nindent 8 }}
+      {{- else if(eq $helmBasedConfigurationNodeSelectorApiVersion "v1")}}
+      {{- $globalnodeselector := and  .Values.global.nodeSelector.nodeKey .Values.global.nodeSelector.nodeValue }}
+      {{- $localnodeselector := and  .Values.nodeSelector.nodeKey .Values.nodeSelector.nodeValue }}
+      {{- if or $globalnodeselector $localnodeselector }}
+      nodeSelector:
+      {{- if $localnodeselector }}
+         {{ .Values.nodeSelector.nodeKey }}: {{ .Values.nodeSelector.nodeValue }}
+      {{- else}}
+         {{ .Values.global.nodeSelector.nodeKey }}: {{ .Values.global.nodeSelector.nodeValue }}
+      {{- end }}
+      {{- end }}
+      {{- end }}
+      containers:
+      - name: {{ template "post-rollback-job.container.fullname" . }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.dbHookImage.name }}:{{ .Values.dbHookImage.tag }}"
+        imagePullPolicy: "{{ .Values.dbHookImage.pullPolicy }}" 
+        volumeMounts:
+        - name: default-configuration-files
+          mountPath: /opt/oracle/conf
+        env:
+          - name: DB_HOST
+            value: {{ .Values.dbConfig.dbHost | quote }}
+          - name: DB_PORT
+            value: {{ .Values.dbConfig.dbPort | quote }}
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef: 
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{ .Values.dbConfig.dbUNameLiteral }}
+          - name: DB_PASSWD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.dbConfig.secretName }}
+                key: {{.Values.dbConfig.dbPwdLiteral }}
+          - name: DATABASE_NAME
+            value: {{ .Values.dbConfig.dbName }}
+          - name: BACKUP_DATABASE_NAME
+          {{- if .Values.dbConfig.backupDbName }}
+            value: {{ .Values.dbConfig.backupDbName }}
+          {{- else }}
+            value: {{ .Values.dbConfig.dbName }}
+          {{- end }}
+          - name: DB_ENGINE
+          {{- if .Values.dbConfig.dbEngine }}
+            value: {{ .Values.dbConfig.dbEngine }}
+          {{- else }}
+            value: NDBCLUSTER
+          {{- end }}
+          - name: CONFIGURATION_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.configFile }}"
+          - name: SCHEMA_FILE
+            value: "/opt/oracle/conf/{{ $.Values.dbConfig.schemaFile }}"
+          - name: RELEASE_VERSION
+            value: {{ .Chart.Version | quote }}  
+          - name: MICROSERVICE_NAME
+            value: {{ .Values.commonServiceName }}
+          - name: HOOK_TYPE
+            value: post-rollback
+          - name: INSTANCE_ID
+            value: {{ .Values.prefix }}
+          - name: SERVICE_MESH_CHECK
+            value: {{ template "servicemesh.check" . }}
+          - name: ISTIO_SIDECAR_QUIT_URL
+            value: {{ template "istioproxy.quit.url" . }}
+          - name: ISTIO_SIDECAR_READY_URL
+            value: {{ template "istioproxy.ready.url" . }}
+        resources:
+          requests:
+            cpu: {{ .Values.resources.requests.commonHooksCpu | quote}}
+            memory: {{ .Values.resources.requests.commonHooksMemory | quote}}
+          {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ template "egress-gateway-ephemeral-storage-request" .}}
+          {{- end }}
+          limits:
+            cpu: {{ .Values.resources.limits.commonHooksCpu | quote}}
+            memory: {{ .Values.resources.limits.commonHooksMemory | quote}}
+          {{- if ne (int .Values.global.ephemeralStorageLimit)  0 }}
+            ephemeral-storage: {{ template "egress-gateway-ephemeral-storage-limit" .}}
+          {{- end }}
+      volumes:
+        - name: default-configuration-files
+          configMap:
+            name: {{ template "hook-configmap.egw.fullname" . }}
+{{- end }}

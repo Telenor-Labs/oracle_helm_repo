@@ -1,0 +1,26 @@
+{{- if $.Values.global.appinfoServiceEnable }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "appinfo-service-name" . }}
+  labels:
+    {{- include "labels.nonlbServices" . }}
+    app: {{ template "appinfo-deployment-name" . }}
+  annotations:
+    {{- include "annotations.nonlbServices" . }}
+spec:
+  ports:
+    - name: http-signaling
+      port: {{ .Values.global.servicePorts.appInfoHttp }}
+      targetPort: {{ .Values.global.containerPorts.appInfoHttp }}
+    {{- if .Values.global.exposeObservabilityAtService }}
+    - name: {{ .Values.global.cncMetricsName  }}
+      port: {{ .Values.global.containerPorts.monitoringHttp }}
+      protocol: TCP
+    {{- end }}
+
+  type: {{ .Values.service.type }}
+  selector:
+    app: {{ template "appinfo-deployment-name" . }}
+  {{- end }}
+

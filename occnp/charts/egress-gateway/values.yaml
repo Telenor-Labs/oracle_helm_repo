@@ -1,0 +1,827 @@
+#Configmap name should be same as Spring boot application name
+cmName: egressgateway
+#Enabled to get RBAC permission for k8s apiserver communication
+global:
+  # If metricPrefix is configured then it will be added as a prefix to all the metrics in the egress gateway. Default value is empty string.
+  metricPrefix: ""
+  # If metricSuffix is configured then it will be added as a suffix to all the metrics in the egress gateway. Default value is empty string.
+  metricSuffix: ""
+  dockerRegistry: 10.75.226.79:5000
+  serviceAccountName: ''
+  #ephemeralStorage (Values specified are in MB)
+  logStorage: 0
+  crictlStorage: 0
+  ephemeralStorageLimit: 0
+  vendor: "Oracle"
+  app_name: "egress-gateway"
+  nodeSelector:
+    nodeKey: ''
+    nodeValue: ''
+
+  customExtension:
+    allResources:
+      labels: {}
+      annotations: {}
+
+    lbServices:
+      labels: {}
+      annotations: {}
+
+    lbDeployments:
+      labels: {}
+      annotations: {}
+
+    nonlbServices:
+      labels: {}
+      annotations: {}
+
+    nonlbDeployments:
+      labels: {}
+      annotations: {}
+
+  k8sResource:
+    container:
+      prefix: 
+      suffix: 
+
+  #CONFIGURABLE ERROR CODES
+  configurableErrorCodes:
+    enabled: false
+    errorScenarios:
+    - exceptionType: "ConnectionTimeout"
+      errorCode: "503"
+      errorDescription: "Connection Timeout"
+      errorCause: ""
+      errorTitle: ""
+    - exceptionType: "RequestTimeout"
+      errorCode: "503"
+      errorDescription: "Request Timeout"
+      errorCause: ""
+      errorTitle: ""
+    - exceptionType: "UnknownHostException"
+      errorCode: "503"
+      errorDescription: "Unknown Host Error"
+      errorCause: ""
+      errorTitle: ""
+    - exceptionType: "ConnectException"
+      errorCode: "503"
+      errorDescription: "Connection failure"
+      errorCause: ""
+      errorTitle: ""
+    - exceptionType: "RejectedExecutionException"
+      errorCode: "503"
+      errorDescription: "Rejected Execution"
+      errorCause: ""
+      errorTitle: ""
+    - exceptionType: "ClosedChannelException"
+      errorCode: "503"
+      errorDescription: "closed channel"
+      errorCause: ""
+      errorTitle: ""
+    - exceptionType: "SSLHandshakeException"
+      errorCode: "503"
+      errorDescription: "SSL Handshake Error"
+      errorCause: ""
+      errorTitle: ""
+    - exceptionType: "InternalError"
+      errorCode: "500"
+      errorDescription: "Internal Processing Error"
+      errorCause: ""
+      errorTitle: ""
+    - exceptionType: "NotFoundException"
+      errorCode: "404"
+      errorDescription: "Not Found"
+      errorCause: ""
+      errorTitle: ""
+    - exceptionType: "LateArrivalException"
+      errorCode: "504"
+      errorDescription: "Request has already expired"
+      errorCause: "TIMED_OUT_REQUEST"
+      errorTitle: ""
+      retryAfter: ""
+      redirectUrl: ""
+
+prefix: ''
+
+serviceEgressGateway:
+  port: 8080
+  sslPort: 8442
+  actuatorPort: 9090
+deploymentEgressGateway:
+  image: ocegress_gateway
+  imageTag: 22.1.4
+  pullPolicy: IfNotPresent
+
+initContainersImage:
+  name: configurationinit
+  tag: 22.1.2
+  pullPolicy: IfNotPresent
+
+updateContainersImage:
+  name: configurationupdate
+  tag: 22.1.2
+  pullPolicy: IfNotPresent
+  
+dbHookImage:
+  name: common_config_hook
+  tag: 22.1.2
+  pullPolicy: IfNotPresent
+
+# Use 'extraContainers' attribute to control the usage of extra container(DEBUG tool).
+# Allowed Values: DISABLED, ENABLED, USE_GLOBAL_VALUE
+# If assigned with ENABLED or USE_GLOBAL_VALUE, then ensure "extraContainersTpl" Yaml chunk is defined  
+# at Service level or Global level in the parent chart based on the value assigned respectivley.
+extraContainers: USE_GLOBAL_VALUE
+
+#HTTPS Configuration######################
+#
+initssl: true
+enableIncomingHttps: false 
+#enable true only if "initssl" --> true
+enableOutgoingHttps: true
+##########################################
+
+#Delay between pings in seconds.When set to <=0,ping is disabled
+pingDelay: 60
+
+#Change the flag's accordingly. Please note double quotes to be enclosed for values of httpsScpOnly and httpRuriOnly 
+
+#true: Select SCP instances for https list only
+#false: Run existing logic as per provided scheme.
+
+httpsTargetOnly: "false"
+
+#true: Means change Scheme of RURI to http
+#false: Keep scheme as is.
+
+httpRuriOnly: "false"
+
+startupProbe:
+  # tells the kubelet that it should wait second before performing the first probe
+  initialDelaySeconds: 30
+  # Number of seconds after which the probe times out
+  timeoutSeconds: 3
+  # specifies that the kubelet should perform a readiness probe every xx seconds
+  periodSeconds: 10
+  # Minimum consecutive successes for the probe to be considered successful after having failed
+  successThreshold: 1
+  # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+  failureThreshold: 6
+
+readinessProbe:
+  # tells the kubelet that it should wait second before performing the first probe
+  initialDelaySeconds: 30
+  # Number of seconds after which the probe times out
+  timeoutSeconds: 3
+  # specifies that the kubelet should perform a liveness probe every xx seconds
+  periodSeconds: 10
+  # Minimum consecutive successes for the probe to be considered successful after having failed
+  successThreshold: 1
+  # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+  failureThreshold: 3
+  
+livenessProbe:
+  # tells the kubelet that it should wait second before performing the first probe
+  initialDelaySeconds: 30
+  # Number of seconds after which the probe times out
+  timeoutSeconds: 3
+  # specifies that the kubelet should perform a liveness probe every xx seconds
+  periodSeconds: 15
+  # Minimum consecutive successes for the probe to be considered successful after having failed
+  successThreshold: 1
+  # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up
+  failureThreshold: 3
+
+K8ServiceCheck: false
+
+# Flag to configure default route in Egress Gateway. Configure this flag when sbiRoutingConfigMode and routeConfigMode are configured as REST
+configureDefaultRoute: true
+# Mode of operation for sbiRouting. Possible values are HELM, REST
+sbiRoutingConfigMode: HELM
+# Mode of configuration for configuring routes. Possible values are HELM, REST
+routeConfigMode: HELM
+#Note: routeConfigMode - REST and sbiRoutingConfigMode - HELM is not a valid configuration
+
+#SBIRouting Configuration
+sbiRouting:
+  # Default scheme applicable when 3gpp-sbi-target-apiroot header is missing
+  sbiRoutingDefaultScheme: https
+  # Set this flag to true if re-routing to multiple peer instances is to be enabled.
+  sbiRerouteEnabled: true
+  peerConfiguration:
+  - id: peer1
+    host: 10.75.214.18
+    port: 30077
+    apiPrefix: "/"
+  - id: peer2
+    host: 10.75.214.18
+    port: 31236
+    apiPrefix: "/"
+  - id: peer3
+    virtualHost: xyz.test.com
+    apiPrefix: "/"
+  - id: peer4
+    virtualHost: abc.test.com
+    apiPrefix: "/"
+  peerSetConfiguration: 
+  - id: set0 
+    httpConfiguration: 
+    - priority: 2
+      peerIdentifier: peer1
+    - priority: 1
+      peerIdentifier: peer2
+    httpsConfiguration: 
+    - priority: 2
+      peerIdentifier: peer1
+    - priority: 1
+      peerIdentifier: peer2
+  - id: set1 
+    httpConfiguration: 
+    - priority: 1
+      peerIdentifier: peer3
+    httpsConfiguration: 
+    - priority: 1
+      peerIdentifier: peer4
+          
+#Enabling this will make the service type default to ClusterIP
+headlessServiceEnabled: false
+
+
+log:
+  level: 
+    root: WARN
+    egress: WARN
+    oauth: WARN
+    updateContainer: WARN
+    hook: WARN
+
+service:
+  # Specify type of service - Possible values are :- ClusterIP, NodePort, LoadBalancer and ExternalName
+  type: ClusterIP
+  ssl:
+    tlsVersion: TLSv1.2
+    #supportedCipherSuiteList: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 
+    privateKey:
+      k8SecretName: ocegress-secret
+      k8NameSpace: ocegress
+      rsa:
+        fileName: rsa_private_key_pkcs1.pem
+      ecdsa:
+        fileName: ssl_ecdsa_private_key.pem
+      
+    certificate:
+      k8SecretName: ocegress-secret
+      k8NameSpace: ocegress
+      rsa:
+        fileName: tmp.cer
+      ecdsa:
+        fileName: ssl_ecdsa_certificate.crt
+    
+    caBundle:
+      k8SecretName: ocegress-secret
+      k8NameSpace: ocegress
+      fileName: caroot.cer
+    
+    keyStorePassword:
+      k8SecretName: ocegress-secret
+      k8NameSpace: ocegress
+      fileName: key.txt
+      
+    trustStorePassword:
+      k8SecretName: ocegress-secret
+      k8NameSpace: ocegress
+      fileName: trust.txt
+
+    initialAlgorithm: RS256
+
+  # Labels and Annotations that are specific to service ingressgateway are added here.
+  customExtension:
+    labels: {}
+    annotations: {}
+ 
+  # Labels and Annotations that are specific to service ingressgateway are added here.
+deployment:
+  customExtension:
+    labels: {}
+    annotations: {}
+
+
+#Route configuration 
+#Use this only when requests are routed to SBI peer instances
+#Please note double quotes to be enclosed for values of httpsTargetOnly and httpRuriOnly
+globalretry:
+  enabled: false  #globalretry can be enabled only when sbiRoutingEnabled flag is set to true.
+  retries: 2
+#Below field is used for blacklisting(removing) a request header at global level. Hence, it will be applied to all routes configured.
+globalRemoveRequestHeader:
+- name: myheader4  #Change the value to the request header name which you want removed from all requests which match to any route configured.
+- name: ocLogId  #Don't remove or edit this. This header holds the value of TraceId and need to be removed from outgoing traffic.
+#Below field is used for blacklisting(removing) a response header at global level. Hence, it will be applied to all routes configured.
+globalRemoveResponseHeader:
+- name: myresponseheader2  #Change the value to the response header name which you want removed from all responses which match to any route configured.
+convertHelmRoutesToREST: false
+routesConfig:
+- id: scp_via_proxy
+  uri: http://request.uri
+  path: /nef/**
+  order: 1
+  metadata:
+    httpsTargetOnly: false
+    httpRuriOnly: false
+    sbiRoutingEnabled: false
+    serverHeaderEnabled: false
+    serverheadernfTypes:
+    - SCP
+    - SEPP
+  filterNameReqEntry:
+    name: CustomReqHeaderEntryFilter
+    args:
+      headers:
+        - methods:
+            - ALL
+          headersList:
+            - headerName: x-headeReq-2014
+              defaultVal: abc
+              source: incomingReq
+              sourceHeader: x-current-user
+            - headerName: x-current-marvel
+              defaultVal: 4567
+              source: incomingReq
+              sourceHeader: sbi-timer-feature
+        - methods:
+            - GET
+            - POST
+          headersList:
+            - headerName: x-headeReq-3
+              defaultVal: abc
+              source: incomingReq
+              sourceHeader: x-new-req
+              override: false
+            - headerName: x-headeReq-4
+              defaultVal: 123
+              source: incomingReq
+              sourceHeader: x-headeReq-1
+  filterNameReqExit:
+    name: CustomReqHeaderExitFilter
+    args:
+      headers:
+        - methods:
+            - ALL
+          headersList:
+            - headerName: x-headeReq-2021
+              defaultVal: 0505
+              source: incomingReq
+              sourceHeader: x-current-user
+            - headerName: x-current-spiderman
+              defaultVal: 010
+              source: incomingReq
+              sourceHeader: sbi-timer-feature
+  filterNameResEntry:
+    name: CustomResHeaderEntryFilter
+    args:
+      headers:
+        - methods:
+            - ALL
+          headersList:
+            - headerName: x-headeRes-3014
+              defaultVal: pqr
+              source: incomingRes
+              sourceHeader: x-current-hooman
+            - headerName: x-current-dc
+              defaultVal: 2019
+              source: incomingRes
+              sourceHeader: sbi-timer-feature
+        - methods:
+            - GET
+            - POST
+          headersList:
+            - headerName: x-headeRes--akaka-3
+              defaultVal: mno
+              source: incomingRes
+              sourceHeader: x-new-res
+              override: false
+            - headerName: x-headeRes-black-4
+              defaultVal: 12333
+              source: incomingRes
+              sourceHeader: x-headeRes-1208
+              override: false
+  filterNameResExit:
+    name: CustomResHeaderExitFilter
+    args:
+      headers:
+        - methods:
+            - ALL
+          headersList:
+            - headerName: x-headeRes-2021
+              defaultVal: 0909
+              source: incomingRes
+              sourceHeader: x-current-hooman
+            - headerName: x-current-marvel-worked
+              defaultVal: 2021
+              source: incomingRes
+              sourceHeader: sbi-timer-feature
+  filterName1: 
+    name: SBIRoutingFilter
+    peerSetIdentifier: set0
+    alternateOnReroute: false
+  filterName2:
+    name: SBIReroute
+    retries: 2
+    methods: GET, POST, PUT, DELETE, PATCH
+    statuses:
+    - status: BAD_REQUEST
+      cause:
+      - "Error with SCP"
+      - "Error with SEPP"
+    - status: INTERNAL_SERVER_ERROR
+      cause:
+      - "Error with SCP"
+      - "Error with SEPP"
+    - status: BAD_GATEWAY
+      cause:
+      - "Error with SCP"
+      - "Error with SEPP"
+    - status: NOT_FOUND
+    exceptions:
+    - exception: java.util.concurrent.TimeoutException
+    - exception: java.net.UnknownHostException
+    withServerHeaderSupport:
+      retries: 3
+      methods: GET, POST, PUT, DELETE, PATCH
+      statuses:
+      - status: BAD_REQUEST
+        cause:
+        - "Error with SCP"
+        - "Error with SEPP"
+      - status: INTERNAL_SERVER_ERROR
+        cause:
+        - "Error with SCP"
+        - "Error with SEPP"
+      - status: BAD_GATEWAY
+        cause:
+        - "Error with SCP"
+        - "Error with SEPP"
+      - status: NOT_FOUND
+      exceptions:
+      - exception: java.util.concurrent.TimeoutException
+      - exception: java.net.UnknownHostException
+  #Below field is used for blacklisting(removing) a request header at route level.
+  removeRequestHeader:
+  - name: myheader1
+  - name: myheader3
+  #Below field is used for blacklisting(removing) a response header at route level.
+  removeResponseHeader:
+  - name: myresponseheader1
+  - name: myresponseheader3
+- id: scp_direct1
+  uri: https://dummy.dontchange1
+  path: /npcf/**
+  order: 2
+  metadata:
+    httpsTargetOnly: false
+    httpRuriOnly: false
+    sbiRoutingEnabled: false
+  filterName1: 
+    name: SBIRoutingFilter
+    peerSetIdentifier: set0
+  filterName2:
+    name: SBIReroute
+    retries: 1
+    methods: GET, POST, PUT, DELETE, PATCH
+    statuses: BAD_REQUEST, INTERNAL_SERVER_ERROR, BAD_GATEWAY, NOT_FOUND
+    exceptions: java.util.concurrent.TimeoutException, java.net.UnknownHostException
+- id: scp_direct2
+  uri: https://dummy.dontchange2
+  path: /dummy
+  order: 3
+  metadata:
+    httpsTargetOnly: false
+    httpRuriOnly: false
+    sbiRoutingEnabled: false
+  filterName1: 
+    name: SBIRoutingFilter
+    peerSetIdentifier: set0
+  filterName2:
+    name: SBIReroute
+    retries: 1
+    methods: GET, POST, PUT, DELETE, PATCH
+    statuses: BAD_REQUEST, INTERNAL_SERVER_ERROR, BAD_GATEWAY, NOT_FOUND
+    exceptions: java.util.concurrent.TimeoutException, java.net.UnknownHostException
+- id: egress_iwf
+  uri: egress://test.com
+  path: /niwf/**
+  order: 4
+  metadata: 
+    httpRuriOnly: false
+  #peerSetIdentifier: set0
+  #alternateOnReroute: false  
+  
+dnsSrv:
+  host: 10.75.225.67
+  alternateRouteSvcName: alternate-route
+  port: 80
+  scheme: http
+  errorCodeOnDNSResolutionFailure: 425
+  errorDescriptionOnDNSResolutionFailure: ""
+  errorTitleOnDNSResolutionFailure: ""
+  errorCauseOnDNSResolutionFailure: ""
+
+refreshScheduler:
+  enabled: true
+  #This will be used for triggering refresh-scheduler as per time interval configured
+  interval: 180  #in minutes
+  auditorShuffle: false  #Set it to true if auditor(auto-refresh) functionality is to be randomly rotated among available pods. 
+  
+retryAfter:
+  enabled: false
+  kubeServiceName: ${GATEWAY_SERVICE_NAME:}
+  kubeNamespace: ${K8S_NAMESPACE:}
+  hazelCastPort: ${COHERENCE_PORT:8000}
+  errorCodesToLook: 429,500,503
+#Provide error code with comma seperated
+  returnErrorCode: 425
+#Error code expected to be sent to Backend NF when 3gpp-Sbi-Target-Apiroot header is provided with producer which is blacklisted in EGW for a period mentioned in retry-after header
+  blackListPeriod: 0 #Seconds
+#This value will be used when configured response code's are received from producer NF but retry-after header is absent. 
+#So if retry-after value is configured with any value greater than 0 then it is considered in the absence of retry-after header from producer NF. 
+
+# Resource details
+resources:
+  limits:
+    cpu: 2
+    initServiceCpu: 1
+    updateServiceCpu: 1
+    commonHooksCpu: 1
+    memory: 4Gi
+    updateServiceMemory: 1Gi
+    initServiceMemory: 1Gi
+    commonHooksMemory: 1Gi
+  requests:
+    cpu: 1
+    initServiceCpu: 1
+    updateServiceCpu: 1
+    commonHooksCpu: 1
+    memory: 2Gi
+    updateServiceMemory: 1Gi
+    initServiceMemory: 1Gi
+    commonHooksMemory: 1Gi
+  target:
+    averageCpuUtil: 65
+
+# Number of Pods must always be available, even during a disruption.
+minAvailable: 2
+# Min replicas to scale to maintain an average CPU utilization
+minReplicas: 2
+# Max replicas to scale to maintain an average CPU utilization
+maxReplicas: 5
+
+#Cipher Suites to be enabled on client side
+cipherSuites:
+  - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+  - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+  - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+  - TLS_DHE_RSA_WITH_AES_256_GCM_SHA384
+  - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+  - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+
+allowedCipherSuites:
+  - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+  - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+  - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+  - TLS_DHE_RSA_WITH_AES_256_GCM_SHA384
+  - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+  - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+
+
+oauthClient:
+  enabled: false
+  nrfClientQueryEnabled: false
+  subscriptionRetryScheduledDelay: 5
+  httpsEnabled: false
+  staticNrfList:
+    - localhost:port
+  nfType: PCF
+  nfInstanceId: fe7d992b-0541-4c7d-ab84-c6d70b1b01b1
+  consumerPlmnMNC: "345"
+  consumerPlmnMCC: "567"
+  #parameter determines the number of additional NRF instances to query apart from primary NRF
+  maxNonPrimaryNrfs: 2
+  apiPrefix: ""
+  retryErrorCodeSeriesForSameNrf: 
+  - errorSetId: 4XX
+    errorCodes: 401, 402, 403, 404
+  - errorSetId: 5XX
+    errorCodes: -1
+  retryErrorCodeSeriesForNextNrf:
+  - errorSetId: 4XX
+    errorCodes: 400, 401, 402, 403, 404
+  - errorSetId: 5XX
+    errorCodes: -1
+  retryExceptionListForSameNrf: 
+    - TimeoutException
+    - InterruptedException
+    - ExecutionException
+    - JsonProcessingException
+  retryExceptionListForNextNrf: 
+    - TimeoutException
+    - InterruptedException
+    - ExecutionException
+    - JsonProcessingException
+  connectionTimeout: 10000 #(ms)
+  requestTimeout: 1000 #(ms)
+  #provide a value greater than 0
+  attemptsForPrimaryNRFInstance: 1
+  attemptsForNonPrimaryNRFInstance: 1
+  defaultNRFInstance: localhost:port
+  defaultErrorCode: "503"
+  nrfClientConfig:
+    serviceName: "ocnf-client-nfmanagement"
+    host: 10.75.224.123
+    port: 8080
+    nrfClientRequestMap: "/v1/nrf-client/subscriptions/nrfRouteList"
+
+# Provide here the list of headers which donot require indexing 
+headerIndexing:
+  doNotIndex:
+
+# Overrides  the given string instead of chart name
+#fullnameOverride: egress
+
+notificationRateLimit:
+  enabled: false
+  duration: 1
+  bucketCapacity: 1
+  refillRate: 1
+  errorCodeOnRateLimit: 503
+  errorDescriptionOnRateLimit: ""
+  errorTitleOnRateLimit: ""
+  errorCauseOnRateLimit: ""
+
+#jetty client configuration
+maxConcurrentPushedStreams: 1000
+maxRequestsQueuedPerDestination: 1024
+maxConnectionsPerDestination: 4
+maxConnectionsPerIp: 4
+connectionTimeout: 10000 #(ms)
+requestTimeout: 1000 #(ms)
+
+# configuration to enable DNS resolution with TTL
+honorDnsRecordttl: false
+# configuration to enable scheduler which removes unused FQDN
+unusedDestinationCleanup: false
+# unused FQDN timeframe
+unusedDestinationCleanupAfter: 1800000 #(ms)
+# FQDN clean up timer trigger interval
+unusedDestinationCleanupScheduler: 300000 #(ms)
+
+jettyIdleTimeout: 0 #(ms,<=0 -> to make timeout infinite)
+# If metricPrefix is configured then it will be added as a prefix to all the metrics in the egress gateway. Default value is empty string. This is a local metricPrefix which will have higher priority than the metricPrefix defined under global section
+metricPrefix: ""
+# If metricSuffix is configured then it will be added as a suffix to all the metrics in the egress gateway. Default value is empty string. This is a local metricSuffix which will have higher priority than the metricSuffix defined under global section
+metricSuffix: ""
+#To allow egw to redirect to uri present in location header in case of 301,308,302,303,307 response code set autoRedirect to true otherwise set it to false. Default value is true
+autoRedirect: true
+isSbiTimerEnabled: false
+sbiTimerTimezone: GMT
+egressGwCertReloadEnabled: true
+egressGwCertReloadPath: /egress-gw/store/reload
+#User-Agent header generation configuration
+userAgentHeaderConfigMode: HELM
+userAgentHeader:
+  enabled: false # flag to enable or disable the feature
+  overwriteHeader: false
+  nfType: "" # NF type of consumer NF
+  nfInstanceId: ""
+  addFqdnToHeader: false # Flag to add fqdn. If enabled then user-agent header will be generated along with the fqdn configured otherwise fqdn will not be added
+  nfFqdn: "" #fqdn of NF. This is not the fqdn of gateway
+
+
+# enable jaeger tracing
+jaegerTracingEnabled: false
+
+openTracing :
+  jaeger:
+    udpSender:
+      # udpsender host
+      host: "occne-tracer-jaeger-agent.occne-infra"
+      # udpsender port
+      port: 6831 
+    probabilisticSampler: 0.5
+
+#Dns Refresh Delay in milli-seconds
+dnsRefreshDelay: 10000
+    
+sepp:
+  forwardProxy: false
+  egressProxyHeader: x-custom-egress-proxy-header
+  customAuthorityHeader: x-custom-authority-header
+  removeUnusedProxyAfter: 30
+  # set true only if sepp.forwardProxy -> true,otherwise it wont have effect 
+  tlsConnectionMode: false
+  
+serverHeader:
+  autoBlackListProxy:
+    enabled: false #Only true/false allowed
+    errorCodeList:
+    - errorSetId: 4XX
+      errorCodes: 401, 402, 403, 404
+    - errorSetId: 5XX
+      errorCodes: -1
+    blacklistingPeriod: 60000
+
+subLog:
+  enabled: false
+
+webclient:
+  threadSizeMultiByCore: 2
+  threadQueueCapacity: 1000
+
+tolerations: []
+helmBasedConfigurationNodeSelectorApiVersion: "v1"
+nodeSelector:
+  nodeKey: ''
+  nodeValue: '' 
+
+#Coherence port used if either Ratelimiting or OAuth is enabled or ScpIntegration is enabled
+coherence:
+  port: 8000
+  mode: "dev"
+  messagingPort1: 8095
+  messagingPort2: 8096
+  
+#Netty server default settings value
+
+# if serverDefaultSettingsMaxConcurrentStream > 0 it will be added to settings frame
+serverDefaultSettingsMaxConcurrentStream: 0
+# if serverDefaultSettingsInitialWindowSize > 0 it will be added to settings frame
+serverDefaultSettingsInitialWindowSize: 0
+serverDefaultWindowUpdateRatio: 0.5f
+
+# enabling this SCG will add Forwarded and x-Forwaredheaders
+enableForwardedHeader: false
+
+# Common configuration service
+commonCfgClient:
+  enabled: false
+commonCfgServer:
+  # If below parameter is present then it will be used for integrating with config-server. 
+  # This parameter will be appended with the current release name when deployed with egw
+  # In case host name is expected, then leave this parameter blank
+  configServerSvcName: common-config-server
+  host: 10.75.224.123
+  port: 30081
+  pollingInterval: 5000
+commonServiceName: egw
+restoreBackupOnInstall: false
+
+#Db hook Configuration
+dbConfig:
+  dbHost: data-mysql.default
+  dbPort: 3306
+  configFile: defaultconfig.yaml
+  schemaFile: defaultschema.json
+  secretName: dbhook-secret
+  dbName: commonconfig
+  #dbEngine: InnoDB
+  #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  #configure when ur backup table should have sepereate schema
+  #backupDbName: commonconfig
+  #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  # Name of the Key configured for "DB Username" in Secret with following name: "<dbConfig.secretName>"
+  dbUNameLiteral: dbUsername
+  # Name of the Key configured for "DB Password" in Secret with following name: "<dbConfig.secretName>"
+  dbPwdLiteral: dbPassword
+
+#custom validator configuration. These configurations are needed for hooks to populate values in db
+componentValidator: "com.oracle.common.egw.EgressCustomValidator"
+#Will be comma separated values. for eg: "com.oracle.common.oauth.OauthCustomValidator,com.oracle.common.igw.IngressCustomValidator"
+dependentValidators: ""
+
+gracefulShutdown:
+  gracePeriod: 1m
+  defaultErrorCode: 500
+  errorDescription: "Shutdown in progress"
+  errorTitle: "Graceful shutdown"
+  errorCause: "Shutdown"
+
+#The sidecar (istio url) when deployed in serviceMesh
+# Default value: http://127.0.0.1:15020/quitquitquit
+istioSidecarQuitUrl: ""
+# Default value: http://127.0.0.1:15020/ready
+istioSidecarReadyUrl: ""
+#Enabled when deployed in serviceMesh
+serviceMeshCheck: false
+
+#Enabled when deployed in Ipv6 cluster
+isIpv6Enabled: false
+
+nfSpecificConfig:
+  enabled: false
+  featureList:
+    - logging
+    - forwardheaderdetails
+    - peerconfiguration
+    - peersetconfiguration
+    - routesconfiguration
+    - messagelogging
+    - useragentheader

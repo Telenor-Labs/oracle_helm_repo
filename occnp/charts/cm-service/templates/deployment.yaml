@@ -1,0 +1,227 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    {{- include "annotations.deployments" . }}
+  labels:
+    {{- include "labels.deployments" . }}
+    io.kompose.service: {{ template "ocpm-cm-service-deployment-name" . }}
+  name: {{ template "ocpm-cm-service-deployment-name" . }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      io.kompose.service: {{ template "ocpm-cm-service-deployment-name" . }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 0
+  template:
+    metadata:
+      annotations:
+        {{- include "annotations.deployments" . | indent 4 }}
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: {{ .Values.global.containerPorts.monitoringHttp | quote }}
+        prometheus.io/scrape: 'true'
+      labels:
+        {{- include "labels.deployments" . | indent 4 }}
+        io.kompose.service: {{ template "ocpm-cm-service-deployment-name" . }}
+    spec:
+      containers:
+      - env:
+        - name: LI_ROLE
+          value: POLICY_LI_READ, POLICY_LI_WRITE
+        - name: CFG_SERVER_HOST
+          value: {{ template "service-name-config-server" . }}
+        - name: CFG_SERVER_PORT
+          value: {{ .Values.global.servicePorts.configServerHttp | quote }}
+        - name: CONNECT_RETRY_MAX
+          value: {{ .Values.global.configFetch.maxRetries | quote }}
+        - name: CONNECT_RETRY_INTERVAL
+          value: {{ .Values.global.configFetch.retryInterval | quote }}
+        - name: CFG_SERVER_READINESS_URL
+          value: "http://{{ template "service-name-config-server" . }}:{{ .Values.global.servicePorts.configServerHttp }}/topics"
+        - name: SIGNALING_PORT
+          value: {{ .Values.global.containerPorts.cmServiceHttp | quote }}
+        - name: MONITORING_PORT
+          value: {{ .Values.global.containerPorts.monitoringHttp | quote }}
+        - name: JAEGER_AGENT_HOST
+          value: {{ .Values.global.envJaegerAgentHost | quote }}
+        - name: JAEGER_AGENT_PORT
+          value: {{ .Values.global.envJaegerAgentPort | quote }}
+        - name: JAEGER_SERVICE_NAME
+          value: {{ template "ocpm-cm-service-deployment-name" . }}
+        - name: JAEGER_SAMPLER_PARAM
+          value: {{ .Values.envJaegerSamplerParam | quote }}
+        - name: JAEGER_SAMPLER_TYPE
+          value: {{ .Values.envJaegerSamplerType | quote }}
+        - name: MYSQL_COMMON_CONFIG_DATABASE
+          value: {{ .Values.envCommonConfigMysqlDatabase | quote }}
+        - name: MYSQL_DATABASE
+          value: {{ .Values.envMysqlDatabase | quote }}
+        - name: MYSQL_HOST
+          value: {{ .Values.global.envMysqlHost | quote }}
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.dbCredSecretName }}
+              key: mysql-password
+        - name: MYSQL_PORT
+          value: {{ .Values.global.envMysqlPort | quote }}
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.dbCredSecretName }}
+              key: mysql-username
+        {{- if .Values.global.pcfLICfg }}
+        - name: LI_PASSPHRASE
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.liPassphrase }}
+              key: li-passphrase
+        {{- end }}
+        - name: OCPM_CONFIG_APP_ID
+          value: {{ .Values.envOcpmConfigAppId | quote }}
+        - name: PRE_ADDRESS
+          value: {{ template "service-name-pre-test" . }}
+        - name: PRE_TEST_PORT
+          value: {{ .Values.global.servicePorts.preTestHttp | quote }}
+        - name: MANAGED_NF
+          value: {{ .Values.global.envManageNF | quote }}
+        - name: SYSTEM_NAME
+          value: {{ .Values.global.envSystemName | quote }}
+        - name: NF_VERSION
+          value: {{ .Values.global.envNFVersion | quote }}
+        - name: ENABLE_SSL
+          value: {{ .Values.enableHttps | quote }}
+        - name: QUERYSERVICE_URL  
+          value: http://{{ template "service-name-query" . }}:{{ .Values.global.servicePorts.queryServiceHttp }}/ocpm/common/v1/sessiondata
+        - name: APPLICATION_NAME
+          value: {{ .Values.appName }}
+        - name: MICROSERVICE_NAME
+          value: {{ template "cm-service.fullname" .}}
+        - name: ENGINEERING_VERSION
+          value: {{ .Chart.Version | quote }}
+        - name: MARKETING_VERSION
+          value: {{ .Chart.AppVersion | quote }}
+        - name: LOGGING_LEVEL_APP
+          value: {{ .Values.envLoggingLevelApp | quote }}
+        - name: MAX_POLICY_PROJECT
+          value: {{ .Values.policyProjects.limits.projects | quote }}
+        - name: MAX_POLICY_PROJECT_STATE_HISTORY
+          value: {{ .Values.policyProjects.limits.stateHistories | quote }}
+        - name: MAX_POLICY_TABLE
+          value: {{ .Values.policyTables.limits.tables | quote }}
+        - name: MAX_POLICY_TABLE_COLUMN
+          value: {{ .Values.policyTables.limits.columns | quote }}
+        - name: MAX_POLICY_TABLE_ROW
+          value: {{ .Values.policyTables.limits.rows | quote }}
+        - name: MAX_POLICY_TABLE_KEY_COLUMN
+          value: {{ .Values.policyTables.limits.keyColumns | quote }}
+        - name: SNAPSHOT_MAX
+          value: {{ .Values.configRollback.limits.snapshotMax | quote }}
+        - name: CFG_SERVER_CONNECTTIMEOUT
+          value: {{ .Values.clientTimeouts.cfgserver.connectTimeout | quote }}
+        - name: CFG_SERVER_READTIMEOUT
+          value: {{ .Values.clientTimeouts.cfgserver.readTimeout | quote }}
+        - name: BULK_CONTROLLER_CONNECTTIMEOUT
+          value: {{ .Values.clientTimeouts.bulkContoller.connectTimeout | quote }}
+        - name: BULK_CONTROLLER_CONNECTIONREQUESTTIMEOUT
+          value: {{ .Values.clientTimeouts.bulkContoller.connectionRequestTimeout | quote }}
+        - name: BULK_CONTROLLER_READTIMEOUT
+          value: {{ .Values.clientTimeouts.bulkContoller.readTimeout | quote }}       
+        {{- range $logger := .Values.dependenciesLogging }}
+        - name: {{ $logger.name | quote }}
+          value: {{ $logger.value | quote }}
+        {{- end }}
+        - name: LOG4J2_BURST_RATE
+          value: {{ .Values.logging.burst.rate | quote }}
+        - name: LOG4J2_BURST_MAX
+          value: {{ .Values.logging.burst.max | quote }}
+        - name: LOG4J2_LOCATION_INFO
+          value: {{ .Values.logging.locationInfo | quote }}
+        - name: LOG4J2_CONSOLE_FORMAT
+          value: {{ .Values.logging.consoleFormat | quote }}
+        - name: SERVICE_MESH_CHECK
+          value: {{ .Values.global.serviceMeshEnabled | quote }}
+        - name: ISTIO_SIDECAR_READY_URL
+          value: {{ .Values.global.istioSidecarReadyUrl }}
+        {{- if .Values.imageTag }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image }}:{{ .Values.imageTag }}"
+        {{- else }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image }}:{{ .Values.global.imageTag }}"
+        {{- end }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        name: {{ template "container.fullname" . }}
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: {{ .Values.global.containerPorts.monitoringHttp }}
+            {{- if .Values.enableHttps }}
+            scheme: HTTPS
+            {{- else }}
+            scheme: HTTP
+            {{- end }}
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.livenessProbe.successThreshold }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: {{ .Values.global.containerPorts.monitoringHttp }}
+            {{- if .Values.enableHttps }}
+            scheme: HTTPS
+            {{- else }}
+            scheme: HTTP
+            {{- end }}
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.readinessProbe.successThreshold }}
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+        ports:
+          - containerPort: {{ .Values.global.containerPorts.cmServiceHttp }}
+            protocol: TCP
+          - name: {{ .Values.global.cncMetricsName }}
+            containerPort: {{ .Values.global.containerPorts.monitoringHttp }}
+            protocol: TCP
+        resources:
+          limits:
+            {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ .Values.resources.limits.ephemeralStorage | quote }}
+            {{- end }}
+            cpu: {{ .Values.resources.limits.cpu | quote }}
+            memory: {{ .Values.resources.limits.memory | quote }}
+          requests:
+            {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ template "cm-service-ephemeral-storage-request" . }}
+            {{- end }}
+            cpu: {{ .Values.resources.requests.cpu | quote }}
+            memory: {{ .Values.resources.requests.memory | quote }}
+
+    {{- include "extraContainers" . | nindent 6}}
+    {{- if $.Values.nodeSelectorEnabled }}
+      nodeSelector:
+        {{ $.Values.nodeSelectorKey }}: {{ $.Values.nodeSelectorValue }}
+    {{- end }}
+    {{- if $.Values.global.serviceAccountName }}
+      serviceAccountName: {{ .Values.global.serviceAccountName }}
+    {{- end }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100 
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: "app.kubernetes.io/name"
+                  operator: In
+                  values:
+                  - {{ template "chart.fullname" .}} 
+              topologyKey: "kubernetes.io/hostname"
+
+      restartPolicy: Always
+      schedulerName: default-scheduler

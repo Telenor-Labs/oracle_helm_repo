@@ -1,0 +1,35 @@
+{{- if $.Values.global.nrfClientNfDiscoveryEnable }}
+{{- if .Capabilities.APIVersions.Has "policy/v1/PodDisruptionBudget" }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  annotations:
+    {{- include "annotations.allResources" . }}
+  labels:
+    {{- include "labels.allResources" . }}
+  name: {{ template "service-prefix" . }}-nrf-client-nfdiscovery
+spec:
+  maxUnavailable: {{ .Values.global.maxUnavailable | quote }}
+  selector:
+    matchLabels:
+      io.kompose.service: {{ template "service-prefix" . }}-nrf-client-nfdiscovery
+      app.kubernetes.io/name: {{ template "nrf-client.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+{{- else if .Capabilities.APIVersions.Has "policy/v1/PodDisruptionBudget" }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  annotations:
+    {{- include "annotations.allResources" . }}
+  labels:
+    {{- include "labels.allResources" . }}
+  name: {{ template "service-prefix" . }}-nrf-client-nfdiscovery
+spec:
+  maxUnavailable: {{ .Values.global.maxUnavailable | quote }}
+  selector:
+    matchLabels:
+      io.kompose.service: {{ template "service-prefix" . }}-nrf-client-nfdiscovery
+      app.kubernetes.io/name: {{ template "nrf-client.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+{{- end }}

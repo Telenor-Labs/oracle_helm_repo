@@ -1,0 +1,230 @@
+{{- if $.Values.global.pcrfCoreEnable }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    {{- include "annotations.deployments" . }}
+  labels:
+    {{- include "labels.deployments" . }}
+    io.kompose.service: {{ template "pcrf-core-deployment-name" . }}
+  name: {{ template "pcrf-core-deployment-name" . }}
+spec:
+  replicas: {{ .Values.minReplicas }}
+  selector:
+    matchLabels:
+      io.kompose.service: {{ template "pcrf-core-deployment-name" . }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 50%
+  template:
+    metadata:
+      annotations:
+        {{- include "annotations.deployments" . | indent 4 }}
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: {{ .Values.global.containerPorts.monitoringHttp | quote }}
+        prometheus.io/scrape: 'true'
+      labels:
+        {{- include "labels.deployments" . | indent 4 }}
+        io.kompose.service: {{ template "pcrf-core-deployment-name" . }}
+    spec:
+      containers:
+      - env:
+        - name: EMBEDDED_WEBSERVER_PORT
+          value: {{ .Values.global.containerPorts.pcrfCoreHttp | quote }}
+        - name: DIAMETER_PORT
+          value: {{ .Values.global.containerPorts.pcrfCoreDiameter | quote }}
+        - name: METRIC_PROMETHEUS_PORT
+          value: {{ .Values.global.containerPorts.monitoringHttp | quote }}
+        - name: KUBERNETES_NAMESPACE
+          value: {{ .Release.Namespace | quote }}
+        - name: DEPLOY_SERVICE_NAMESPACE
+          value: {{ .Release.Name | quote }}
+        - name: DEPLOY_SERVICE_NAME
+          value: "{{ template "service-name-pcrf-core" . }}"
+        - name: DIAMETER_Realm
+          value: {{ .Values.envDiameterRealm | quote }}
+        - name: DIAMETER_Identity
+          value: {{ .Values.envDiameterIdentity | quote }}
+        - name: PRRO_JDBC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.dbCredSecretName }}
+              key: mysql-password
+        - name: PRRO_JDBC_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.dbCredSecretName }}
+              key: mysql-username
+        - name: PRRO_JDBC_SERVERS
+          value: "{{ .Values.global.envMysqlHost }}:{{ .Values.global.envMysqlPort }}"
+        - name: LOGGING_LEVEL_ROOT
+          value: {{ .Values.envLoggingLevelRoot | quote }}
+        - name: POLICY_PREENGINEURL
+          value: "http://{{ template "service-name-pre" . }}:{{ .Values.global.servicePorts.preServiceHttp }}/v1/policy/engine/pcrf-core"
+        - name: PRE_HEALTHCHECK_URL
+          value: "http://{{ template "service-name-pre" . }}:{{ .Values.global.servicePorts.preServiceHttp }}/v1/health"
+        - name: PRRO_JDBC_DATABASE
+          value: {{ .Values.envMysqlDatabase | quote }}
+        - name: PRRO_JDBC_DATABASE_CONF
+          value: {{ .Values.envMysqlDatabase | quote }}
+        - name: PRRO_JDBC_SERVERS
+          value: "{{ .Values.global.envMysqlHost }}:{{ .Values.global.envMysqlPort }}"
+        - name: PRRO_JDBC_POOL_MAXTOTAL
+          value: {{ .Values.envDbMaxPoolSize | quote }}
+        - name: PRRO_JDBC_POOL_MINIDLE
+          value: {{ .Values.envDbMaxPoolSize | quote }}
+        - name: PRRO_JDBC_POOL_IDLETIMEOUT
+          value: {{ .Values.global.mySql.connection.idleTimeout | quote }}
+        - name: PRRO_JDBC_POOL_MAXLIFETIME
+          value: {{ .Values.global.mySql.connection.maxLifeTime | quote }}
+        - name: PRRO_JDBC_POOL_CONNECTIONTIMEOUT
+          value: {{ .Values.global.mySql.connection.connectionTimeout | quote }}
+        - name: PRRO_JDBC_POOL_CONNECTIONVALIDATIONTIMEOUT
+          value: {{ .Values.global.mySql.connection.validationTimeout | quote }}
+        - name: PRRO_JDBC_POOL_SOCKETTIMEOUT
+          value: {{ .Values.global.mySql.connection.socketTimeout | quote }}
+        - name: SERVICE_MESH_CHECK
+          value: {{ .Values.global.serviceMeshEnabled | quote }}
+        - name: ISTIO_SIDECAR_QUIT_URL
+          value: {{ .Values.global.istioSidecarQuitUrl }}
+        - name: ISTIO_SIDECAR_READY_URL
+          value: {{ .Values.global.istioSidecarReadyUrl }}
+        - name: CONFIG_SERVER_URL
+          value: "http://{{ template "service-name-config-server" . }}:{{ .Values.global.servicePorts.configServerHttp }}"
+        - name: CONNECT_RETRY_MAX
+          value: {{ .Values.global.configFetch.maxRetries | quote }}
+        - name: CONNECT_RETRY_INTERVAL
+          value: {{ .Values.global.configFetch.retryInterval | quote }}
+        - name: SH_ENABLED
+          value: "true"
+        - name: SY_ENABLED
+          value: "true"
+        - name: ALERTMANAGER_ALERTURL
+          value: "http://occne-prometheus-alertmanager.occne-infra:80/api/v1/alerts"
+        - name: ALERTS_ENABLED
+          value: "true"
+        - name: POLICYDS_ENABLED
+          value: {{ .Values.global.policydsEnabled  | quote }}
+        - name: POLICYDS_URL
+          value: "http://{{ template "service-name-policy-ds" . }}:{{ .Values.global.servicePorts.policydsHttp }}/pds/v2/user-data"
+        - name: POLICYDS.REQUEST_TIMEOUT
+          value: "3000"
+        - name: APPLICATION_NAME
+          value: {{ .Values.appName | quote }}
+        - name: MICROSERVICE_NAME
+          value: {{ template "pcrf-core.fullname" .}}
+        - name: ENGINEERING_VERSION
+          value: {{ .Chart.Version | quote }}
+        - name: MARKETING_VERSION
+          value: {{ .Chart.AppVersion | quote }}
+        - name: BINDINGSERVICE_ENABLED
+          value: {{ .Values.global.bindingSvcEnabled | quote }}
+        - name: BINDINGSERVICE_URL
+          value: "http://{{ template "service-name-binding" . }}:{{ .Values.global.servicePorts.bindingHttp }}/binding/v1"
+        - name: NF_INSTANCE_ID
+          value: {{ .Values.global.nfInstanceId | quote }}
+        - name: AUDIT_SERVICE_URL
+          value: "http://{{ template "service-name-audit" . }}:{{ .Values.global.servicePorts.auditServiceHttp }}"
+        - name: AUDIT_NOTIFICATION_URL
+          value: "http://{{ template "service-name-pcrf-core" . }}:{{ .Values.global.servicePorts.pcrfCoreHttp }}"
+        - name: AUDIT_REQUEST_DELAY
+          value: {{ .Values.auditRequestDelay | quote }}
+        - name: AUDIT_MAX_REQUESTS
+          value: {{ .Values.auditMaxRequests | quote }}
+        - name: JAEGER_AGENT_HOST
+          value: {{ .Values.global.envJaegerAgentHost | quote }}
+        - name: JAEGER_AGENT_PORT
+          value: {{ .Values.global.envJaegerAgentPort | quote }}
+        - name: JAEGER_SAMPLER_PARAM
+          value: {{ .Values.envJaegerSamplerParam | quote }}
+        - name: JAEGER_SAMPLER_TYPE
+          value: {{ .Values.envJaegerSamplerType | quote }}
+        - name: JAEGER_SERVICE_NAME
+          value: {{ template "pcrf-core-deployment-name" . }}
+        - name: LOG4J2_BURST_RATE
+          value: {{ .Values.logging.burst.rate | quote }}
+        - name: LOG4J2_BURST_MAX
+          value: {{ .Values.logging.burst.max | quote }}
+        - name: LOG4J2_LOCATION_INFO
+          value: {{ .Values.logging.locationInfo | quote }}
+        - name: LOG4J2_CONSOLE_FORMAT
+          value: {{ .Values.logging.consoleFormat | quote }}
+        - name: METRICS_NAME_PREFIX
+          value: {{ .Values.global.metricPrefix | quote }}
+        - name: METRICS_NAME_SUFFIX
+          value: {{ .Values.global.metricSuffix | quote }}
+        {{- if .Values.imageTag }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image }}:{{ .Values.imageTag }}"
+        {{- else }}
+        image: "{{ .Values.global.dockerRegistry }}/{{ .Values.image }}:{{ .Values.global.imageTag }}"
+        {{- end }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        name: {{ template "container.fullname" . }}
+        livenessProbe:
+          httpGet:
+            path: /actuator/prometheus
+            port: {{ .Values.global.containerPorts.monitoringHttp }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.livenessProbe.successThreshold }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: {{ .Values.global.containerPorts.monitoringHttp }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.readinessProbe.successThreshold }}
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+        ports:
+          - containerPort: {{ .Values.global.containerPorts.pcrfCoreDiameter }}
+            protocol: TCP 
+          - containerPort: {{ .Values.global.containerPorts.pcrfCoreHttp }}
+            protocol: TCP
+          - name: {{ .Values.global.cncMetricsName }}
+            containerPort: {{ .Values.global.containerPorts.monitoringHttp }}
+            protocol: TCP
+
+        resources:
+          limits:
+            {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ .Values.resources.limits.ephemeralStorage | quote }}
+            {{- end }}
+            cpu: {{ .Values.resources.limits.cpu | quote }}
+            memory: {{ .Values.resources.limits.memory | quote }}
+          requests:
+            {{- if ne (add .Values.global.logStorage .Values.global.crictlStorage)  0 }}
+            ephemeral-storage: {{ template "pcrf-core-ephemeral-storage-request" . }}
+            {{- end }}
+            cpu: {{ .Values.resources.requests.cpu | quote }}
+            memory: {{ .Values.resources.requests.memory | quote }}
+
+    {{- include "extraContainers" . | nindent 6}}
+    {{- if $.Values.nodeSelectorEnabled }}
+      nodeSelector:
+        {{ $.Values.nodeSelectorKey }}: {{ $.Values.nodeSelectorValue }}
+    {{- end }}
+    {{- if $.Values.global.serviceAccountName }}
+      serviceAccountName: {{ .Values.global.serviceAccountName }}
+    {{- end }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100 
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: "app.kubernetes.io/name"
+                  operator: In
+                  values:
+                  - {{ template "chart.fullname" .}} 
+              topologyKey: "kubernetes.io/hostname"
+
+      restartPolicy: Always
+      schedulerName: default-scheduler
+  {{- end }}

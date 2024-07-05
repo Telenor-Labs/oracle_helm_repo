@@ -1,0 +1,9 @@
+dependencies:
+- name: nrf-client-nfdiscovery
+  repository: http://ocnrf-registry.us.oracle.com:8081
+  version: 22.1.2
+- name: nrf-client-nfmanagement
+  repository: http://ocnrf-registry.us.oracle.com:8081
+  version: 22.1.2
+digest: sha256:82336182050aa57caf5b84387b6cb4044a976b7e440f48bed9283079352fe43d
+generated: "2022-02-19T11:12:58.995667566Z"

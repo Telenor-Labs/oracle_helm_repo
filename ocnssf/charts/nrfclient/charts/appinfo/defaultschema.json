@@ -1,0 +1,78 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "sample config json",
+	"description": "json validator",
+	"type": "object",
+	"properties": {
+		"logging": {
+			"type": "object",
+			"description": "An explanation about the purpose of this instance.",
+			"properties": {
+				"appLogLevel": {
+					"enum": [
+						"CRITICAL",
+						"FATAL",
+						"ERROR",
+						"WARN",
+						"WARNING",
+						"INFO",
+						"DEBUG",
+						"TRACE"
+					],
+					"type": "string",
+					"description": "An explanation about the purpose of this instance."
+				},
+				"packageLogLevel": {
+					"type": "array",
+					"minItems": 0,
+					"maxItems": 6,
+					"uniqueItems": true,
+					"items": {
+						"anyOf": [
+							{
+								"type": "object",
+								"properties": {
+									"packageName": {
+										"enum": [
+											"namespace_runtime_info",
+											"service_monitor",
+											"mysql_monitor",
+											"replication_status_monitor",
+											"service_status_scraper",
+											"log_level_agent"
+										],
+										"type": "string",
+										"description": "An explanation about the purpose of this instance."
+									},
+									"logLevelForPackage": {
+										"enum": [
+											"CRITICAL",
+											"FATAL",
+											"ERROR",
+											"WARN",
+											"WARNING",
+											"INFO",
+											"DEBUG",
+											"TRACE"
+										],
+										"type": "string",
+										"description": "An explanation about the purpose of this instance."
+									}
+								},
+								"required": [
+									"packageName",
+									"logLevelForPackage"
+								],
+								"description": "An explanation about the purpose of this instance."
+							}
+						]
+					},
+					"description": "An explanation about the purpose of this instance."
+				}
+			},
+			"required": [
+				"appLogLevel"
+			]
+		}
+	}
+}

@@ -1,0 +1,886 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "sample config json",
+	"description": "json validator",
+	"type": "object",
+	"properties": {
+		"logging": {
+			"type": "object",
+			"description": "An explanation about the purpose of this instance.",
+			"properties": {
+				"appLogLevel": {
+					"enum": [
+						"INFO",
+						"DEBUG",
+						"WARN",
+						"ERROR",
+						"FATAL",
+						"OFF",
+						"TRACE",
+						"ALL"
+					],
+					"type": "string",
+					"description": "An explanation about the purpose of this instance."
+				},
+				"packageLogLevel": {
+					"type": "array",
+					"minItems": 2,
+					"maxItems": 2,
+					"uniqueItems": true,
+					"items": {
+						"anyOf": [
+							{
+								"type": "object",
+								"properties": {
+									"packageName": {
+										"enum": [
+											"root",
+											"oauth"
+										],
+										"type": "string",
+										"description": "An explanation about the purpose of this instance."
+									},
+									"logLevelForPackage": {
+										"enum": [
+											"INFO",
+											"DEBUG",
+											"WARN",
+											"ERROR",
+											"FATAL",
+											"OFF",
+											"TRACE",
+											"ALL"
+										],
+										"type": "string",
+										"description": "An explanation about the purpose of this instance."
+									}
+								},
+								"required": [
+									"packageName",
+									"logLevelForPackage"
+								],
+								"description": "An explanation about the purpose of this instance."
+							}
+						]
+					},
+					"description": "An explanation about the purpose of this instance."
+				}
+			},
+			"required": [
+				"appLogLevel",
+				"packageLogLevel"
+			]
+		},
+		"oauthvalidatorconfiguration": {
+			"type": "object",
+			"description": "Validator configurations for oAuth",
+			"required": [
+				"oauthValidationMode"
+			],
+			"properties": {
+				"keyIdList": {
+					"type": ["array","null"],
+					"uniqueItems": true,
+					"maxItems": 150,
+					"description": "Array containing KID based configuration",
+					"items": {
+						"anyOf": [
+							{
+								"type": "object",
+								"properties": {
+									"keyId":{"type": "string",  "minLength": 1, "maxLength": 36,"pattern": "[a-zA-Z0-9]"},
+									"kSecretName": {"type": "string"},
+									"certName": {"type": "string"},
+									"certAlgorithm": {"type": "string"}
+								},
+								"required": [
+									"keyId",
+									"kSecretName",
+									"certName",
+									"certAlgorithm"
+								]
+							}
+						]
+					}
+				},
+				"instanceIdList": {
+					"type": ["array","null"],
+					"uniqueItems": true,
+					"maxItems": 150,
+					"description": "Array containing Instance Id based configuration",
+					"items": {
+						"anyOf": [
+							{
+								"type": "object",
+								"properties": {
+									"instanceId": {"type": "string"},
+									"kSecretName": {"type": "string"},
+									"certName": {"type": "string"},
+									"certAlgorithm": {"type": "string"}
+								},
+								"required": [
+									"instanceId",
+									"kSecretName",
+									"certName",
+									"certAlgorithm"
+								]
+							}
+						]
+					}
+				},
+				"oauthValidationMode": {
+					"type": "string",
+					"enum": [
+						"KID_ONLY",
+						"INSTANCEID_ONLY",
+						"KID_PREFERRED"
+					],
+					"description": "Mode of validation"
+				}
+			}
+		},
+		"errorcodeprofiles": {
+            		"type": ["array","null"],
+            		"description": "An explanation about the purpose of this instance.",
+            		"default": [],
+			"uniqueItems": true,
+            		"items": {
+                		"anyOf": [
+                    		{
+                        		"type": "object",
+                        		"description": "An explanation about the purpose of this instance.",
+                        		"required": [
+                            			"name",
+                            			"errorCode"
+                        		],
+                        		"properties": {
+                            			"name": {
+                                			"type": "string"
+                            			},
+                            			"errorCode": {
+                                			"type": "integer",
+                                			"enum": [100,101,102,103,200,201,202,203,204,205,206,207,208,226,300,301,302,303,304,305,306,307,308,400,401,402,403,404,405,406,407,408,409,410,411,412,413,414,415,416,417,418,421,422,423,424,425,426,428,429,431,444,451,499,500,501,502,503,504,505,506,507,508,510,511,599]
+                            			},
+                            			"errorDescription": {
+                                			"type": "string",
+							"default": ""
+                            			},
+                            			"errorTitle": {
+                                			"type": "string",
+							"default": ""
+                            			},
+                            			"errorCause": {
+                                			"type": "string",
+							"default": ""
+                            			},
+                            			"redirectUrl": {
+							"type": "string",
+							"default": ""
+                            			},
+                            			"retryAfter": {
+                                			"type": "string"
+                            			}
+                        		}
+                    		}]
+            		}
+        	},
+		"ocdiscardpolicies": {
+            		"type": ["array","null"],
+            		"description": "An explanation about the purpose of this instance.",
+            		"default": [],
+			"uniqueItems": true,
+            		"items": {
+                		"anyOf": [
+                   		{
+                        		"type": "object",
+                        		"description": "An explanation about the purpose of this instance.",
+                        		"required": [
+                            			"name",
+                            			"scheme",
+                            			"policies"
+                        		],
+                       			"properties": {
+                           			"name": {
+                                			"type": "string"
+                            			},
+                            			"scheme": {
+                                			"type": "string",
+                                			"enum": ["PriorityBased", "PercentageBased"]
+                            			},
+                            			"policies": {
+                                			"type": ["array","null"],
+							"uniqueItems": true,
+                                			"items": {
+                                    				"anyOf": [
+                                        			{
+                                            				"type": "object",
+                                            				"required": [
+                                                				"level",
+                                                				"value",
+                                                				"errorCodeProfile",
+                                                				"action"
+                                            				],
+                                            				"properties": {
+                                                				"level": {
+                                                    					"type": "string"
+                                                				},
+                                                				"value": {
+                                                    					"type": "integer",
+                                                    					"minimum": 0
+                                                				},
+                                                				"errorCodeProfile": {
+                                                    					"type": "string"
+                                                				},
+                                                				"action": {
+                                                    					"type": "string",
+                                                    					"enum": ["RejectWithErrorCode"]
+                                                				}
+                                            				}
+                                        			}]
+                                			}
+                            			}
+                        		}
+                    		}]
+            		}
+        	},
+		"ocpolicymapping": {
+            		"type": "object",
+            		"description": "An explanation about the purpose of this instance.",
+            		"required": [
+                		"enabled",
+                		"samplingPeriod",
+                		"mappings"
+            		],
+            		"properties": {
+                		"enabled": {
+                    			"type": "boolean"
+                		},
+                		"samplingPeriod": {
+                    			"type": "integer",
+                    			"minimum": 0
+                		},
+                		"mappings": {
+                    			"type": ["array","null"],
+					"uniqueItems": true,
+                    			"items": {
+                        			"anyOf": [
+                            			{
+                                			"type": "object",
+                                			"required": [
+                                    				"svcName",
+                                    				"policyName"
+                                			],
+                                			"properties": {
+                                    				"svcName": {
+                                        				"type": "string"
+                                    				},
+                                    				"policyName": {
+                                        				"type": "string"
+                                    				}
+                                			}
+                            			}]
+                    			}
+                		}
+            		}
+        	},
+		"routelevelratelimiting": {
+            		"type": "object",
+            		"required": [
+                		"enabled",
+                		"samplingPeriod",
+                        "rateLimitPolicies"
+            		],
+            		"properties": {
+                		"enabled": {
+                    			"type": "boolean"
+                		},
+                		"samplingPeriod": {
+                    			"type": "integer",
+                    			"minimum": 0
+                		},
+				"rateLimitPolicies": {
+					"type": ["array","null"],
+					"uniqueItems": true,
+					"items": {
+						"anyOf": [
+						{
+							"type": "object",
+							"required": [
+								"name",
+								"scheme",
+								"value",
+								"action",
+								"errorCodeProfile"
+							],
+							"properties": {
+								"name": {
+									"type": "string"
+								},
+								"scheme": {
+									"type": "string",
+									"enum": ["PriorityBased"]
+								},
+								"value": {
+									"type": "integer",
+									"minimum": 0
+								},
+								"action": {
+									"type": "string",
+									"enum": ["RejectWithErrorCode"]
+								},
+								"errorCodeProfile": {
+									"type": "string"
+								}
+							}
+						}]
+					}
+				}
+			}
+		},
+		"serverheaderdetails": {
+			"required": [
+				"enabled",
+				"configuration"
+			],
+			"type": "object",
+			"properties": {
+				"enabled": {
+					"type": "boolean"
+				},
+				"errorCodeSeriesId": {
+					"type": "string"
+				},
+				"configuration": {
+					"required": [
+						"nfType"
+					],
+					"type": "object",
+					"properties": {
+						"nfType": {
+							"type": "string"
+						},
+						"nfInstanceId": {
+							"type": "string"
+						}
+					}
+				}
+			}
+		},
+		"routesconfiguration": {
+            		"type": ["array","null"],
+            		"default": [],
+            		"additionalItems": true,
+            		"items": {
+                		"anyOf": [
+                		{
+                			"type": "object",
+                    			"required": [
+                    				"id"
+                    			],
+							"additionalProperties": false,
+							"properties": {
+                        			"id": {
+                        				"type": "string"
+                        			},
+                        			"failureReqCountErrorCodeSeriesId": {
+                        			     "type": "string"
+                        			},
+                        			"rateLimiting": {
+                            				"type": "object",
+                            				"required": [
+                            					"methods"
+                            				],
+                            				"properties": {
+                                				"methods": {
+                                					"type": ["array","null"],
+                                    					"additionalItems": true,
+                                    					"items": {
+                                    						"anyOf": [
+                                        					{
+                                        						"type": "object",
+                                            						"required": [
+                                            							"name",
+                                            							"rate",
+                                                						"rateLimitPolicy"
+                                            						],
+                                            						"properties": {
+                                            							"name": {
+                                                							"type": "string",
+                                                    							"enum": ["GET", "POST", "PUT", "PATCH", "DELETE","HEAD","CONNECT","OPTIONS","TRACE"]
+                                                						},
+                                                						"rate": {
+                                                   							"type": "integer",
+                                                    							"minimum": 0
+                                                						},
+                                                						"rateLimitPolicy": {
+                                                    							"type": "string"
+                                                						}
+                                            						}
+                                       						}]
+                                    					}
+                                				}
+                            				}
+                        			},
+                        			"serverHeaderDetails": {
+										"type": "object",
+										"required": [
+											"enabled"
+										],
+										"properties": {
+											"enabled": {
+												"type": "boolean"
+											},
+											"errorCodeSeriesId": {
+												"type": "string"
+											}
+										}
+                        			},
+									"uri": {
+										"type": "string"
+									},
+									"order": {
+										"type": "integer"
+									},
+									"predicates": {
+										"type": "array",
+										"additionalItems": true,
+										"uniqueItems": true,
+										"items": {
+											"anyOf": [
+												{
+													"type": "object",
+													"required": [
+														"name", "args"
+													],
+													"properties": {
+														"name": {
+															"type": "string"
+														},
+														"args": {
+															"type": "object",
+															"patternProperties": {
+																".{1,}": { "type": "string" }
+															}
+														}
+													}
+												}]
+										}
+									},
+									"filters": {
+										"type": "array",
+										"additionalItems": true,
+
+										"items": {
+											"anyOf": [
+												{
+													"type": "object",
+													"required": [
+														"name"
+													],
+													"properties": {
+														"name": {
+															"type": "string"
+														},
+														"args":{
+															"anyOf": [
+																{
+																	"type": "object",
+																	"patternProperties": {
+																		".{1,}": { "type": "string" }
+																	}
+																},
+																{"type":"object"},
+																{
+																	"type": ["array","null"],
+																	"default": [],
+																	"additionalItems": true,
+																	"items": {
+																		"anyOf": [
+																			{
+																				"type": "object",
+																				"patternProperties": {
+																					".{1,}": { "type": "number" }
+																				}
+																			},
+																			{
+																				"type": "object",
+																				"patternProperties": {
+																					".{1,}": { "type": "string" }
+																				}
+																			},
+																			{
+																				"type": "object",
+																				"patternProperties": {
+																					".{1,}": { "type": "boolean" }
+																				}
+																			},
+																			{
+																				"type": "object",
+																				"patternProperties": {
+																					".{1,}": { "type": "object" }
+																				}
+																			}
+																		]
+																	}
+																}
+															]
+														}
+													}
+												}]
+										}
+									},
+									"metadata": {
+										"type": ["array","null"],
+										"default": [],
+										"additionalItems": true,
+										"items": {
+											"anyOf": [
+												{
+													"type": "object",
+													"patternProperties": {
+														".{1,}": { "type": "number" }
+													}
+												},
+												{
+													"type": "object",
+													"patternProperties": {
+														".{1,}": { "type": "string" }
+													}
+												},
+												{
+													"type": "object",
+													"patternProperties": {
+														".{1,}": { "type": "boolean" }
+													}
+												},
+												{
+													"type": "object",
+													"patternProperties": {
+														".{1,}": { "type": "object" }
+													}
+												}
+											]
+										}
+                        			}
+                    			}
+                		}]
+            		}
+		},
+		"messagelogging": {
+			"type": "object",
+			"required": [
+				"enabled"
+			],
+			"properties": {
+				"enabled": {
+					"type": "boolean"
+				},
+				"responseCodeSeries": {
+					"type": "array",
+					"additionalItems": true,
+					"items": {
+						"anyOf": [
+						{
+							"type": "object",
+							"required": [
+								"responseSet",
+								"responseCodes"
+							],
+							"properties": {
+								"responseSet": {
+									"type": "string",
+									"enum": ["1xx","2xx","3xx","4xx","5xx"]
+								},
+								"responseCodes": {
+									"type": "array",
+									"additionalItems": true,
+									"items": {
+										"anyOf": [
+										{
+											"type": "integer",
+											"enum": [-1,100,101,102,103,200,201,202,203,204,205,206,207,208,226,300,301,302,303,304,305,306,307,308,400,401,402,403,404,405,406,407,408,409,410,411,412,413,414,415,416,417,418,421,422,423,424,425,426,428,429,431,444,451,499,500,501,502,503,504,505,506,507,508,510,511,599]
+										}]
+									}
+								}
+							}
+						}]
+
+					}
+				},
+				"whiteListedHeaders": {
+					"type": "array",
+					"additionalItems": true,
+					"items": {
+						"anyOf": [
+						{
+							"type":"string"
+						}]
+					}
+				}
+			}
+		},
+		"errorcodeserieslist": {
+			"type": ["array", "null"],
+			"additionalItems": true,
+			"uniqueItems": true,
+			"items": {
+				"anyOf": [
+				{
+					"type": "object",
+                    "required": ["id"],
+					"properties": {
+						"id": {"type": "string"},
+						"exceptionList": {
+						    "type": ["array","null"],
+							"additionalItems": true,
+							"uniqueItems": true,
+							"items": {
+								"anyOf": [
+								{
+									"type": "string",
+									"enum": ["ConnectionTimeout","RequestTimeout","UnknownHostException","ConnectException","NotFoundException","SocketException"]
+								}]
+							}
+						},
+						"errorCodeSeries": {
+							"type": ["array","null"],
+							"additionalItems": true,
+							"uniqueItems": true,
+							"items": {
+								"anyOf": [
+								{
+									"type": "object",
+									"required": ["errorSet", "errorCodes"],
+									"properties": {
+										"errorSet": {"type": "string",
+										"enum": ["1xx","2xx","3xx","4xx","5xx"]},
+										"errorCodes": {
+											"type": ["array","null"],
+											"additionalItems": true,
+											"uniqueItems": true,
+											"items": {
+												"anyOf": [
+												{
+													"type": "integer",
+													"enum": [-1,100,101,102,103,200,201,202,203,204,205,206,207,208,226,300,301,302,303,304,305,306,307,308,400,401,402,403,404,405,406,407,408,409,410,411,412,413,414,415,416,417,418,421,422,423,424,425,426,428,429,431,444,451,499,500,501,502,503,504,505,506,507,508,510,511,599]
+												}]
+
+
+											}
+
+
+										}
+
+
+									}
+									
+
+								}]
+
+
+							}
+
+
+						}
+
+
+					}
+				}]
+
+			}
+		},
+		"trafficrejectmode": {
+			"type": "object",
+			"required": ["enabled"],
+			"properties": {
+				"errorCodeProfile": {
+					"type": "string"
+				},
+				"enabled": {
+					"type": "boolean"
+				}
+			},
+			"description": "This is to reject the incoming request based on flag with defined error code."
+		},
+		"podprotection": {
+			"type": "object",
+			"description": "POD Protection Feature",
+			"required": [
+				"enabled"
+			],
+			"properties": {
+				"enabled": {
+					"type": "boolean"
+				},
+				"monitoringInterval": {
+					"type": "integer",
+					"minimum": 0
+				},
+				"congestionControl": {
+					"type": "object",
+					"description": "Congestion Control Configurations",
+					"required": [
+						"enabled"
+					],
+					"properties": {
+						"enabled": {
+							"type": "boolean"
+						},
+						"stateChangeSampleCount": {
+							"type": "integer",
+							"minimum": 0
+						},
+						"actionSamplingPeriod": {
+							"type": "integer",
+							"minimum": 0
+						},
+						"states": {
+							"type": ["array", "null"],
+							"uniqueItems": true,
+							"items": {
+								"anyOf": [{
+									"type": "object",
+									"properties": {
+										"name": {
+											"type": "string"
+										},
+										"weight": {
+											"type": "integer",
+											"minimum": 0
+										},
+										"resourceThreshold": {
+											"type": "object",
+											"description": "Congestion Control Threshold",
+											"properties": {
+												"cpu": {
+													"type": "integer",
+													"minimum": 0
+												},
+												"memory": {
+													"type": "integer",
+													"minimum": 0
+												},
+												"pendingMessage": {
+													"type": "integer",
+													"minimum": 0
+												}
+											}
+										},
+										"entryAction": {
+											"type": ["array", "null"],
+											"uniqueItems": true,
+											"description": "Entry Action for different states",
+											"items": {
+												"anyOf": [{
+													"type": "object",
+													"properties": {
+														"action": {
+															"type": "string"
+														},
+														"args": {
+															"type": "object",
+															"description": "POD Protection Entry Action Operations",
+															"properties": {
+																"accept": {
+																	"type": "boolean"
+																},
+																"incrementBy": {
+																	"type": "integer",
+																	"minimum": 0
+																},
+																"incrementByActionSamplingPeriod": {
+																	"type": "integer",
+																	"minimum": 0
+																},
+																"decrementBy": {
+																	"type": "integer",
+																	"minimum": 0
+																},
+																"decrementByActionSamplingPeriod": {
+																	"type": "integer",
+																	"minimum": 0
+																},
+																"maxConcurrentStreamsPerCon": {
+																	"type": "integer",
+																	"minimum": 0
+																}
+															}
+														}
+													}
+												}]
+											}
+										}
+									}
+								}]
+							}
+						}
+					}
+				}
+			}
+		},
+		"readinessconfig": {
+			"type": "object",
+			"description": "Readiness configurations for ingress gateway",
+			"additionalProperties": false,
+			"properties": {
+				"serviceProfiles": {
+					"type": ["array","null"],
+					"uniqueItems": true,
+					"description": "Array containing details about backend services",
+					"items": {
+						"anyOf": [
+							{
+								"type": "object",
+								"required": ["id","url","onExceptionUsePreviousState","initialState"],
+								"anyOf": [
+									{"required": ["responseCode"]},
+									{"required": ["responseBody"]}
+								],
+								"additionalProperties": false,
+								"properties": {
+									"id":{"type": "string"},
+									"url": {"type": "string"},
+									"responseCode":  {"type": "number"},
+									"responseBody":  {"type": "string"},
+									"onExceptionUsePreviousState": {"type": "boolean"},
+									"initialState": {
+										"type": "string",
+										"enum": ["ACCEPTING_TRAFFIC","REFUSING_TRAFFIC"],
+										"description": "Initial state of ingress gateway"
+									},
+									"requestTimeout": {"type": "number"}
+								}
+							}
+						]
+					}
+				}
+			}
+		},
+		"useragentheadervalidation" : {
+			"type": "object",
+			"description": "Configuration for User-Agent header validation",
+			"additionalProperties": false,
+			"required": [
+				"validationType",
+				"enabled"
+			],
+			"properties": {
+				"enabled": {"type": "boolean"},
+				"validationType": {
+					"type": "string",
+					"enum": [
+						"strict",
+						"relaxed"
+					]
+				},
+				"consumerNfTypes": {
+					"type": ["array","null"],
+					"uniqueItems": true,
+					"description": "Array containing list of consumer NF Types",
+					"items": {"type": "string"}
+					}
+				}
+			}
+	}
+}
+
